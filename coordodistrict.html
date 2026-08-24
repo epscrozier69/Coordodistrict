@@ -1,0 +1,1826 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>District de Villeurbanne - 2026-2027</title>
+<style>
+  :root{
+    --c1:#4A6FA5; --c2:#7B5EA7; --c3:#C0507A; --c4:#E0A72F; --c5:#D6455D;
+    --c6:#2E8FA3; --c7:#6C63FF; --c8:#D98C3B; --c9:#A64AC9; --c10:#4A90D9;
+    --c11:#D9527A; --c12:#8E6FC9; --c13:#C9435C; --c14:#3D6FE0; --c15:#B0559B;
+    --bg:#f4f6fb; --card-bg:#ffffff; --text:#1f2430; --muted:#68708a;
+    --border:#e2e6f0; --shadow:0 2px 10px rgba(30,40,70,.08);
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:"Segoe UI",Roboto,Arial,sans-serif;
+    background:var(--bg); color:var(--text); -webkit-font-smoothing:antialiased;
+  }
+  header.topbar{
+    background:linear-gradient(135deg,#2b3a67,#4A6FA5);
+    color:#fff; padding:10px 20px; box-shadow:var(--shadow);
+    position:sticky; top:0; z-index:50;
+  }
+  .topbar-inner{
+    display:flex; align-items:center; justify-content:center; gap:14px;
+    flex-wrap:wrap; text-align:center;
+  }
+  .topbar-inner h1{ margin:0; font-size:1.5rem; font-weight:700; letter-spacing:.3px;}
+  .year-badge{
+    background:rgba(255,255,255,.18); padding:4px 14px; border-radius:20px;
+    font-size:.9rem; font-weight:600;
+  }
+  nav.tabs{
+    display:flex; gap:8px; margin-top:8px; justify-content:center;
+    flex-wrap:wrap;
+  }
+  .tab-btn{
+    background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.25);
+    color:#fff; padding:9px 16px; border-radius:10px; cursor:pointer;
+    font-size:.9rem; font-weight:600; transition:.15s;
+  }
+  .tab-btn:hover{ background:rgba(255,255,255,.25); }
+  .tab-btn.active{ background:#fff; color:#2b3a67; }
+
+  main{ max-width:1600px; margin:0 auto; padding:14px; }
+  .tab-panel{ display:none; animation:fade .2s ease; }
+  .tab-panel.active{ display:block; }
+  @keyframes fade{ from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;} }
+
+  .panel-header{
+    display:flex; align-items:center; justify-content:space-between;
+    flex-wrap:wrap; gap:10px; margin-bottom:10px;
+  }
+  .panel-header h2{ margin:0; font-size:1.1rem; }
+  .hint{ color:var(--muted); font-size:.85rem; margin:0; }
+
+  .actions{ display:flex; gap:8px; flex-wrap:wrap; }
+  button, .btn-file{
+    background:var(--c1); color:#fff; border:none; padding:9px 14px;
+    border-radius:9px; font-size:.85rem; font-weight:600; cursor:pointer;
+    transition:.15s; display:inline-flex; align-items:center; gap:6px;
+  }
+  button:hover, .btn-file:hover{ filter:brightness(1.08); }
+  button.secondary{ background:#eef0f7; color:var(--text); }
+  button.danger{ background:var(--c5); }
+  button.small{ padding:5px 10px; font-size:.78rem; }
+  .btn-file{ position:relative; overflow:hidden; }
+
+  .card{
+    background:var(--card-bg); border-radius:var(--radius); box-shadow:var(--shadow);
+    border:1px solid var(--border);
+  }
+
+  .table-wrap{ overflow-x:auto; border-radius:var(--radius); box-shadow:var(--shadow); background:#fff; }
+  table{ border-collapse:collapse; width:100%; min-width:900px; }
+  thead th{
+    color:#fff; padding:7px 10px; text-align:left; font-size:.74rem;
+    text-transform:uppercase; letter-spacing:.4px; white-space:nowrap;
+  }
+  tbody td{ padding:6px 10px; border-bottom:1px solid var(--border); font-size:.83rem; vertical-align:top; }
+  tbody tr:hover{ background:#f7f9fd; }
+  tbody td input, tbody td textarea{
+    width:100%; border:1px solid var(--border); border-radius:6px; padding:5px 7px;
+    font-size:.85rem; font-family:inherit;
+  }
+  td.tags{ min-width:180px; }
+  .etab-dot{ display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; }
+  .tag{
+    display:inline-block; background:#eef1fa; color:#33415c; border-radius:12px;
+    padding:2px 9px; font-size:.72rem; margin:2px 3px 0 0; font-weight:600;
+  }
+  .tag.comp{ background:#fde4ea; color:#a12f52; }
+
+  #table-cartes thead th:nth-child(1){background:var(--c1);}
+  #table-cartes thead th:nth-child(2){background:var(--c4);}
+  #table-cartes thead th:nth-child(3){background:var(--c7);}
+  #table-cartes thead th:nth-child(4){background:var(--c9);}
+  #table-cartes thead th:nth-child(5){background:var(--c11);}
+  #table-cartes thead th:nth-child(6){background:var(--c13);}
+
+  #table-recompenses thead th:nth-child(1){background:var(--c1);}
+  #table-recompenses thead th:nth-child(2){background:var(--c4);}
+  #table-recompenses thead th:nth-child(3){background:var(--c8);}
+  #table-recompenses thead th:nth-child(4){background:var(--c5);}
+  #table-recompenses thead th:nth-child(5){background:var(--c9);}
+  #table-recompenses thead th:nth-child(6){background:var(--c11);}
+  #table-recompenses thead th:nth-child(7){background:var(--c13);}
+  #table-recompenses td:nth-child(2), #table-recompenses td:nth-child(3),
+  #table-recompenses td:nth-child(4), #table-recompenses td:nth-child(5){ text-align:center; }
+
+  #table-finances thead th:nth-child(1){background:var(--c1);}
+  #table-finances thead th:nth-child(2){background:var(--c2);}
+  #table-finances thead th:nth-child(3){background:var(--c4);}
+  #table-finances thead th:nth-child(4){background:var(--c5);}
+  #table-finances thead th:nth-child(5){background:var(--c9);}
+  #table-finances thead th:nth-child(6){background:var(--c11);}
+
+  .recharge-history{ font-size:.78rem; color:var(--muted); margin-bottom:14px; }
+  .recharge-history .entry{ display:inline-flex; align-items:center; gap:4px; background:#fff; border:1px solid var(--border); border-radius:8px; padding:3px 8px; margin:0 6px 6px 0; }
+
+  #table-cross thead th:nth-child(1){background:var(--c2);}
+  #table-cross thead th:nth-child(2){background:var(--c6);}
+  #table-cross td.cross-check{ text-align:center; }
+  #table-cross input[type=checkbox]{ width:20px; height:20px; cursor:pointer; }
+
+  /* Onglet profs */
+  #profs-container{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(440px,1fr)); gap:16px; align-items:start;
+  }
+  .etab-block{ cursor:default; }
+  .etab-block-head{
+    display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;
+    gap:10px; padding:10px 14px; border-radius:var(--radius) var(--radius) 0 0;
+    color:#fff; cursor:pointer;
+  }
+  .etab-block-head h3{ margin:0 0 2px; font-size:.98rem; font-weight:700; }
+  .etab-head-meta{ font-size:.74rem; opacity:.92; display:flex; gap:10px; flex-wrap:wrap; }
+  .icon-btn-light{
+    background:rgba(255,255,255,.2); border:1px solid rgba(255,255,255,.4); color:#fff;
+    border-radius:6px; width:30px; height:30px; padding:0; font-size:.85rem; cursor:pointer;
+  }
+  .icon-btn-light:hover{ background:rgba(255,255,255,.35); }
+  .prof-grid{
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
+    gap:10px; padding:12px; background:#fff; border-radius:0 0 var(--radius) var(--radius);
+    box-shadow:var(--shadow);
+  }
+  .prof-card{
+    border:1px solid var(--border); border-left:4px solid var(--border); border-radius:12px; padding:11px; position:relative;
+    background:#fbfcff;
+  }
+  .prof-card.is-as{ border-left-color:#2b4fb0; background:#f5f8ff; }
+  .prof-card.is-eps{ border-left-color:#a1590b; background:#fffaf3; }
+  .prof-card.is-as.is-eps{ border-left:4px solid; border-image:linear-gradient(#2b4fb0,#a1590b) 1; background:linear-gradient(180deg,#f5f8ff,#fffaf3); }
+  .prof-card .avatar{
+    width:44px; height:44px; border-radius:50%; object-fit:cover; background:#dde3f3;
+    display:flex; align-items:center; justify-content:center; font-weight:700; color:#4A6FA5;
+    margin-bottom:6px; font-size:1rem;
+  }
+  .prof-card h4{ margin:0 0 4px; font-size:.95rem; }
+  .prof-card .prof-name-row{
+    display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;
+  }
+  .prof-card p{ margin:2px 0; font-size:.8rem; color:var(--muted); }
+  .prof-card .badges{ display:inline-flex; gap:4px; }
+  .badge{
+    display:inline-flex; align-items:center; gap:4px; font-size:.72rem; font-weight:700; padding:3px 9px;
+    border-radius:10px; margin-right:5px; background:#eef1fa; color:#33415c;
+  }
+  .badge.as{
+    background:#2b4fb0; color:#fff; font-weight:800; letter-spacing:.2px; text-transform:uppercase;
+    box-shadow:0 2px 5px rgba(0,0,0,.18);
+  }
+  .prof-card .card-actions{ position:absolute; top:10px; right:10px; display:flex; gap:4px; }
+  .icon-btn{
+    background:#fff; border:1px solid var(--border); color:var(--muted); border-radius:6px;
+    width:26px; height:26px; padding:0; font-size:.8rem; cursor:pointer;
+  }
+  .icon-btn:hover{ background:#eef1fa; }
+  .add-prof-btn{
+    border:2px dashed var(--border); background:transparent; color:var(--muted);
+    border-radius:12px; min-height:120px; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; font-weight:600;
+  }
+  .add-prof-btn:hover{ border-color:var(--c1); color:var(--c1); }
+
+  /* Activites (récapitulatif non modifiable) */
+  #table-activites-pratiquees td:not(:first-child), #table-activites-competition td:not(:first-child){
+    text-align:center; font-weight:700;
+  }
+  .state-off{ color:#c7cbd8; }
+  .state-pratique{ color:#2E8FA3; }
+  .state-competition{ color:#C9435C; }
+
+  #activite-filter{
+    padding:9px 14px; border:1px solid var(--border); border-radius:9px; font-size:.85rem; font-weight:600;
+    background:#fff; color:var(--text); cursor:pointer;
+  }
+  .activite-card{
+    background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:16px;
+    box-shadow:var(--shadow); max-width:640px;
+  }
+  .activite-card h4{ margin:0 0 10px; font-size:1rem; display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .activite-card .count-badge{ font-size:.72rem; font-weight:700; color:var(--muted); }
+  .activite-card .group-label{ font-size:.7rem; text-transform:uppercase; color:var(--muted); font-weight:700; margin:10px 0 4px; }
+  .activite-card .none{ color:#c7cbd8; font-size:.8rem; }
+  .activite-filter-empty{ color:var(--muted); font-size:.88rem; }
+
+  /* Tickets */
+  .recap-cards{ display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px; margin-bottom:18px; }
+  .recap-card{ padding:16px; border-radius:var(--radius); color:#fff; box-shadow:var(--shadow); }
+  .recap-card .val{ font-size:1.6rem; font-weight:800; }
+  .recap-card .lbl{ font-size:.78rem; opacity:.9; }
+  .stock-input{ display:flex; align-items:center; gap:8px; font-size:.85rem; }
+  .stock-input input{ width:100px; padding:6px 8px; border-radius:6px; border:1px solid var(--border); }
+
+  /* Modal */
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(20,25,45,.5); display:flex;
+    align-items:center; justify-content:center; z-index:100; padding:16px;
+  }
+  .modal-overlay.hidden{ display:none; }
+  .modal{
+    background:#fff; border-radius:var(--radius); max-width:520px; width:100%;
+    max-height:90vh; overflow-y:auto; padding:22px; box-shadow:0 10px 40px rgba(0,0,0,.25);
+  }
+  .modal.hidden{ display:none; }
+  .modal h3{ margin-top:0; }
+  .form-row{ margin-bottom:12px; display:flex; flex-direction:column; gap:5px; }
+  .form-row label{ font-size:.8rem; font-weight:700; color:var(--muted); }
+  .form-row input[type=text], .form-row input[type=email], .form-row input[type=tel],
+  .form-row input[type=number], .form-row input[type=date], .form-row input[type=url]{
+    padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size:.88rem;
+  }
+  .checkbox-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:6px; }
+  .checkbox-grid label{ font-weight:500; font-size:.82rem; display:flex; gap:6px; align-items:center; color:var(--text); }
+  .modal-footer{ display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
+  .photo-preview{
+    width:70px; height:70px; border-radius:50%; object-fit:cover; background:#dde3f3;
+    display:flex; align-items:center; justify-content:center; margin-bottom:8px;
+  }
+
+  footer.app-footer{ text-align:center; color:var(--muted); font-size:.78rem; padding:26px 10px; }
+
+  @media (max-width:720px){
+    .topbar-inner h1{ font-size:1.15rem; }
+    nav.tabs{ gap:6px; }
+    .tab-btn{ padding:7px 11px; font-size:.78rem; }
+    .panel-header h2{ font-size:1.05rem; }
+    table{ min-width:640px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <h1>District de Villeurbanne</h1>
+    <span class="year-badge">2026-2027</span>
+  </div>
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="profs">Annuaire</button>
+    <button class="tab-btn" data-tab="activites">Activités</button>
+    <button class="tab-btn" data-tab="cartes">Gestion cartes TCL</button>
+    <button class="tab-btn" data-tab="recompenses">Gestion récompenses</button>
+    <button class="tab-btn" data-tab="finances">Finances</button>
+    <button class="tab-btn" data-tab="cross">Cross District</button>
+  </nav>
+</header>
+
+<main>
+
+  <!-- ONGLET COORDONNEES ETABLISSEMENTS + COLLEGUES -->
+  <section id="tab-profs" class="tab-panel active">
+    <div class="panel-header">
+      <h2>Coordonnées des établissements et des collègues EPS</h2>
+      <div class="actions">
+        <button id="btn-copy-phones" class="secondary">📱 Copier les téléphones des collègues</button>
+        <button id="btn-copy-emails" class="secondary">✉️ Copier les emails des collègues</button>
+        <button id="btn-export-csv" class="secondary">Exporter CSV</button>
+        <label class="btn-file secondary">Importer CSV
+          <input type="file" id="input-import-csv" accept=".csv" hidden>
+        </label>
+        <button id="btn-export-json" class="secondary">Sauvegarder</button>
+        <label class="btn-file secondary">Restaurer
+          <input type="file" id="input-import-json" accept="application/json" hidden>
+        </label>
+        <button id="btn-reset-defaut" class="danger">Réinitialiser (données par défaut)</button>
+        <button id="btn-export-readonly" class="secondary">🔒 Exporter en mode consultation</button>
+      </div>
+    </div>
+    <p class="hint" id="last-modified-info"></p>
+    <div id="profs-container"></div>
+  </section>
+
+  <!-- ONGLET ACTIVITES -->
+  <section id="tab-activites" class="tab-panel">
+    <div class="panel-header">
+      <h2>Activités pratiquées (loisir)</h2>
+      <div class="actions">
+        <button id="btn-export-activites-readonly" class="secondary">🔒 Exporter cet onglet en consultation</button>
+      </div>
+    </div>
+    <div class="panel-header">
+      <p class="hint">Récapitulatif non modifiable — le choix des activités se fait dans la fiche de chaque collègue</p>
+    </div>
+    <div class="table-wrap">
+      <table id="table-activites-pratiquees">
+        <thead><tr id="thead-activites-pratiquees-row"></tr></thead>
+        <tbody id="tbody-activites-pratiquees"></tbody>
+      </table>
+    </div>
+
+    <div class="panel-header" style="margin-top:22px;">
+      <h2>Activités engagées en compétition</h2>
+      <p class="hint">Récapitulatif non modifiable — le choix des activités se fait dans la fiche de chaque collègue</p>
+    </div>
+    <div class="table-wrap">
+      <table id="table-activites-competition">
+        <thead><tr id="thead-activites-competition-row"></tr></thead>
+        <tbody id="tbody-activites-competition"></tbody>
+      </table>
+    </div>
+
+    <div class="panel-header" style="margin-top:22px;">
+      <h2>Filtrer par activité</h2>
+      <div class="actions">
+        <select id="activite-filter">
+          <option value="">— Choisir une activité —</option>
+        </select>
+      </div>
+    </div>
+    <div id="activite-filter-result"></div>
+  </section>
+
+  <!-- ONGLET CARTES TCL -->
+  <section id="tab-cartes" class="tab-panel">
+    <div class="panel-header">
+      <h2>Gestion des cartes TCL</h2>
+      <p class="hint">1 carte = 10 tickets</p>
+      <div class="actions">
+        <button id="btn-recharge-cartes" class="secondary">🔋 Recharger le stock</button>
+      </div>
+    </div>
+    <div class="recap-cards" id="cartes-recap"></div>
+    <div id="cartes-recharges-historique"></div>
+    <div class="table-wrap">
+      <table id="table-cartes">
+        <thead>
+          <tr>
+            <th>Établissement</th>
+            <th>Total cartes distribuées</th>
+            <th>Dernière date</th>
+            <th>Historique des distributions</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-cartes"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ONGLET RECOMPENSES -->
+  <section id="tab-recompenses" class="tab-panel">
+    <div class="panel-header">
+      <h2>Gestion des récompenses</h2>
+      <p class="hint">Stock initial : 80 ors, 103 argents, 60 bronzes, 3 coupes</p>
+      <div class="actions">
+        <button id="btn-recharge-recompenses" class="secondary">🔋 Recharger le stock</button>
+      </div>
+    </div>
+    <div class="recap-cards" id="recompenses-recap"></div>
+    <div id="recompenses-recharges-historique"></div>
+    <div class="table-wrap">
+      <table id="table-recompenses">
+        <thead>
+          <tr>
+            <th>Établissement</th>
+            <th>Or distribués</th>
+            <th>Argent distribués</th>
+            <th>Bronze distribués</th>
+            <th>Coupes distribuées</th>
+            <th>Historique des distributions</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-recompenses"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ONGLET FINANCES -->
+  <section id="tab-finances" class="tab-panel">
+    <div class="panel-header">
+      <h2>Finances — Remboursements des collègues</h2>
+    </div>
+    <div class="table-wrap" style="margin-bottom:16px;">
+      <table>
+        <thead><tr><th>Nouveau remboursement</th></tr></thead>
+        <tbody>
+          <tr><td>
+            <form id="form-finance" style="display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; padding:6px 0;">
+              <div class="form-row" style="min-width:220px;">
+                <label>Collègue</label>
+                <select id="finance-prof" required></select>
+              </div>
+              <div class="form-row" style="min-width:140px;">
+                <label>Montant (€)</label>
+                <input type="number" id="finance-montant" min="0" step="0.01" required>
+              </div>
+              <div class="form-row" style="min-width:220px;">
+                <label>Motif de la dépense</label>
+                <input type="text" id="finance-motif" required>
+              </div>
+              <div class="form-row" style="min-width:160px;">
+                <label>Date</label>
+                <input type="date" id="finance-date" required>
+              </div>
+              <div class="form-row">
+                <button type="submit">Ajouter</button>
+              </div>
+            </form>
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="recap-cards" id="finances-recap"></div>
+    <div class="table-wrap">
+      <table id="table-finances">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Collègue</th>
+            <th>Établissement</th>
+            <th>Montant</th>
+            <th>Motif</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-finances"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ONGLET CROSS DISTRICT -->
+  <section id="tab-cross" class="tab-panel">
+    <div class="panel-header">
+      <h2>Cross District</h2>
+      <p class="hint">Cochez les établissements intéressés pour organiser ou participer au Cross District</p>
+    </div>
+    <div class="table-wrap">
+      <table id="table-cross">
+        <thead>
+          <tr>
+            <th>Établissement</th>
+            <th>Intéressé pour le Cross District</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-cross"></tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<footer class="app-footer">District UNSS de Villeurbanne — 13 établissements — Données stockées localement dans ce navigateur</footer>
+
+<!-- MODAL ETABLISSEMENT -->
+<div class="modal-overlay hidden" id="modal-overlay-etab">
+  <div class="modal">
+    <h3>Modifier l'établissement</h3>
+    <form id="form-etab">
+      <input type="hidden" id="etab-id">
+      <div class="form-row"><label>Nom</label><input type="text" id="etab-nom" required></div>
+      <div class="form-row"><label>Adresse</label><input type="text" id="etab-adresse"></div>
+      <div class="form-row"><label>Téléphone</label><input type="tel" id="etab-telephone"></div>
+      <div class="form-row"><label>Email</label><input type="email" id="etab-email"></div>
+      <div class="form-row"><label>Lien de partage de fichiers</label><input type="url" id="etab-lien" placeholder="https://..."></div>
+      <div class="modal-footer">
+        <button type="button" class="secondary" data-close="modal-overlay-etab">Annuler</button>
+        <button type="submit">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL PROF -->
+<div class="modal-overlay hidden" id="modal-overlay-prof">
+  <div class="modal">
+    <h3 id="prof-modal-title">Ajouter un professeur EPS</h3>
+    <form id="form-prof">
+      <input type="hidden" id="prof-id">
+      <input type="hidden" id="prof-etab-id">
+      <div class="form-row">
+        <label>Photo de profil</label>
+        <div id="prof-photo-preview" class="photo-preview"></div>
+        <input type="file" id="prof-photo-input" accept="image/*">
+      </div>
+      <div class="form-row"><label>Nom</label><input type="text" id="prof-nom" required></div>
+      <div class="form-row"><label>Téléphone</label><input type="tel" id="prof-telephone"></div>
+      <div class="form-row"><label>Email</label><input type="email" id="prof-email"></div>
+      <div class="form-row">
+        <label>Activités pratiquées</label>
+        <div class="checkbox-grid" id="prof-activites-pratiquees"></div>
+        <input type="text" id="prof-autre-pratiquee-precision" placeholder="Si « Autres » coché, précisez l'activité">
+      </div>
+      <div class="form-row">
+        <label>Activités engagées en compétition</label>
+        <div class="checkbox-grid" id="prof-activites-competition"></div>
+        <input type="text" id="prof-autre-competition-precision" placeholder="Si « Autres » coché, précisez l'activité">
+      </div>
+      <div class="form-row">
+        <label>Rôles de coordination</label>
+        <div class="checkbox-grid">
+          <label><input type="checkbox" id="prof-coordo-as"> Coordination AS</label>
+          <label><input type="checkbox" id="prof-coordo-eps"> Coordination EPS</label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="secondary" data-close="modal-overlay-prof">Annuler</button>
+        <button type="submit">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL CARTE -->
+<div class="modal-overlay hidden" id="modal-overlay-carte">
+  <div class="modal">
+    <h3>Ajouter une distribution de cartes</h3>
+    <form id="form-carte">
+      <input type="hidden" id="carte-etab-id">
+      <div class="form-row"><label>Date de distribution</label><input type="date" id="carte-date" required></div>
+      <div class="form-row"><label>Nombre de cartes données</label><input type="number" id="carte-nombre" min="1" required></div>
+      <div class="modal-footer">
+        <button type="button" class="secondary" data-close="modal-overlay-carte">Annuler</button>
+        <button type="submit">Ajouter</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL RECOMPENSE -->
+<div class="modal-overlay hidden" id="modal-overlay-recompense">
+  <div class="modal">
+    <h3>Ajouter une distribution de récompenses</h3>
+    <form id="form-recompense">
+      <input type="hidden" id="recompense-etab-id">
+      <div class="form-row"><label>Date de distribution</label><input type="date" id="recompense-date" required></div>
+      <div class="form-row"><label>Or</label><input type="number" id="recompense-or" min="0" value="0"></div>
+      <div class="form-row"><label>Argent</label><input type="number" id="recompense-argent" min="0" value="0"></div>
+      <div class="form-row"><label>Bronze</label><input type="number" id="recompense-bronze" min="0" value="0"></div>
+      <div class="form-row"><label>Coupes</label><input type="number" id="recompense-coupes" min="0" value="0"></div>
+      <div class="modal-footer">
+        <button type="button" class="secondary" data-close="modal-overlay-recompense">Annuler</button>
+        <button type="submit">Ajouter</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL RECHARGE STOCK -->
+<div class="modal-overlay hidden" id="modal-overlay-recharge">
+  <div class="modal">
+    <h3>Recharger le stock</h3>
+    <form id="form-recharge">
+      <div class="form-row">
+        <label>Type de stock</label>
+        <select id="recharge-type">
+          <option value="cartes">Cartes TCL</option>
+          <option value="or">Or</option>
+          <option value="argent">Argent</option>
+          <option value="bronze">Bronze</option>
+          <option value="coupes">Coupes</option>
+        </select>
+      </div>
+      <div class="form-row"><label>Date</label><input type="date" id="recharge-date" required></div>
+      <div class="form-row"><label>Quantité ajoutée</label><input type="number" id="recharge-quantite" min="1" required></div>
+      <div class="modal-footer">
+        <button type="button" class="secondary" data-close="modal-overlay-recharge">Annuler</button>
+        <button type="submit">Recharger</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL COPIE MANUELLE (fallback téléchargement) -->
+<div class="modal-overlay hidden" id="modal-overlay-manual-copy">
+  <div class="modal">
+    <h3>Récupérer le fichier</h3>
+    <p class="hint">Le téléchargement automatique n'est pas disponible ici. Le texte ci-dessous est déjà sélectionné : copiez-le (bouton ou geste tactile) puis collez-le dans un fichier nommé <strong id="manual-copy-filename"></strong> (par exemple dans l'app Notes, puis partagez ce fichier vers l'autre appareil).</p>
+    <div class="form-row">
+      <textarea id="manual-copy-text" readonly rows="10" style="width:100%; font-family:monospace; font-size:.78rem; padding:8px; border:1px solid var(--border); border-radius:8px;"></textarea>
+    </div>
+    <p id="manual-copy-feedback" class="hint" style="color:#2E8FA3; font-weight:700;"></p>
+    <div class="modal-footer">
+      <button type="button" class="secondary" data-close="modal-overlay-manual-copy">Fermer</button>
+      <button type="button" id="btn-manual-copy-clipboard">📋 Copier</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  const STORAGE_KEY = "districtVilleurbanne_v1";
+  const ACTIVITES = ["Futsal","Natation","Acro-gym","Badminton","Basket","Handball","Volley",
+    "Multi-activités","Danse","Cross training","Escalade","Futsal féminin","Fitness","Gym",
+    "Tennis de table","Hip hop","Boxe","Rugby","Musculation","Football","Sport partagé","Autres"]
+    .sort((a,b)=>a.localeCompare(b,"fr",{sensitivity:"base"}));
+  const PALETTE = ["c1","c2","c3","c4","c5","c6","c7","c8","c9","c10","c11","c12","c13","c14","c15"];
+
+  function sortedEtabs(){
+    return state.etablissements.slice().sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}));
+  }
+  function etabColorVar(etab){
+    const idx = sortedEtabs().findIndex(e=>e.id===etab.id);
+    return "var(--"+PALETTE[idx % PALETTE.length]+")";
+  }
+
+  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+
+  function P(nom, telephone, email, pratiquees, competition, opts){
+    opts = opts || {};
+    return {
+      id: uid(), nom, telephone: telephone||"", email: email||"", photo:"",
+      activitesPratiquees: pratiquees||[], activitesCompetition: competition||[],
+      autrePratiqueePrecision: opts.autrePrat||"", autreCompetitionPrecision: opts.autreComp||"",
+      coordoAS: !!opts.as, coordoEPS: !!opts.eps
+    };
+  }
+
+  const DEFAULT_ETABS = [
+    { nom:"Les Iris", adresse:"", telephone:"04.78.84.31.75", email:"eps.0690280e@ac-lyon.fr", profs:[
+      P("Drouet Camille","*0669205297","drouet.camille03@gmail.com",["Natation","Futsal"],["Natation","Futsal"]),
+      P("Astesano Matthieu","06.63.78.82.33","astesano.matth@gmail.com",["Acro-gym"],["Acro-gym"]),
+      P("Durix Carole","06.72.95.90.38","caroledurix@hotmail.com",["Badminton"],["Badminton"]),
+      P("Benveniste Cyril","06.12.72.84.17","benvenistecyril@hotmail.com",["Basket"],["Basket"])
+    ]},
+    { nom:"Jean Jaurès", adresse:"54 rue Jean Jaurès", telephone:"04.78.56.29.19", email:"", profs:[
+      P("Riegler Julien","06 26 81 58 06","julien.riegler@gmail.com",["Futsal"],["Futsal"]),
+      P("Dumarty Fanny","06.46.31.01.67","f.dumarty@gmail.com",["Natation"],["Natation"]),
+      P("Huet Camille","06.31.65.34.81","camille.huet@ac-lyon.fr",["Basket"],["Basket"]),
+      P("Blum Alexandre","07 86 97 34 42","alexblum01@hotmail.com",["Handball"],["Handball"]),
+      P("Sospedra Raphael","06 03 67 23 96","raf.sospedra@yahoo.fr",["Badminton"],["Badminton"])
+    ]},
+    { nom:"Louis Jouvet", adresse:"23 rue Dr Dolard", telephone:"04.78.84.12.34", email:"eps.0691675w@ac-lyon.fr", profs:[
+      P("Bourlion Thomas","06 01 14 60 94","thomas.bourlion@ac-lyon.fr",["Handball","Volley"],["Handball"],{eps:true}),
+      P("Combe Romain","06 35 10 97 51","romaincombe@orange.fr",["Futsal"],[]),
+      P("Leon Laurent","06.16.68.34.10","laurent.leon82@sfr.fr",["Natation"],["Badminton"],{eps:true}),
+      P("Capdepont Coralie","06 23 28 39 88","coralie.capdepont@gmail.com",["Handball","Basket"],[])
+    ]},
+    { nom:"Jean Macé", adresse:"23 rue Edouard Vaillant", telephone:"04.72.69.88.10", email:"eps.0691478g@ac-lyon.fr", profs:[
+      P("Vachon France Maxence","*0627963112","maxenceva@hotmail.fr",["Multi-activités"],[]),
+      P("Seignol Anthony","06 16 67 66 84","a_seignol@hotmail.com",["Football"],[]),
+      P("Derory Antoine","06 98 59 90 94","Antderory@gmail.com",["Tennis de table"],["Tennis de table"],{eps:true}),
+      P("Bois Adeline","07.70.35.59.20","adeline7bois@hotmail.com",["Basket"],["Basket"])
+    ]},
+    { nom:"Gratte-Ciel", adresse:"", telephone:"04.72.82.36.10", email:"eps.0692155t@ac-lyon.fr", profs:[
+      P("Mohammadi Malik","06 87 32 38 80","malik.mohammadi@ac-lyon.fr",["Futsal","Rugby"],["Rugby"],{as:true, eps:true}),
+      P("Hachemi Arezki","06 16 97 02 88","rezqui.hachemi@ac-lyon.fr",["Natation","Futsal"],["Boxe"]),
+      P("Fournaux Prune","06 66 32 87 06","prune.fournaux@ac-lyon.fr",["Natation"],["Natation"]),
+      P("Fontaine Rodrigue","06 18 37 28 77","rodrigue.fontaine@ac-lyon.fr",["Badminton"],["Badminton"]),
+      P("Heyrendt Aurore","06 20 85 76 30","aurore.heyrendt@ac-lyon.fr",["Danse","Acro-gym","Cross training"],["Danse"])
+    ]},
+    { nom:"Bertrand Tavernier", adresse:"", telephone:"04.72.69.77.99", email:"eps.0693093m@ac-lyon.fr", profs:[
+      P("Fraysse Mailys","06 77 99 81 19","mailys.fraysse@gmail.com",["Hip hop","Escalade"],["Hip hop","Escalade"]),
+      P("Venet Yoann","762750425","Yoann.venet91@gmail.com",["Badminton","Futsal"],["Badminton"]),
+      P("Velu Nadège","06.83.03.85.38","nadegevelu@hotmail.com",["Volley"],["Volley"],{eps:true}),
+      P("Travers Thomas","06 25 68 75 88","thomas.travers@ac-lyon.fr",["Futsal"],["Futsal"],{as:true})
+    ]},
+    { nom:"Bellecombe", adresse:"10 rue de la gaité 69006", telephone:"04.78.52.94.48 / 04.78.52.74.87", email:"Bellecombe.eps@gmail.com", profs:[
+      P("Champion Camille","06 46 81 09 73","natation.camille.champion@live.fr",["Escalade"],["Escalade"]),
+      P("Gros Julie","06 69 37 01 46","gros.abbale.julie@gmail.com",["Volley"],["Volley"]),
+      P("Benoit Florence","06 62 44 13 87","florence.benoit.fb@gmail.com",["Handball"],["Handball"]),
+      P("Damour Fabienne","06 62 24 33 17","fabiennedamour9@gmail.com",["Basket"],["Basket"]),
+      P("Bascoul Gautier","06 40 83 77 64","gautier.bascoul@etu.univ-lyon1.fr",["Badminton"],[])
+    ]},
+    { nom:"Vendôme", adresse:"69 rue Vendôme 69006", telephone:"04.72.69.76.50", email:"eps.0692338s@ac-lyon.fr", profs:[
+      P("Reboul Cédric","05.68.69.93.95","Cedric.reboul@ac-lyon.fr",["Volley","Tennis de table"],["Volley"]),
+      P("Depierre Marlon","05.78.01.19.13","marlon.depierre@ac-lyon.fr",["Basket"],["Basket"]),
+      P("Chatelet Nathalie","05.61.18.17.38","Nathalie.chatelet@ac-lyon.fr",["Danse"],[]),
+      P("Riegler Julien","05.26.81.58.06","julien.riegler@ac-lyon.fr",["Tennis de table"],[]),
+      P("Noirot Jérémie","06 22 70 86 99","jeremie.noirot@ac-lyon.fr",["Acro-gym"],["Acro-gym"]),
+      P("Schaer Barbara","06 11 10 72 84","barbara.schaer@ac-lyon.fr",["Badminton"],["Badminton"])
+    ]},
+    { nom:"Picasso", adresse:"17 Rue de Reims, Bron", telephone:"", email:"", profs:[
+      P("Laffont Jérôme","06 59 53 73 96","jerome.Laffont@ac-lyon.fr",["Handball"],["Handball"]),
+      P("Bacconnier Patrick","06.83.44.93.71","patrick.bacconnier@free.fr",["Badminton"],["Badminton"]),
+      P("Gensel Patricia","06 85 28 58 51","patgensel@orange.fr",["Natation"],["Natation"]),
+      P("Abdi Kaid Linda","748900062","lindabdi@hotmail.com",["Badminton"],["Badminton"]),
+      P("Grataloup Gaspar","07 83 79 40 37","grata.gasp07@gmail.com",["Basket"],["Basket"])
+    ]},
+    { nom:"Lamartine", adresse:"26 à 36 rue Louis Teillon", telephone:"472158024", email:"", profs:[
+      P("Benbournane Gaël","07 68 89 07 57","gael.banbournane@hotmail.com",["Futsal","Natation"],["Natation","Futsal"]),
+      P("Besson Quentin","06 51 25 16 32","besson.quentin@hotmail.com",["Tennis de table","Futsal féminin"],["Tennis de table","Futsal féminin"]),
+      P("Voisin Rémi","06 85 46 24 09","remivoisin@hotmail.com",["Escalade","Autres"],["Escalade"],{autrePrat:"VTT, Gym 3A"}),
+      P("Boulon Thomas","06 50 58 11 60","thomas.boulon38@gmail.com",["Basket","Fitness","Musculation"],["Basket"]),
+      P("Siguenza Eva","06 87 49 74 55","eva.siguenza@ac-lyon.fr",["Escalade","Autres"],["Escalade"],{autrePrat:"VTT"})
+    ]},
+    { nom:"Joliot-Curie", adresse:"17-19 Rue Lacouture, Bron", telephone:"778267690", email:"", profs:[
+      P("Joud Emeline","06 08 86 98 53","joud.emeline@gmail.com",["Fitness","Autres"],["Natation","Autres"],{autrePrat:"Sport Partagé", autreComp:"Sport Partagé"}),
+      P("Mekraldi Sherazad","06 58 58 18 01","sherazad.smati@ac-lyon.fr",["Futsal","Natation","Handball"],["Futsal","Handball","Natation"]),
+      P("Crozier Estelle","06 87 10 66 86","estelle.crozier@ac-lyon.fr",["Futsal","Autres"],["Futsal","Autres"],{autrePrat:"Sport Partagé", autreComp:"Sport Partagé", as:true, eps:true})
+    ]},
+    { nom:"Duclos", adresse:"91 rue de la Poudrette 69120", telephone:"472150939", email:"", profs:[
+      P("Touam Aretha","06.32.89.70.75","aretha.touam@gmail.com",["Multi-activités"],[]),
+      P("Pitrat Yannick","06.88.25.33.68","yann.pitrat@orange.fr",["Basket"],["Basket"]),
+      P("Vennetier Maelle","603350547","maelle.vennetier@ac-lyon.fr",["Multi-activités"],[]),
+      P("Maggi Julien","651529629","julien.maggi@ac-lyon.fr",["Tennis de table"],["Tennis de table"])
+    ]},
+    { nom:"Gilbert Chabroux", adresse:"35 rue Bourgchanin, 69100 Villeurbanne", telephone:"0487648720", email:"", profs:[
+      P("Tillet Guillaume","06 47 34 55 87","tillet.guillaume@gmail.com",["Badminton","Natation"],["Badminton"],{as:true}),
+      P("Farabet Nicodème","678555098","nicodeme.farabet@hotmail.com",["Basket","Tennis de table"],["Basket"]),
+      P("Jurek Alexandre","667596000","alexandre.jurek@free.fr",["Volley","Escalade"],["Volley"],{as:true}),
+      P("Melinand Chloé","06.15.64.11.94","chloe.melinand03@gmail.com",["Danse","Acro-gym","Natation"],["Natation"]),
+      P("Bredier Axel","658355943","axel.bredier@ac-lyon.fr",["Futsal","Musculation"],["Futsal"])
+    ]}
+  ];
+
+  function isBlankEtab(etab){
+    return (!etab.profs || etab.profs.length===0) && !etab.adresse && !etab.telephone && !etab.email;
+  }
+
+  // Reconvertit une activité "Autres" en activité contrôlée si sa précision
+  // correspond désormais à une entrée ajoutée à la liste ACTIVITES.
+  function migrateAutresPrecision(list, precisionKey, holder){
+    if(!list || !list.includes("Autres")) return;
+    const precision = holder[precisionKey] || "";
+    if(!precision) return;
+    const parts = precision.split(",").map(s=>s.trim()).filter(Boolean);
+    const remaining = [];
+    parts.forEach(part=>{
+      const match = ACTIVITES.find(a=>a.toLowerCase()===part.toLowerCase() && a!=="Autres");
+      if(match){
+        if(!list.includes(match)) list.push(match);
+      } else {
+        remaining.push(part);
+      }
+    });
+    holder[precisionKey] = remaining.join(", ");
+    if(!remaining.length){
+      const idx = list.indexOf("Autres");
+      if(idx>=0) list.splice(idx,1);
+    }
+  }
+
+  function migrateEtablissements(etablissements){
+    etablissements.forEach(etab=>{
+      (etab.profs||[]).forEach(prof=>{
+        migrateAutresPrecision(prof.activitesPratiquees, "autrePratiqueePrecision", prof);
+        migrateAutresPrecision(prof.activitesCompetition, "autreCompetitionPrecision", prof);
+      });
+      if(!etab.cartes) etab.cartes = etab.tickets || [];
+      delete etab.tickets;
+      if(!etab.recompenses) etab.recompenses = [];
+    });
+    return etablissements;
+  }
+
+  function defaultStockRecompenses(){
+    return {
+      or: { initial: 80, recharges: [] },
+      argent: { initial: 103, recharges: [] },
+      bronze: { initial: 60, recharges: [] },
+      coupes: { initial: 3, recharges: [] }
+    };
+  }
+
+  function migrateStocks(parsed){
+    if(typeof parsed.stockCartes === "number"){
+      // Ancien format simple nombre : on le reprend comme stock initial fixe.
+      parsed.stockCartes = { initial: parsed.stockCartes, recharges: [] };
+    } else if(!parsed.stockCartes){
+      const initial = (typeof parsed.stockTickets === "number") ? parsed.stockTickets : 110;
+      parsed.stockCartes = { initial, recharges: [] };
+    }
+    delete parsed.stockTickets;
+    if(!parsed.stockRecompenses) parsed.stockRecompenses = defaultStockRecompenses();
+    if(!parsed.remboursements) parsed.remboursements = [];
+    return parsed;
+  }
+
+  let storageAvailable = true;
+  function safeGetItem(key){
+    try{ return localStorage.getItem(key); }
+    catch(e){ storageAvailable = false; return null; }
+  }
+  function safeSetItem(key, value){
+    try{ localStorage.setItem(key, value); return true; }
+    catch(e){ storageAvailable = false; return false; }
+  }
+  function safeRemoveItem(key){
+    try{ localStorage.removeItem(key); }
+    catch(e){ /* ignore */ }
+  }
+
+  function loadState(){
+    const raw = safeGetItem(STORAGE_KEY);
+    if(raw){
+      try{
+        const parsed = JSON.parse(raw);
+        parsed.etablissements.forEach(etab=>{
+          if(isBlankEtab(etab)){
+            const def = DEFAULT_ETABS.find(d=>d.nom.toLowerCase()===etab.nom.toLowerCase());
+            if(def){
+              etab.adresse = def.adresse;
+              etab.telephone = def.telephone;
+              etab.email = def.email;
+              etab.profs = def.profs.map(p=>({ ...p, id: uid() }));
+            }
+          }
+        });
+        migrateEtablissements(parsed.etablissements);
+        migrateStocks(parsed);
+        return parsed;
+      }catch(e){ /* fallthrough to default */ }
+    }
+    return migrateStocks({
+      etablissements: migrateEtablissements(DEFAULT_ETABS.map(e => ({
+        id: uid(), nom:e.nom, adresse:e.adresse, telephone:e.telephone, email:e.email, lienPartage:"",
+        profs: e.profs, cartes: [], recompenses: []
+      })))
+    });
+  }
+
+  let state = loadState();
+
+  function saveState(touch){
+    if(touch !== false) state.lastModified = new Date().toISOString();
+    safeSetItem(STORAGE_KEY, JSON.stringify(state));
+  }
+  saveState(false);
+  if(!storageAvailable){
+    window.setTimeout(()=>{
+      alert("Le stockage local n'est pas disponible dans ce navigateur (fréquent en ouvrant un fichier local sur iPad/iPhone). Les données par défaut sont affichées mais vos modifications ne seront pas conservées après fermeture : pensez à utiliser « Sauvegarder » puis « Restaurer » pour garder une copie de votre travail.");
+    }, 300);
+  }
+  function getEtab(id){ return state.etablissements.find(e => e.id === id); }
+  function getProf(etab, profId){ return etab.profs.find(p => p.id === profId); }
+  function getAllProfs(){
+    const list = [];
+    sortedEtabs().forEach(etab=>{
+      etab.profs.filter(p=>!p.virtual).forEach(prof=>list.push({ prof, etab }));
+    });
+    return list;
+  }
+
+  function totalCartesFor(etab){ return etab.cartes.reduce((s,t)=>s+Number(t.nombre||0),0); }
+  function lastCarteDateFor(etab){
+    if(!etab.cartes.length) return "";
+    return etab.cartes.slice().sort((a,b)=>b.date.localeCompare(a.date))[0].date;
+  }
+  function stockTotal(stock){ return stock.initial + stock.recharges.reduce((s,r)=>s+Number(r.quantite||0),0); }
+
+  function totalRecompensesFor(etab, type){
+    return etab.recompenses.reduce((s,r)=>s+Number(r[type]||0),0);
+  }
+  function totalRecompensesDistribuees(type){
+    return state.etablissements.reduce((s,e)=>s+totalRecompensesFor(e,type),0);
+  }
+
+  // ---------- TABS ----------
+  document.querySelectorAll(".tab-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+      document.querySelectorAll(".tab-panel").forEach(p=>p.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById("tab-"+btn.dataset.tab).classList.add("active");
+    });
+  });
+
+  // ---------- MODAL HELPERS ----------
+  function openModal(id){ document.getElementById(id).classList.remove("hidden"); }
+  function closeModal(id){ document.getElementById(id).classList.add("hidden"); }
+  document.querySelectorAll("[data-close]").forEach(btn=>{
+    btn.addEventListener("click", ()=>closeModal(btn.dataset.close));
+  });
+  document.querySelectorAll(".modal-overlay").forEach(overlay=>{
+    overlay.addEventListener("click", (e)=>{ if(e.target===overlay) overlay.classList.add("hidden"); });
+  });
+
+  function initials(name){
+    return name.split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0].toUpperCase()).join("");
+  }
+
+  function openEtabModal(id){
+    const etab = getEtab(id);
+    document.getElementById("etab-id").value = etab.id;
+    document.getElementById("etab-nom").value = etab.nom;
+    document.getElementById("etab-adresse").value = etab.adresse;
+    document.getElementById("etab-telephone").value = etab.telephone;
+    document.getElementById("etab-email").value = etab.email;
+    document.getElementById("etab-lien").value = etab.lienPartage;
+    openModal("modal-overlay-etab");
+  }
+
+  document.getElementById("form-etab").addEventListener("submit", e=>{
+    e.preventDefault();
+    const etab = getEtab(document.getElementById("etab-id").value);
+    etab.nom = document.getElementById("etab-nom").value.trim();
+    etab.adresse = document.getElementById("etab-adresse").value.trim();
+    etab.telephone = document.getElementById("etab-telephone").value.trim();
+    etab.email = document.getElementById("etab-email").value.trim();
+    etab.lienPartage = document.getElementById("etab-lien").value.trim();
+    saveState();
+    closeModal("modal-overlay-etab");
+    renderAll();
+  });
+
+  function renderLastModifiedInfo(){
+    const el = document.getElementById("last-modified-info");
+    if(!state.lastModified){ el.textContent = ""; return; }
+    const d = new Date(state.lastModified);
+    const formatted = d.toLocaleDateString("fr-FR") + " à " + d.toLocaleTimeString("fr-FR", {hour:"2-digit", minute:"2-digit"});
+    el.textContent = "Dernière modification sur cet appareil : " + formatted + " — pensez à Sauvegarder puis Restaurer sur l'autre appareil pour synchroniser.";
+  }
+
+  // ---------- RENDER: PROFS ----------
+  function renderProfs(){
+    renderLastModifiedInfo();
+    const container = document.getElementById("profs-container");
+    container.innerHTML = "";
+    sortedEtabs().forEach(etab=>{
+      const color = etabColorVar(etab);
+      const block = document.createElement("div");
+      block.className = "etab-block";
+      const meta = [etab.adresse, etab.telephone, etab.email].filter(Boolean).map(escapeHtml).join(" · ") || "Coordonnées non renseignées";
+      const lien = etab.lienPartage ? `<a href="${escapeAttr(etab.lienPartage)}" target="_blank" rel="noopener" style="color:#fff;">📎 Fichiers</a>` : "";
+      block.innerHTML = `
+        <div class="etab-block-head" style="background:${color}" data-edit-etab="${etab.id}">
+          <div>
+            <h3>${escapeHtml(etab.nom)}</h3>
+            <div class="etab-head-meta"><span>${meta}</span>${lien ? `<span>${lien}</span>` : ""}</div>
+          </div>
+          <button type="button" class="icon-btn-light" title="Modifier l'établissement" data-edit-etab="${etab.id}">✎</button>
+        </div>
+      `;
+      const grid = document.createElement("div");
+      grid.className = "prof-grid";
+
+      etab.profs.filter(prof=>!prof.virtual).forEach(prof=>{
+        const card = document.createElement("div");
+        card.className = "prof-card" + (prof.coordoAS ? " is-as" : "") + (prof.coordoEPS ? " is-eps" : "");
+        const avatar = prof.photo
+          ? `<img class="avatar" src="${prof.photo}" alt="${escapeAttr(prof.nom)}">`
+          : `<div class="avatar">${initials(prof.nom)}</div>`;
+        card.innerHTML = `
+          <div class="card-actions">
+            <button class="icon-btn" title="Modifier" data-edit-prof="${prof.id}">✎</button>
+            <button class="icon-btn" title="Supprimer" data-del-prof="${prof.id}">🗑</button>
+          </div>
+          ${avatar}
+          <h4 class="prof-name-row"><span>${escapeHtml(prof.nom)}</span>${(prof.coordoAS || prof.coordoEPS) ? `<span class="badges">
+            ${prof.coordoAS ? '<span class="badge as">★ Coordo AS</span>' : ""}
+            ${prof.coordoEPS ? '<span class="badge eps">★ Coordo EPS</span>' : ""}
+          </span>` : ""}</h4>
+          <p>${escapeHtml(prof.telephone)||"—"}</p>
+          <p>${escapeHtml(prof.email)||"—"}</p>
+          <div class="tags">
+            ${(prof.activitesPratiquees||[]).map(a=>`<span class="tag">${escapeHtml(a==="Autres" && prof.autrePratiqueePrecision ? `Autres (${prof.autrePratiqueePrecision})` : a)}</span>`).join("")}
+            ${(prof.activitesCompetition||[]).map(a=>`<span class="tag comp">${escapeHtml(a==="Autres" && prof.autreCompetitionPrecision ? `Autres (${prof.autreCompetitionPrecision})` : a)}</span>`).join("")}
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+
+      const addBtn = document.createElement("div");
+      addBtn.className = "add-prof-btn";
+      addBtn.textContent = "+ Ajouter un professeur";
+      addBtn.addEventListener("click", ()=>openProfModal(etab.id, null));
+      grid.appendChild(addBtn);
+
+      block.appendChild(grid);
+      container.appendChild(block);
+    });
+
+    container.querySelectorAll(".etab-block-head a").forEach(a=>{
+      a.addEventListener("click", e=>e.stopPropagation());
+    });
+    container.querySelectorAll("[data-edit-etab]").forEach(el=>{
+      el.addEventListener("click", (e)=>{
+        e.stopPropagation();
+        openEtabModal(el.dataset.editEtab);
+      });
+    });
+    container.querySelectorAll("[data-edit-prof]").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        const etab = state.etablissements.find(e=>e.profs.some(p=>p.id===btn.dataset.editProf));
+        openProfModal(etab.id, btn.dataset.editProf);
+      });
+    });
+    container.querySelectorAll("[data-del-prof]").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        const etab = state.etablissements.find(e=>e.profs.some(p=>p.id===btn.dataset.delProf));
+        if(confirm("Supprimer ce professeur ?")){
+          etab.profs = etab.profs.filter(p=>p.id!==btn.dataset.delProf);
+          saveState(); renderAll();
+        }
+      });
+    });
+  }
+
+  let currentProfPhoto = "";
+
+  function buildCheckboxGrid(container, groupName, selected){
+    container.innerHTML = ACTIVITES.map(a=>`
+      <label><input type="checkbox" name="${groupName}" value="${escapeAttr(a)}" ${selected.includes(a)?"checked":""}> ${escapeHtml(a)}</label>
+    `).join("");
+  }
+
+  function openProfModal(etabId, profId){
+    const etab = getEtab(etabId);
+    const prof = profId ? getProf(etab, profId) : null;
+    document.getElementById("prof-modal-title").textContent = prof ? "Modifier le professeur" : "Ajouter un professeur EPS";
+    document.getElementById("prof-id").value = profId || "";
+    document.getElementById("prof-etab-id").value = etabId;
+    document.getElementById("prof-nom").value = prof ? prof.nom : "";
+    document.getElementById("prof-telephone").value = prof ? prof.telephone : "";
+    document.getElementById("prof-email").value = prof ? prof.email : "";
+    document.getElementById("prof-coordo-as").checked = prof ? !!prof.coordoAS : false;
+    document.getElementById("prof-coordo-eps").checked = prof ? !!prof.coordoEPS : false;
+    currentProfPhoto = prof ? (prof.photo || "") : "";
+    const preview = document.getElementById("prof-photo-preview");
+    preview.innerHTML = currentProfPhoto ? `<img src="${currentProfPhoto}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">` : "";
+    document.getElementById("prof-photo-input").value = "";
+
+    buildCheckboxGrid(document.getElementById("prof-activites-pratiquees"), "pratiquees", prof ? (prof.activitesPratiquees||[]) : []);
+    buildCheckboxGrid(document.getElementById("prof-activites-competition"), "competition", prof ? (prof.activitesCompetition||[]) : []);
+    document.getElementById("prof-autre-pratiquee-precision").value = prof ? (prof.autrePratiqueePrecision||"") : "";
+    document.getElementById("prof-autre-competition-precision").value = prof ? (prof.autreCompetitionPrecision||"") : "";
+
+    openModal("modal-overlay-prof");
+  }
+
+  document.getElementById("prof-photo-input").addEventListener("change", function(){
+    const file = this.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      currentProfPhoto = reader.result;
+      document.getElementById("prof-photo-preview").innerHTML = `<img src="${currentProfPhoto}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  document.getElementById("form-prof").addEventListener("submit", e=>{
+    e.preventDefault();
+    const etab = getEtab(document.getElementById("prof-etab-id").value);
+    const profId = document.getElementById("prof-id").value;
+    const pratiquees = [...document.querySelectorAll('input[name="pratiquees"]:checked')].map(c=>c.value);
+    const competition = [...document.querySelectorAll('input[name="competition"]:checked')].map(c=>c.value);
+    const autrePratiqueePrecision = document.getElementById("prof-autre-pratiquee-precision").value.trim();
+    const autreCompetitionPrecision = document.getElementById("prof-autre-competition-precision").value.trim();
+
+    if(pratiquees.includes("Autres") && !autrePratiqueePrecision){
+      alert("Veuillez préciser l'activité \"Autres\" (pratiquée).");
+      document.getElementById("prof-autre-pratiquee-precision").focus();
+      return;
+    }
+    if(competition.includes("Autres") && !autreCompetitionPrecision){
+      alert("Veuillez préciser l'activité \"Autres\" (compétition).");
+      document.getElementById("prof-autre-competition-precision").focus();
+      return;
+    }
+
+    const data = {
+      nom: document.getElementById("prof-nom").value.trim(),
+      telephone: document.getElementById("prof-telephone").value.trim(),
+      email: document.getElementById("prof-email").value.trim(),
+      photo: currentProfPhoto,
+      activitesPratiquees: pratiquees,
+      activitesCompetition: competition,
+      autrePratiqueePrecision, autreCompetitionPrecision,
+      coordoAS: document.getElementById("prof-coordo-as").checked,
+      coordoEPS: document.getElementById("prof-coordo-eps").checked
+    };
+
+    if(profId){
+      Object.assign(getProf(etab, profId), data);
+    } else {
+      etab.profs.push({ id: uid(), ...data });
+    }
+    saveState();
+    closeModal("modal-overlay-prof");
+    renderAll();
+  });
+
+  // ---------- RENDER: ACTIVITES TABLES (récapitulatif non modifiable) ----------
+  function practicesFlag(etab, activite){
+    return etab.profs.some(p=>(p.activitesPratiquees||[]).includes(activite));
+  }
+  function competesFlag(etab, activite){
+    return etab.profs.some(p=>(p.activitesCompetition||[]).includes(activite));
+  }
+
+  function renderActiviteTable(theadId, tbodyId, dimension, flagFn){
+    const etabs = sortedEtabs();
+    const activesCols = ACTIVITES.filter(act => etabs.some(etab => flagFn(etab, act)));
+
+    const theadRow = document.getElementById(theadId);
+    theadRow.innerHTML = `<th style="background:var(--c1)">Établissement</th>` +
+      activesCols.map((a,i)=>`<th style="background:var(--${PALETTE[(i+1)%PALETTE.length]})">${escapeHtml(a)}</th>`).join("");
+
+    const tbody = document.getElementById(tbodyId);
+    tbody.innerHTML = "";
+    if(!activesCols.length){
+      tbody.innerHTML = `<tr><td class="activite-filter-empty">Aucune activité renseignée pour le moment.</td></tr>`;
+      return;
+    }
+    etabs.forEach(etab=>{
+      const tr = document.createElement("tr");
+      let rowHtml = `<td><span class="etab-dot" style="background:${etabColorVar(etab)}"></span><strong>${escapeHtml(etab.nom)}</strong></td>`;
+      activesCols.forEach(act=>{
+        const on = flagFn(etab, act);
+        const cls = on ? (dimension==="pratiquee" ? "state-pratique" : "state-competition") : "state-off";
+        rowHtml += `<td class="${cls}">${on ? "✓" : "—"}</td>`;
+      });
+      tr.innerHTML = rowHtml;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function renderActivites(){
+    renderActiviteTable("thead-activites-pratiquees-row", "tbody-activites-pratiquees", "pratiquee", practicesFlag);
+    renderActiviteTable("thead-activites-competition-row", "tbody-activites-competition", "competition", competesFlag);
+    renderActiviteFilterResult();
+  }
+
+  function renderActiviteFilterResult(){
+    const select = document.getElementById("activite-filter");
+    const result = document.getElementById("activite-filter-result");
+    const act = select.value;
+    if(!act){
+      result.innerHTML = `<p class="activite-filter-empty">Choisissez une activité pour voir les établissements concernés.</p>`;
+      return;
+    }
+    const pratique = practicingEtabs(act);
+    const competition = competitionEtabs(act);
+    const chip = e=>`<span class="tag"><span class="etab-dot" style="background:${etabColorVar(e)}"></span>${escapeHtml(e.nom)}</span>`;
+    result.innerHTML = `
+      <div class="activite-card">
+        <h4>${escapeHtml(act)} <span class="count-badge">${pratique.length} loisir / ${competition.length} compét.</span></h4>
+        <div class="group-label">Loisir</div>
+        <div>${pratique.length ? pratique.map(chip).join("") : '<span class="none">Aucun établissement</span>'}</div>
+        <div class="group-label">Compétition</div>
+        <div>${competition.length ? competition.map(chip).join("") : '<span class="none">Aucun établissement</span>'}</div>
+      </div>
+    `;
+  }
+
+  document.getElementById("activite-filter").insertAdjacentHTML("beforeend",
+    ACTIVITES.map(a=>`<option value="${escapeAttr(a)}">${escapeHtml(a)}</option>`).join(""));
+  document.getElementById("activite-filter").addEventListener("change", renderActiviteFilterResult);
+
+  function practicingEtabs(activite){
+    return sortedEtabs().filter(etab=>practicesFlag(etab, activite) || competesFlag(etab, activite));
+  }
+  function competitionEtabs(activite){
+    return sortedEtabs().filter(etab=>competesFlag(etab, activite));
+  }
+
+  // ---------- RENDER: CARTES TCL ----------
+  function renderCartes(){
+    const stock = state.stockCartes;
+    const total = stockTotal(stock);
+    const totalDistribue = state.etablissements.reduce((s,e)=>s+totalCartesFor(e),0);
+    const restant = total - totalDistribue;
+
+    document.getElementById("cartes-recap").innerHTML = `
+      <div class="recap-card" style="background:var(--c1)"><div class="val">${stock.initial}</div><div class="lbl">Stock initial (cartes)</div></div>
+      <div class="recap-card" style="background:var(--c7)"><div class="val">${total}</div><div class="lbl">Stock total (cartes)</div></div>
+      <div class="recap-card" style="background:var(--c9)"><div class="val">${totalDistribue}</div><div class="lbl">Distribué (cartes)</div></div>
+      <div class="recap-card" style="background:var(--c11)"><div class="val">${restant}</div><div class="lbl">Restant (cartes)</div></div>
+    `;
+
+    const histoDiv = document.getElementById("cartes-recharges-historique");
+    if(stock.recharges.length){
+      histoDiv.innerHTML = '<div class="recharge-history">Recharges : ' + stock.recharges.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(r=>
+        `<span class="entry">${r.date} : +${r.quantite} <button class="icon-btn" data-del-recharge-cartes="${r.id}" title="Supprimer">🗑</button></span>`
+      ).join("") + '</div>';
+    } else {
+      histoDiv.innerHTML = "";
+    }
+    histoDiv.querySelectorAll("[data-del-recharge-cartes]").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        state.stockCartes.recharges = state.stockCartes.recharges.filter(r=>r.id!==btn.dataset.delRechargeCartes);
+        saveState(); renderAll();
+      });
+    });
+
+    const tbody = document.getElementById("tbody-cartes");
+    tbody.innerHTML = "";
+    sortedEtabs().forEach(etab=>{
+      const tr = document.createElement("tr");
+      const historique = etab.cartes.slice().sort((a,b)=>b.date.localeCompare(a.date))
+        .map(c=>`<div>${c.date} — ${c.nombre} cartes <button class="icon-btn" data-del-carte="${c.id}" data-etab-carte="${etab.id}" title="Supprimer">🗑</button></div>`).join("");
+      tr.innerHTML = `
+        <td><span class="etab-dot" style="background:${etabColorVar(etab)}"></span><strong>${escapeHtml(etab.nom)}</strong></td>
+        <td>${totalCartesFor(etab)}</td>
+        <td>${lastCarteDateFor(etab)||"—"}</td>
+        <td>${historique||"—"}</td>
+        <td><button class="small" data-add-carte="${etab.id}">+ Distribution</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    tbody.querySelectorAll("[data-add-carte]").forEach(btn=>{
+      btn.addEventListener("click", ()=>openCarteModal(btn.dataset.addCarte));
+    });
+    tbody.querySelectorAll("[data-del-carte]").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        const etab = getEtab(btn.dataset.etabCarte);
+        etab.cartes = etab.cartes.filter(c=>c.id!==btn.dataset.delCarte);
+        saveState(); renderAll();
+      });
+    });
+  }
+
+  function openCarteModal(etabId){
+    document.getElementById("carte-etab-id").value = etabId;
+    document.getElementById("carte-date").value = new Date().toISOString().slice(0,10);
+    document.getElementById("carte-nombre").value = "";
+    openModal("modal-overlay-carte");
+  }
+
+  document.getElementById("form-carte").addEventListener("submit", e=>{
+    e.preventDefault();
+    const etab = getEtab(document.getElementById("carte-etab-id").value);
+    etab.cartes.push({
+      id: uid(),
+      date: document.getElementById("carte-date").value,
+      nombre: Number(document.getElementById("carte-nombre").value)
+    });
+    saveState();
+    closeModal("modal-overlay-carte");
+    renderAll();
+  });
+
+  document.getElementById("btn-recharge-cartes").addEventListener("click", ()=>openRechargeModal("cartes"));
+  document.getElementById("btn-recharge-recompenses").addEventListener("click", ()=>openRechargeModal("or"));
+
+  function openRechargeModal(defaultType){
+    document.getElementById("recharge-type").value = defaultType;
+    document.getElementById("recharge-date").value = new Date().toISOString().slice(0,10);
+    document.getElementById("recharge-quantite").value = "";
+    openModal("modal-overlay-recharge");
+  }
+
+  document.getElementById("form-recharge").addEventListener("submit", e=>{
+    e.preventDefault();
+    const type = document.getElementById("recharge-type").value;
+    const entry = {
+      id: uid(),
+      date: document.getElementById("recharge-date").value,
+      quantite: Number(document.getElementById("recharge-quantite").value)
+    };
+    if(type === "cartes"){
+      state.stockCartes.recharges.push(entry);
+    } else {
+      state.stockRecompenses[type].recharges.push(entry);
+    }
+    saveState();
+    closeModal("modal-overlay-recharge");
+    renderAll();
+  });
+
+  // ---------- RENDER: RECOMPENSES ----------
+  const RECOMPENSE_TYPES = [
+    { key:"or", label:"Or" },
+    { key:"argent", label:"Argent" },
+    { key:"bronze", label:"Bronze" },
+    { key:"coupes", label:"Coupes" }
+  ];
+
+  function renderRecompenses(){
+    const colors = ["c1","c4","c8","c5"];
+    document.getElementById("recompenses-recap").innerHTML = RECOMPENSE_TYPES.map((t,i)=>{
+      const stock = state.stockRecompenses[t.key];
+      const total = stockTotal(stock);
+      const distribue = totalRecompensesDistribuees(t.key);
+      const restant = total - distribue;
+      return `<div class="recap-card" style="background:var(--${colors[i]})"><div class="val">${restant} / ${total}</div><div class="lbl">${t.label} restant / stock total</div></div>`;
+    }).join("");
+
+    const allRecharges = [];
+    RECOMPENSE_TYPES.forEach(t=>{
+      state.stockRecompenses[t.key].recharges.forEach(r=>allRecharges.push({ ...r, type:t.key, label:t.label }));
+    });
+    const histoDiv = document.getElementById("recompenses-recharges-historique");
+    if(allRecharges.length){
+      histoDiv.innerHTML = '<div class="recharge-history">Recharges : ' + allRecharges.sort((a,b)=>b.date.localeCompare(a.date)).map(r=>
+        `<span class="entry">${r.date} : +${r.quantite} ${r.label} <button class="icon-btn" data-del-recharge-recompense="${r.id}" data-recharge-type="${r.type}" title="Supprimer">🗑</button></span>`
+      ).join("") + '</div>';
+    } else {
+      histoDiv.innerHTML = "";
+    }
+    histoDiv.querySelectorAll("[data-del-recharge-recompense]").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        const type = btn.dataset.rechargeType;
+        state.stockRecompenses[type].recharges = state.stockRecompenses[type].recharges.filter(r=>r.id!==btn.dataset.delRechargeRecompense);
+        saveState(); renderAll();
+      });
+    });
+
+    const tbody = document.getElementById("tbody-recompenses");
+    tbody.innerHTML = "";
+    sortedEtabs().forEach(etab=>{
+      const tr = document.createElement("tr");
+      const historique = etab.recompenses.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(r=>
+        `<div>${r.date} — Or:${r.or||0} Argent:${r.argent||0} Bronze:${r.bronze||0} Coupes:${r.coupes||0} <button class="icon-btn" data-del-recompense="${r.id}" data-etab-recompense="${etab.id}" title="Supprimer">🗑</button></div>`
+      ).join("");
+      tr.innerHTML = `
+        <td><span class="etab-dot" style="background:${etabColorVar(etab)}"></span><strong>${escapeHtml(etab.nom)}</strong></td>
+        <td>${totalRecompensesFor(etab,"or")}</td>
+        <td>${totalRecompensesFor(etab,"argent")}</td>
+        <td>${totalRecompensesFor(etab,"bronze")}</td>
+        <td>${totalRecompensesFor(etab,"coupes")}</td>
+        <td>${historique||"—"}</td>
+        <td><button class="small" data-add-recompense="${etab.id}">+ Distribution</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    tbody.querySelectorAll("[data-add-recompense]").forEach(btn=>{
+      btn.addEventListener("click", ()=>openRecompenseModal(btn.dataset.addRecompense));
+    });
+    tbody.querySelectorAll("[data-del-recompense]").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        const etab = getEtab(btn.dataset.etabRecompense);
+        etab.recompenses = etab.recompenses.filter(r=>r.id!==btn.dataset.delRecompense);
+        saveState(); renderAll();
+      });
+    });
+  }
+
+  function openRecompenseModal(etabId){
+    document.getElementById("recompense-etab-id").value = etabId;
+    document.getElementById("recompense-date").value = new Date().toISOString().slice(0,10);
+    document.getElementById("recompense-or").value = 0;
+    document.getElementById("recompense-argent").value = 0;
+    document.getElementById("recompense-bronze").value = 0;
+    document.getElementById("recompense-coupes").value = 0;
+    openModal("modal-overlay-recompense");
+  }
+
+  document.getElementById("form-recompense").addEventListener("submit", e=>{
+    e.preventDefault();
+    const etab = getEtab(document.getElementById("recompense-etab-id").value);
+    const entry = {
+      id: uid(),
+      date: document.getElementById("recompense-date").value,
+      or: Number(document.getElementById("recompense-or").value)||0,
+      argent: Number(document.getElementById("recompense-argent").value)||0,
+      bronze: Number(document.getElementById("recompense-bronze").value)||0,
+      coupes: Number(document.getElementById("recompense-coupes").value)||0
+    };
+    if(!entry.or && !entry.argent && !entry.bronze && !entry.coupes){
+      alert("Indiquez au moins une quantité supérieure à 0.");
+      return;
+    }
+    etab.recompenses.push(entry);
+    saveState();
+    closeModal("modal-overlay-recompense");
+    renderAll();
+  });
+
+  // ---------- RENDER: FINANCES ----------
+  function renderFinances(){
+    const select = document.getElementById("finance-prof");
+    const previousValue = select.value;
+    select.innerHTML = '<option value="">— Choisir un collègue —</option>' +
+      getAllProfs().map(({prof, etab})=>`<option value="${prof.id}">${escapeHtml(prof.nom)} — ${escapeHtml(etab.nom)}</option>`).join("");
+    if(previousValue) select.value = previousValue;
+
+    const total = state.remboursements.reduce((s,r)=>s+Number(r.montant||0),0);
+    document.getElementById("finances-recap").innerHTML = `
+      <div class="recap-card" style="background:var(--c1)"><div class="val">${total.toFixed(2)} €</div><div class="lbl">Total remboursé</div></div>
+      <div class="recap-card" style="background:var(--c4)"><div class="val">${state.remboursements.length}</div><div class="lbl">Nombre de remboursements</div></div>
+    `;
+
+    const tbody = document.getElementById("tbody-finances");
+    tbody.innerHTML = "";
+    state.remboursements.slice().sort((a,b)=>b.date.localeCompare(a.date)).forEach(r=>{
+      const etab = getEtab(r.etabId);
+      const prof = etab ? getProf(etab, r.profId) : null;
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${r.date}</td>
+        <td>${escapeHtml(prof ? prof.nom : "—")}</td>
+        <td>${escapeHtml(etab ? etab.nom : "—")}</td>
+        <td>${Number(r.montant||0).toFixed(2)} €</td>
+        <td>${escapeHtml(r.motif)}</td>
+        <td><button class="icon-btn" data-del-finance="${r.id}" title="Supprimer">🗑</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+    tbody.querySelectorAll("[data-del-finance]").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        state.remboursements = state.remboursements.filter(r=>r.id!==btn.dataset.delFinance);
+        saveState(); renderAll();
+      });
+    });
+  }
+
+  document.getElementById("form-finance").addEventListener("submit", e=>{
+    e.preventDefault();
+    const profId = document.getElementById("finance-prof").value;
+    if(!profId){ alert("Veuillez choisir un collègue."); return; }
+    const etab = state.etablissements.find(e=>e.profs.some(p=>p.id===profId));
+    state.remboursements.push({
+      id: uid(),
+      profId, etabId: etab.id,
+      montant: Number(document.getElementById("finance-montant").value)||0,
+      motif: document.getElementById("finance-motif").value.trim(),
+      date: document.getElementById("finance-date").value
+    });
+    saveState();
+    e.target.reset();
+    renderAll();
+  });
+
+  // ---------- EXPORT / IMPORT ----------
+  function escapeHtml(str){
+    return String(str==null?"":str).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  }
+  function escapeAttr(str){ return escapeHtml(str); }
+
+  function toCsvValue(v){
+    const s = String(v==null?"":v);
+    return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+  }
+
+  document.getElementById("btn-export-csv").addEventListener("click", ()=>{
+    const header = ["Établissement","Adresse","Téléphone","Email","Lien partage"];
+    const rows = state.etablissements.map(e=>[e.nom,e.adresse,e.telephone,e.email,e.lienPartage]);
+    const csv = [header, ...rows].map(r=>r.map(toCsvValue).join(",")).join("\n");
+    downloadFile("district-villeurbanne.csv", csv, "text/csv");
+  });
+
+  document.getElementById("btn-reset-defaut").addEventListener("click", ()=>{
+    if(confirm("Cette action efface toutes les données actuellement enregistrées dans ce navigateur et recharge les données par défaut (établissements et collègues pré-remplis). Continuer ?")){
+      safeRemoveItem(STORAGE_KEY);
+      location.reload();
+    }
+  });
+
+  document.getElementById("btn-export-json").addEventListener("click", ()=>{
+    const stamp = new Date().toISOString().slice(0,16).replace(":","h");
+    downloadFile("district-villeurbanne-sauvegarde-"+stamp+".json", JSON.stringify(state, null, 2), "application/json");
+  });
+
+  function gatherPhones(){
+    const set = new Set();
+    state.etablissements.forEach(etab=>{
+      etab.profs.forEach(p=>{ if(!p.virtual && p.telephone && p.telephone.trim()) set.add(p.telephone.trim()); });
+    });
+    return [...set];
+  }
+  function gatherEmails(){
+    const set = new Set();
+    state.etablissements.forEach(etab=>{
+      etab.profs.forEach(p=>{ if(!p.virtual && p.email && p.email.trim()) set.add(p.email.trim()); });
+    });
+    return [...set];
+  }
+  function copyToClipboard(text, label){
+    if(navigator.clipboard && window.isSecureContext){
+      navigator.clipboard.writeText(text).then(
+        ()=>alert(label+" copiés dans le presse-papiers."),
+        ()=>window.prompt(label+" — sélectionnez et copiez (Ctrl+C) :", text)
+      );
+    } else {
+      window.prompt(label+" — sélectionnez et copiez (Ctrl+C) :", text);
+    }
+  }
+  document.getElementById("btn-copy-phones").addEventListener("click", ()=>{
+    copyToClipboard(gatherPhones().join(", "), "Les numéros de téléphone");
+  });
+  document.getElementById("btn-copy-emails").addEventListener("click", ()=>{
+    copyToClipboard(gatherEmails().join("; "), "Les adresses email");
+  });
+
+  const isEmbedded = (function(){ try{ return window.self !== window.top; }catch(e){ return true; } })();
+
+  function showManualCopyModal(filename, content){
+    document.getElementById("manual-copy-filename").textContent = filename;
+    const textarea = document.getElementById("manual-copy-text");
+    textarea.value = content;
+    document.getElementById("manual-copy-feedback").textContent = "";
+    openModal("modal-overlay-manual-copy");
+    textarea.focus();
+    textarea.select();
+  }
+
+  document.getElementById("btn-manual-copy-clipboard").addEventListener("click", ()=>{
+    const textarea = document.getElementById("manual-copy-text");
+    textarea.focus();
+    textarea.select();
+    const feedback = document.getElementById("manual-copy-feedback");
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(textarea.value).then(
+        ()=>{ feedback.textContent = "Copié dans le presse-papiers."; },
+        ()=>{ feedback.textContent = "Copie automatique indisponible : utilisez le geste de copie tactile (le texte est sélectionné)."; }
+      );
+    } else {
+      try{
+        document.execCommand("copy");
+        feedback.textContent = "Copié dans le presse-papiers.";
+      }catch(e){
+        feedback.textContent = "Copie automatique indisponible : utilisez le geste de copie tactile (le texte est sélectionné).";
+      }
+    }
+  });
+
+  async function downloadFile(filename, content, mime){
+    // Dans un contexte hébergé en iframe (ex: page publiée sur claude.ai), les téléchargements
+    // et le partage natif sont généralement bloqués par la sandbox : on passe directement
+    // par une copie manuelle, fiable dans tous les cas.
+    if(isEmbedded){
+      showManualCopyModal(filename, content);
+      return;
+    }
+
+    const blob = new Blob([content], {type:mime});
+    if(navigator.share && navigator.canShare){
+      try{
+        const file = new File([blob], filename, {type:mime});
+        if(navigator.canShare({files:[file]})){
+          await navigator.share({files:[file]});
+          return;
+        }
+      }catch(e){
+        if(e && e.name === "AbortError") return;
+      }
+    }
+
+    try{
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(()=>URL.revokeObjectURL(url), 2000);
+    }catch(e){
+      showManualCopyModal(filename, content);
+    }
+  }
+
+  function buildReadOnlyHtml(){
+    const styleTag = document.querySelector("style").outerHTML;
+    const dateStr = new Date().toLocaleDateString("fr-FR");
+
+    const profsClone = document.getElementById("profs-container").cloneNode(true);
+    profsClone.querySelectorAll(".card-actions, .add-prof-btn, .icon-btn-light").forEach(el=>el.remove());
+
+    const activitesClone = document.getElementById("tab-activites").cloneNode(true);
+    activitesClone.className = "tab-panel";
+
+    // Export limité à l'Annuaire et aux Activités : ni cartes, ni récompenses,
+    // ni finances, ni Cross District (données non nécessaires à ces deux onglets).
+    const trimmedState = {
+      etablissements: state.etablissements.map(e=>({
+        id: e.id, nom: e.nom, adresse: e.adresse, telephone: e.telephone, email: e.email, lienPartage: e.lienPartage,
+        profs: e.profs
+      }))
+    };
+
+    const stateJson = JSON.stringify(trimmedState).replace(/</g, "\\u003C");
+    const activitesJson = JSON.stringify(ACTIVITES);
+    const paletteJson = JSON.stringify(PALETTE);
+
+    const lines = [];
+    lines.push("<!doctype html>");
+    lines.push("<html lang='fr'>");
+    lines.push("<head>");
+    lines.push("<meta charset='UTF-8'>");
+    lines.push("<meta name='viewport' content='width=device-width, initial-scale=1.0'>");
+    lines.push("<title>District de Villeurbanne - 2026-2027 (Consultation)</title>");
+    lines.push(styleTag);
+    lines.push("<style>.readonly-banner{background:#fff3cd;color:#7a5b00;text-align:center;padding:8px 14px;font-size:.82rem;font-weight:700;} .etab-block-head{cursor:default;}</style>");
+    lines.push("</head><body>");
+    lines.push("<div class='readonly-banner'>Version consultation (lecture seule) — données figées au " + dateStr + "</div>");
+    lines.push("<header class='topbar'><div class='topbar-inner'><h1>District de Villeurbanne</h1><span class='year-badge'>2026-2027</span></div>");
+    lines.push("<nav class='tabs'><button class='tab-btn active' data-tab='profs'>Annuaire</button><button class='tab-btn' data-tab='activites'>Activités</button></nav></header>");
+    lines.push("<main>");
+    lines.push("<section id='tab-profs' class='tab-panel active'><div class='panel-header'><h2>Coordonnées des établissements et des collègues EPS</h2><div class='actions'><button id='btn-copy-phones' class='secondary'>📱 Copier les téléphones des collègues</button><button id='btn-copy-emails' class='secondary'>✉️ Copier les emails des collègues</button></div></div>" + profsClone.outerHTML + "</section>");
+    lines.push(activitesClone.outerHTML);
+    lines.push("</main>");
+    lines.push("<footer class='app-footer'>District UNSS de Villeurbanne — Version consultation, lecture seule</footer>");
+    lines.push("<script>");
+    lines.push("(function(){");
+    lines.push("'use strict';");
+    lines.push("var state = " + stateJson + ";");
+    lines.push("var ACTIVITES = " + activitesJson + ";");
+    lines.push("var PALETTE = " + paletteJson + ";");
+    lines.push("function escapeHtml(str){ str = String(str==null?'':str); return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }");
+    lines.push("function sortedEtabs(){ return state.etablissements.slice().sort(function(a,b){ return a.nom.localeCompare(b.nom,'fr',{sensitivity:'base'}); }); }");
+    lines.push("function etabColorVar(etab){ var idx = sortedEtabs().findIndex(function(e){ return e.id===etab.id; }); return 'var(--'+PALETTE[idx % PALETTE.length]+')'; }");
+    lines.push("function practicesFlag(etab, act){ return etab.profs.some(function(p){ return (p.activitesPratiquees||[]).indexOf(act)>=0; }); }");
+    lines.push("function competesFlag(etab, act){ return etab.profs.some(function(p){ return (p.activitesCompetition||[]).indexOf(act)>=0; }); }");
+    lines.push("function practicingEtabs(act){ return sortedEtabs().filter(function(e){ return practicesFlag(e,act)||competesFlag(e,act); }); }");
+    lines.push("function competitionEtabs(act){ return sortedEtabs().filter(function(e){ return competesFlag(e,act); }); }");
+    lines.push("function gatherPhones(){ var list=[]; state.etablissements.forEach(function(etab){ etab.profs.forEach(function(p){ if(!p.virtual && p.telephone && p.telephone.trim() && list.indexOf(p.telephone.trim())<0) list.push(p.telephone.trim()); }); }); return list; }");
+    lines.push("function gatherEmails(){ var list=[]; state.etablissements.forEach(function(etab){ etab.profs.forEach(function(p){ if(!p.virtual && p.email && p.email.trim() && list.indexOf(p.email.trim())<0) list.push(p.email.trim()); }); }); return list; }");
+    lines.push("function copyToClipboard(text, label){ if(navigator.clipboard && window.isSecureContext){ navigator.clipboard.writeText(text).then(function(){ alert(label+' copiés dans le presse-papiers.'); }, function(){ window.prompt(label+' — sélectionnez et copiez (Ctrl+C) :', text); }); } else { window.prompt(label+' — sélectionnez et copiez (Ctrl+C) :', text); } }");
+    lines.push("document.getElementById('btn-copy-phones').addEventListener('click', function(){ copyToClipboard(gatherPhones().join(', '), 'Les numéros de téléphone'); });");
+    lines.push("document.getElementById('btn-copy-emails').addEventListener('click', function(){ copyToClipboard(gatherEmails().join('; '), 'Les adresses email'); });");
+    lines.push("document.querySelectorAll('.tab-btn').forEach(function(btn){ btn.addEventListener('click', function(){ document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); }); document.querySelectorAll('.tab-panel').forEach(function(p){ p.classList.remove('active'); }); btn.classList.add('active'); document.getElementById('tab-'+btn.dataset.tab).classList.add('active'); }); });");
+    lines.push("function renderFilterResult(){");
+    lines.push("  var select=document.getElementById('activite-filter');");
+    lines.push("  var result=document.getElementById('activite-filter-result');");
+    lines.push("  var act=select.value;");
+    lines.push("  if(!act){ result.innerHTML = '<p class=\"activite-filter-empty\">Choisissez une activité pour voir les établissements concernés.</p>'; return; }");
+    lines.push("  var pratique=practicingEtabs(act);");
+    lines.push("  var competition=competitionEtabs(act);");
+    lines.push("  function chip(e){ return '<span class=\"tag\"><span class=\"etab-dot\" style=\"background:'+etabColorVar(e)+'\"></span>'+escapeHtml(e.nom)+'</span>'; }");
+    lines.push("  result.innerHTML = '<div class=\"activite-card\"><h4>'+escapeHtml(act)+' <span class=\"count-badge\">'+pratique.length+' loisir / '+competition.length+' compétition</span></h4><div class=\"group-label\">Loisir</div><div>'+(pratique.length?pratique.map(chip).join(''):'<span class=\"none\">Aucun établissement</span>')+'</div><div class=\"group-label\">Compétition</div><div>'+(competition.length?competition.map(chip).join(''):'<span class=\"none\">Aucun établissement</span>')+'</div></div>';");
+    lines.push("}");
+    lines.push("var filterSelect = document.getElementById('activite-filter');");
+    lines.push("if(filterSelect){ filterSelect.addEventListener('change', renderFilterResult); renderFilterResult(); }");
+    lines.push("})();");
+    lines.push("<" + "/script>");
+    lines.push("</body></html>");
+
+    return lines.join("\n");
+  }
+
+  document.getElementById("btn-export-readonly").addEventListener("click", ()=>{
+    const html = buildReadOnlyHtml();
+    downloadFile("district-villeurbanne-consultation.html", html, "text/html");
+  });
+
+  function buildActivitesReadOnlyHtml(){
+    const dateStr = new Date().toLocaleDateString("fr-FR");
+    const styleTag = document.querySelector("style").outerHTML;
+
+    // Données allégées : ni nom, ni téléphone, ni email des collègues, uniquement
+    // les activités par établissement (le récap Activités n'affiche pas ces infos).
+    const trimmedState = {
+      etablissements: state.etablissements.map(e=>({
+        id: e.id, nom: e.nom,
+        profs: e.profs.map(p=>({
+          activitesPratiquees: p.activitesPratiquees||[],
+          activitesCompetition: p.activitesCompetition||[]
+        }))
+      }))
+    };
+
+    const activitesClone = document.getElementById("tab-activites").cloneNode(true);
+    activitesClone.className = "tab-panel active";
+    const exportBtn = activitesClone.querySelector("#btn-export-activites-readonly");
+    if(exportBtn) exportBtn.closest(".actions").remove();
+
+    const stateJson = JSON.stringify(trimmedState).replace(/</g, "\\u003C");
+    const activitesJson = JSON.stringify(ACTIVITES);
+    const paletteJson = JSON.stringify(PALETTE);
+
+    const lines = [];
+    lines.push("<!doctype html>");
+    lines.push("<html lang='fr'>");
+    lines.push("<head>");
+    lines.push("<meta charset='UTF-8'>");
+    lines.push("<meta name='viewport' content='width=device-width, initial-scale=1.0'>");
+    lines.push("<title>District de Villeurbanne - 2026-2027 (Activités - Consultation)</title>");
+    lines.push(styleTag);
+    lines.push("<style>.readonly-banner{background:#fff3cd;color:#7a5b00;text-align:center;padding:8px 14px;font-size:.82rem;font-weight:700;}</style>");
+    lines.push("</head><body>");
+    lines.push("<div class='readonly-banner'>Version consultation (lecture seule) — données figées au " + dateStr + "</div>");
+    lines.push("<header class='topbar'><div class='topbar-inner'><h1>District de Villeurbanne</h1><span class='year-badge'>2026-2027</span></div></header>");
+    lines.push("<main>");
+    lines.push(activitesClone.outerHTML);
+    lines.push("</main>");
+    lines.push("<footer class='app-footer'>District UNSS de Villeurbanne — Version consultation, lecture seule</footer>");
+    lines.push("<script>");
+    lines.push("(function(){");
+    lines.push("'use strict';");
+    lines.push("var state = " + stateJson + ";");
+    lines.push("var ACTIVITES = " + activitesJson + ";");
+    lines.push("var PALETTE = " + paletteJson + ";");
+    lines.push("function escapeHtml(str){ str = String(str==null?'':str); return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }");
+    lines.push("function sortedEtabs(){ return state.etablissements.slice().sort(function(a,b){ return a.nom.localeCompare(b.nom,'fr',{sensitivity:'base'}); }); }");
+    lines.push("function etabColorVar(etab){ var idx = sortedEtabs().findIndex(function(e){ return e.id===etab.id; }); return 'var(--'+PALETTE[idx % PALETTE.length]+')'; }");
+    lines.push("function practicesFlag(etab, act){ return etab.profs.some(function(p){ return (p.activitesPratiquees||[]).indexOf(act)>=0; }); }");
+    lines.push("function competesFlag(etab, act){ return etab.profs.some(function(p){ return (p.activitesCompetition||[]).indexOf(act)>=0; }); }");
+    lines.push("function practicingEtabs(act){ return sortedEtabs().filter(function(e){ return practicesFlag(e,act)||competesFlag(e,act); }); }");
+    lines.push("function competitionEtabs(act){ return sortedEtabs().filter(function(e){ return competesFlag(e,act); }); }");
+    lines.push("function renderFilterResult(){");
+    lines.push("  var select=document.getElementById('activite-filter');");
+    lines.push("  var result=document.getElementById('activite-filter-result');");
+    lines.push("  var act=select.value;");
+    lines.push("  if(!act){ result.innerHTML = '<p class=\"activite-filter-empty\">Choisissez une activité pour voir les établissements concernés.</p>'; return; }");
+    lines.push("  var pratique=practicingEtabs(act);");
+    lines.push("  var competition=competitionEtabs(act);");
+    lines.push("  function chip(e){ return '<span class=\"tag\"><span class=\"etab-dot\" style=\"background:'+etabColorVar(e)+'\"></span>'+escapeHtml(e.nom)+'</span>'; }");
+    lines.push("  result.innerHTML = '<div class=\"activite-card\"><h4>'+escapeHtml(act)+' <span class=\"count-badge\">'+pratique.length+' loisir / '+competition.length+' compétition</span></h4><div class=\"group-label\">Loisir</div><div>'+(pratique.length?pratique.map(chip).join(''):'<span class=\"none\">Aucun établissement</span>')+'</div><div class=\"group-label\">Compétition</div><div>'+(competition.length?competition.map(chip).join(''):'<span class=\"none\">Aucun établissement</span>')+'</div></div>';");
+    lines.push("}");
+    lines.push("var filterSelect = document.getElementById('activite-filter');");
+    lines.push("if(filterSelect){ filterSelect.addEventListener('change', renderFilterResult); renderFilterResult(); }");
+    lines.push("})();");
+    lines.push("<" + "/script>");
+    lines.push("</body></html>");
+
+    return lines.join("\n");
+  }
+
+  document.getElementById("btn-export-activites-readonly").addEventListener("click", ()=>{
+    const html = buildActivitesReadOnlyHtml();
+    downloadFile("district-villeurbanne-activites-consultation.html", html, "text/html");
+  });
+
+  function parseCsv(text){
+    const lines = text.replace(/\r\n/g,"\n").split("\n").filter(l=>l.length);
+    return lines.map(line=>{
+      const result = []; let cur = ""; let inQuotes = false;
+      for(let i=0;i<line.length;i++){
+        const ch = line[i];
+        if(inQuotes){
+          if(ch === '"'){
+            if(line[i+1] === '"'){ cur += '"'; i++; } else { inQuotes = false; }
+          } else cur += ch;
+        } else {
+          if(ch === '"') inQuotes = true;
+          else if(ch === ','){ result.push(cur); cur=""; }
+          else cur += ch;
+        }
+      }
+      result.push(cur);
+      return result;
+    });
+  }
+
+  document.getElementById("input-import-csv").addEventListener("change", function(){
+    const file = this.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      const rows = parseCsv(reader.result);
+      const header = rows.shift().map(h=>h.trim().toLowerCase());
+      const idx = {
+        nom: header.findIndex(h=>/etabl|nom|coll/.test(h)),
+        adresse: header.findIndex(h=>/adress/.test(h)),
+        telephone: header.findIndex(h=>/tel/.test(h)),
+        email: header.findIndex(h=>/mail/.test(h)),
+        lien: header.findIndex(h=>/lien|partage|drive|url/.test(h))
+      };
+      rows.forEach(row=>{
+        const nom = idx.nom>=0 ? (row[idx.nom]||"").trim() : "";
+        if(!nom) return;
+        let etab = state.etablissements.find(e=>e.nom.toLowerCase() === nom.toLowerCase());
+        if(!etab){
+          etab = { id: uid(), nom, adresse:"", telephone:"", email:"", lienPartage:"", profs:[], cartes:[], recompenses:[] };
+          state.etablissements.push(etab);
+        }
+        if(idx.adresse>=0 && row[idx.adresse]) etab.adresse = row[idx.adresse].trim();
+        if(idx.telephone>=0 && row[idx.telephone]) etab.telephone = row[idx.telephone].trim();
+        if(idx.email>=0 && row[idx.email]) etab.email = row[idx.email].trim();
+        if(idx.lien>=0 && row[idx.lien]) etab.lienPartage = row[idx.lien].trim();
+      });
+      saveState();
+      renderAll();
+      alert("Import CSV terminé.");
+      this.value = "";
+    };
+    reader.readAsText(file, "utf-8");
+  });
+
+  document.getElementById("input-import-json").addEventListener("change", function(){
+    const file = this.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      try{
+        const parsed = JSON.parse(reader.result);
+        if(!parsed.etablissements) throw new Error("format invalide");
+        state = parsed;
+        saveState(false);
+        renderAll();
+        alert("Restauration effectuée.");
+      }catch(err){
+        alert("Fichier invalide : " + err.message);
+      }
+      this.value = "";
+    };
+    reader.readAsText(file, "utf-8");
+  });
+
+  // ---------- RENDER: CROSS DISTRICT ----------
+  function renderCross(){
+    const tbody = document.getElementById("tbody-cross");
+    tbody.innerHTML = "";
+    sortedEtabs().forEach(etab=>{
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><span class="etab-dot" style="background:${etabColorVar(etab)}"></span><strong>${escapeHtml(etab.nom)}</strong></td>
+        <td class="cross-check"><input type="checkbox" data-cross-etab="${etab.id}" ${etab.crossDistrict ? "checked" : ""}></td>
+      `;
+      tbody.appendChild(tr);
+    });
+    tbody.querySelectorAll("[data-cross-etab]").forEach(cb=>{
+      cb.addEventListener("change", ()=>{
+        const etab = getEtab(cb.dataset.crossEtab);
+        etab.crossDistrict = cb.checked;
+        saveState();
+      });
+    });
+  }
+
+  // ---------- INIT ----------
+  function renderAll(){
+    renderProfs();
+    renderActivites();
+    renderCartes();
+    renderRecompenses();
+    renderFinances();
+    renderCross();
+  }
+  renderAll();
+})();
+</script>
+</body>
+</html>
