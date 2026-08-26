@@ -289,9 +289,11 @@
         </label>
         <button id="btn-reset-defaut" class="danger">Réinitialiser (données par défaut)</button>
         <button id="btn-export-readonly" class="secondary">🔒 Exporter en mode consultation</button>
+        <button id="btn-force-sync" class="secondary">🔄 Synchroniser maintenant</button>
       </div>
     </div>
     <p class="hint" id="last-modified-info"></p>
+    <p class="hint" id="sync-status-info"></p>
     <div id="profs-container"></div>
   </section>
 
@@ -798,6 +800,48 @@
     catch(e){ /* ignore */ }
   }
 
+  // ---------- SYNCHRONISATION MULTI-APPAREILS (Google Sheets) ----------
+  // Colle ici l'URL du Web App Google Apps Script (se terminant par /exec).
+  // Laisse vide ("") pour désactiver la synchro et rester en stockage local uniquement.
+  const SYNC_URL = "https://script.google.com/macros/s/AKfycbwgeNZyCDe11Fj-j2yGTgDp35b5tvEP7l4Doju3MuNa6D5DLBGlFo1oODTGI7TJzp3DOw/exec";
+  const SYNC_TOKEN = "C@sPer1977"; // doit correspondre au TOKEN défini dans le script Apps Script
+
+  const syncStatusEl = { current: null };
+  function setSyncStatus(text){
+    if(syncStatusEl.current) syncStatusEl.current.textContent = text;
+  }
+
+  let syncInFlight = false;
+  let syncPending = false;
+  function pushRemoteState(){
+    if(!SYNC_URL) return;
+    if(syncInFlight){ syncPending = true; return; }
+    syncInFlight = true;
+    setSyncStatus("Synchronisation en cours…");
+    fetch(SYNC_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ token: SYNC_TOKEN, data: state })
+    }).then(()=>{ setSyncStatus("Synchronisé à " + new Date().toLocaleTimeString("fr-FR", {hour:"2-digit", minute:"2-digit"})); })
+      .catch(()=>{ setSyncStatus("Hors ligne : modifications conservées localement, seront envoyées plus tard."); })
+      .finally(()=>{
+        syncInFlight = false;
+        if(syncPending){ syncPending = false; pushRemoteState(); }
+      });
+  }
+
+  function fetchRemoteState(){
+    if(!SYNC_URL) return Promise.resolve(null);
+    const url = SYNC_URL + (SYNC_URL.includes("?") ? "&" : "?") + "token=" + encodeURIComponent(SYNC_TOKEN);
+    return fetch(url).then(r=>r.json())
+      .then(json => (json && json.etablissements) ? json : null)
+      .catch(()=> null);
+  }
+
+  function cacheStateLocally(){
+    safeSetItem(STORAGE_KEY, JSON.stringify(state));
+  }
+
   function loadState(){
     const raw = safeGetItem(STORAGE_KEY);
     if(raw){
@@ -829,11 +873,12 @@
 
   let state = loadState();
 
-  function saveState(touch){
+  function saveState(touch, sync){
     if(touch !== false) state.lastModified = new Date().toISOString();
     safeSetItem(STORAGE_KEY, JSON.stringify(state));
+    if(sync !== false) pushRemoteState();
   }
-  saveState(false);
+  saveState(false, false);
   if(!storageAvailable){
     window.setTimeout(()=>{
       alert("Le stockage local n'est pas disponible dans ce navigateur (fréquent en ouvrant un fichier local sur iPad/iPhone). Les données par défaut sont affichées mais vos modifications ne seront pas conservées après fermeture : pensez à utiliser « Sauvegarder » puis « Restaurer » pour garder une copie de votre travail.");
@@ -913,10 +958,14 @@
 
   function renderLastModifiedInfo(){
     const el = document.getElementById("last-modified-info");
-    if(!state.lastModified){ el.textContent = ""; return; }
-    const d = new Date(state.lastModified);
-    const formatted = d.toLocaleDateString("fr-FR") + " à " + d.toLocaleTimeString("fr-FR", {hour:"2-digit", minute:"2-digit"});
-    el.textContent = "Dernière modification sur cet appareil : " + formatted + " — pensez à Sauvegarder puis Restaurer sur l'autre appareil pour synchroniser.";
+    syncStatusEl.current = document.getElementById("sync-status-info");
+    if(!state.lastModified){ el.textContent = ""; }
+    else{
+      const d = new Date(state.lastModified);
+      const formatted = d.toLocaleDateString("fr-FR") + " à " + d.toLocaleTimeString("fr-FR", {hour:"2-digit", minute:"2-digit"});
+      el.textContent = "Dernière modification : " + formatted + (SYNC_URL ? "" : " — pensez à Sauvegarder puis Restaurer sur l'autre appareil pour synchroniser.");
+    }
+    syncStatusEl.current.textContent = SYNC_URL ? "Synchronisation automatique activée." : "";
   }
 
   // ---------- RENDER: PROFS ----------
@@ -1819,7 +1868,25 @@
     renderFinances();
     renderCross();
   }
+  const btnForceSync = document.getElementById("btn-force-sync");
+  if(btnForceSync){
+    btnForceSync.addEventListener("click", ()=>{
+      if(!SYNC_URL){ alert("Synchronisation non configurée (SYNC_URL vide)."); return; }
+      pushRemoteState();
+    });
+  }
+
   renderAll();
+
+  // Au lancement : si la synchro est configurée, on récupère la version la plus
+  // à jour depuis Google Sheets et on ré-affiche avec ces données fraîches.
+  fetchRemoteState().then(remote=>{
+    if(remote){
+      state = remote;
+      cacheStateLocally();
+      renderAll();
+    }
+  });
 })();
 </script>
 </body>
