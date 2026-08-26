@@ -811,6 +811,11 @@
     if(syncStatusEl.current) syncStatusEl.current.textContent = text;
   }
 
+  function isValidRemoteState(json){
+    return !!json && Array.isArray(json.etablissements) && json.etablissements.length > 0
+      && json.etablissements.every(e => e && typeof e.nom === "string" && Array.isArray(e.profs));
+  }
+
   let syncInFlight = false;
   let syncPending = false;
   function pushRemoteState(){
@@ -821,8 +826,11 @@
     fetch(SYNC_URL, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ token: SYNC_TOKEN, data: state })
-    }).then(()=>{ setSyncStatus("Synchronisé à " + new Date().toLocaleTimeString("fr-FR", {hour:"2-digit", minute:"2-digit"})); })
+      body: JSON.stringify({ token: SYNC_TOKEN, ts: Date.now(), data: state })
+    }).then(r=>r.json()).then(json=>{
+        if(json && json.ok) setSyncStatus("Synchronisé à " + new Date().toLocaleTimeString("fr-FR", {hour:"2-digit", minute:"2-digit"}));
+        else setSyncStatus("Échec de la synchronisation : " + (json && json.error ? json.error : "réponse inattendue"));
+      })
       .catch(()=>{ setSyncStatus("Hors ligne : modifications conservées localement, seront envoyées plus tard."); })
       .finally(()=>{
         syncInFlight = false;
@@ -832,9 +840,12 @@
 
   function fetchRemoteState(){
     if(!SYNC_URL) return Promise.resolve(null);
-    const url = SYNC_URL + (SYNC_URL.includes("?") ? "&" : "?") + "token=" + encodeURIComponent(SYNC_TOKEN);
-    return fetch(url).then(r=>r.json())
-      .then(json => (json && json.etablissements) ? json : null)
+    // Le paramètre "_" ci-dessous évite qu'une réponse mise en cache par
+    // l'infrastructure Google soit servie à la place des données à jour.
+    const url = SYNC_URL + (SYNC_URL.includes("?") ? "&" : "?")
+      + "token=" + encodeURIComponent(SYNC_TOKEN) + "&_=" + Date.now();
+    return fetch(url, { cache: "no-store" }).then(r=>r.json())
+      .then(json => isValidRemoteState(json) ? json : null)
       .catch(()=> null);
   }
 
