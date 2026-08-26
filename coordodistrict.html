@@ -279,16 +279,8 @@
       <div class="actions">
         <button id="btn-copy-phones" class="secondary">📱 Copier les téléphones des collègues</button>
         <button id="btn-copy-emails" class="secondary">✉️ Copier les emails des collègues</button>
-        <button id="btn-export-csv" class="secondary">Exporter CSV</button>
-        <label class="btn-file secondary">Importer CSV
-          <input type="file" id="input-import-csv" accept=".csv" hidden>
-        </label>
-        <button id="btn-export-json" class="secondary">Sauvegarder</button>
-        <label class="btn-file secondary">Restaurer
-          <input type="file" id="input-import-json" accept="application/json" hidden>
-        </label>
-        <button id="btn-reset-defaut" class="danger">Réinitialiser (données par défaut)</button>
-        <button id="btn-export-readonly" class="secondary">🔒 Exporter en mode consultation</button>
+        <button id="btn-export-annuaire-pdf" class="secondary">📄 Export PDF (consultation)</button>
+        <button id="btn-export-annuaire-md" class="secondary">📝 Export Markdown (consultation)</button>
         <button id="btn-force-sync" class="secondary">🔄 Synchroniser maintenant</button>
       </div>
     </div>
@@ -302,7 +294,8 @@
     <div class="panel-header">
       <h2>Activités pratiquées (loisir)</h2>
       <div class="actions">
-        <button id="btn-export-activites-readonly" class="secondary">🔒 Exporter cet onglet en consultation</button>
+        <button id="btn-export-activites-pdf" class="secondary">📄 Export PDF</button>
+        <button id="btn-export-activites-md" class="secondary">📝 Export Markdown</button>
       </div>
     </div>
     <div class="panel-header">
@@ -794,10 +787,6 @@
   function safeSetItem(key, value){
     try{ localStorage.setItem(key, value); return true; }
     catch(e){ storageAvailable = false; return false; }
-  }
-  function safeRemoveItem(key){
-    try{ localStorage.removeItem(key); }
-    catch(e){ /* ignore */ }
   }
 
   // ---------- SYNCHRONISATION MULTI-APPAREILS (Google Sheets) ----------
@@ -1375,10 +1364,10 @@
       ).join("");
       tr.innerHTML = `
         <td><span class="etab-dot" style="background:${etabColorVar(etab)}"></span><strong>${escapeHtml(etab.nom)}</strong></td>
-        <td>${totalRecompensesFor(etab,"or")}</td>
-        <td>${totalRecompensesFor(etab,"argent")}</td>
-        <td>${totalRecompensesFor(etab,"bronze")}</td>
-        <td>${totalRecompensesFor(etab,"coupes")}</td>
+        <td>${totalRecompensesFor(etab,"or")||""}</td>
+        <td>${totalRecompensesFor(etab,"argent")||""}</td>
+        <td>${totalRecompensesFor(etab,"bronze")||""}</td>
+        <td>${totalRecompensesFor(etab,"coupes")||""}</td>
         <td>${historique||"—"}</td>
         <td><button class="small" data-add-recompense="${etab.id}">+ Distribution</button></td>
       `;
@@ -1489,30 +1478,6 @@
   }
   function escapeAttr(str){ return escapeHtml(str); }
 
-  function toCsvValue(v){
-    const s = String(v==null?"":v);
-    return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
-  }
-
-  document.getElementById("btn-export-csv").addEventListener("click", ()=>{
-    const header = ["Établissement","Adresse","Téléphone","Email","Lien partage"];
-    const rows = state.etablissements.map(e=>[e.nom,e.adresse,e.telephone,e.email,e.lienPartage]);
-    const csv = [header, ...rows].map(r=>r.map(toCsvValue).join(",")).join("\n");
-    downloadFile("district-villeurbanne.csv", csv, "text/csv");
-  });
-
-  document.getElementById("btn-reset-defaut").addEventListener("click", ()=>{
-    if(confirm("Cette action efface toutes les données actuellement enregistrées dans ce navigateur et recharge les données par défaut (établissements et collègues pré-remplis). Continuer ?")){
-      safeRemoveItem(STORAGE_KEY);
-      location.reload();
-    }
-  });
-
-  document.getElementById("btn-export-json").addEventListener("click", ()=>{
-    const stamp = new Date().toISOString().slice(0,16).replace(":","h");
-    downloadFile("district-villeurbanne-sauvegarde-"+stamp+".json", JSON.stringify(state, null, 2), "application/json");
-  });
-
   function gatherPhones(){
     const set = new Set();
     state.etablissements.forEach(etab=>{
@@ -1611,242 +1576,159 @@
     }
   }
 
-  function buildReadOnlyHtml(){
-    const styleTag = document.querySelector("style").outerHTML;
-    const dateStr = new Date().toLocaleDateString("fr-FR");
-
-    const profsClone = document.getElementById("profs-container").cloneNode(true);
-    profsClone.querySelectorAll(".card-actions, .add-prof-btn, .icon-btn-light").forEach(el=>el.remove());
-
-    const activitesClone = document.getElementById("tab-activites").cloneNode(true);
-    activitesClone.className = "tab-panel";
-
-    // Export limité à l'Annuaire et aux Activités : ni cartes, ni récompenses,
-    // ni finances, ni Cross District (données non nécessaires à ces deux onglets).
-    const trimmedState = {
-      etablissements: state.etablissements.map(e=>({
-        id: e.id, nom: e.nom, adresse: e.adresse, telephone: e.telephone, email: e.email, lienPartage: e.lienPartage,
-        profs: e.profs
-      }))
-    };
-
-    const stateJson = JSON.stringify(trimmedState).replace(/</g, "\\u003C");
-    const activitesJson = JSON.stringify(ACTIVITES);
-    const paletteJson = JSON.stringify(PALETTE);
-
-    const lines = [];
-    lines.push("<!doctype html>");
-    lines.push("<html lang='fr'>");
-    lines.push("<head>");
-    lines.push("<meta charset='UTF-8'>");
-    lines.push("<meta name='viewport' content='width=device-width, initial-scale=1.0'>");
-    lines.push("<title>District de Villeurbanne - 2026-2027 (Consultation)</title>");
-    lines.push(styleTag);
-    lines.push("<style>.readonly-banner{background:#fff3cd;color:#7a5b00;text-align:center;padding:8px 14px;font-size:.82rem;font-weight:700;} .etab-block-head{cursor:default;}</style>");
-    lines.push("</head><body>");
-    lines.push("<div class='readonly-banner'>Version consultation (lecture seule) — données figées au " + dateStr + "</div>");
-    lines.push("<header class='topbar'><div class='topbar-inner'><h1>District de Villeurbanne</h1><span class='year-badge'>2026-2027</span></div>");
-    lines.push("<nav class='tabs'><button class='tab-btn active' data-tab='profs'>Annuaire</button><button class='tab-btn' data-tab='activites'>Activités</button></nav></header>");
-    lines.push("<main>");
-    lines.push("<section id='tab-profs' class='tab-panel active'><div class='panel-header'><h2>Coordonnées des établissements et des collègues EPS</h2><div class='actions'><button id='btn-copy-phones' class='secondary'>📱 Copier les téléphones des collègues</button><button id='btn-copy-emails' class='secondary'>✉️ Copier les emails des collègues</button></div></div>" + profsClone.outerHTML + "</section>");
-    lines.push(activitesClone.outerHTML);
-    lines.push("</main>");
-    lines.push("<footer class='app-footer'>District UNSS de Villeurbanne — Version consultation, lecture seule</footer>");
-    lines.push("<script>");
-    lines.push("(function(){");
-    lines.push("'use strict';");
-    lines.push("var state = " + stateJson + ";");
-    lines.push("var ACTIVITES = " + activitesJson + ";");
-    lines.push("var PALETTE = " + paletteJson + ";");
-    lines.push("function escapeHtml(str){ str = String(str==null?'':str); return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }");
-    lines.push("function sortedEtabs(){ return state.etablissements.slice().sort(function(a,b){ return a.nom.localeCompare(b.nom,'fr',{sensitivity:'base'}); }); }");
-    lines.push("function etabColorVar(etab){ var idx = sortedEtabs().findIndex(function(e){ return e.id===etab.id; }); return 'var(--'+PALETTE[idx % PALETTE.length]+')'; }");
-    lines.push("function practicesFlag(etab, act){ return etab.profs.some(function(p){ return (p.activitesPratiquees||[]).indexOf(act)>=0; }); }");
-    lines.push("function competesFlag(etab, act){ return etab.profs.some(function(p){ return (p.activitesCompetition||[]).indexOf(act)>=0; }); }");
-    lines.push("function practicingEtabs(act){ return sortedEtabs().filter(function(e){ return practicesFlag(e,act)||competesFlag(e,act); }); }");
-    lines.push("function competitionEtabs(act){ return sortedEtabs().filter(function(e){ return competesFlag(e,act); }); }");
-    lines.push("function gatherPhones(){ var list=[]; state.etablissements.forEach(function(etab){ etab.profs.forEach(function(p){ if(!p.virtual && p.telephone && p.telephone.trim() && list.indexOf(p.telephone.trim())<0) list.push(p.telephone.trim()); }); }); return list; }");
-    lines.push("function gatherEmails(){ var list=[]; state.etablissements.forEach(function(etab){ etab.profs.forEach(function(p){ if(!p.virtual && p.email && p.email.trim() && list.indexOf(p.email.trim())<0) list.push(p.email.trim()); }); }); return list; }");
-    lines.push("function copyToClipboard(text, label){ if(navigator.clipboard && window.isSecureContext){ navigator.clipboard.writeText(text).then(function(){ alert(label+' copiés dans le presse-papiers.'); }, function(){ window.prompt(label+' — sélectionnez et copiez (Ctrl+C) :', text); }); } else { window.prompt(label+' — sélectionnez et copiez (Ctrl+C) :', text); } }");
-    lines.push("document.getElementById('btn-copy-phones').addEventListener('click', function(){ copyToClipboard(gatherPhones().join(', '), 'Les numéros de téléphone'); });");
-    lines.push("document.getElementById('btn-copy-emails').addEventListener('click', function(){ copyToClipboard(gatherEmails().join('; '), 'Les adresses email'); });");
-    lines.push("document.querySelectorAll('.tab-btn').forEach(function(btn){ btn.addEventListener('click', function(){ document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); }); document.querySelectorAll('.tab-panel').forEach(function(p){ p.classList.remove('active'); }); btn.classList.add('active'); document.getElementById('tab-'+btn.dataset.tab).classList.add('active'); }); });");
-    lines.push("function renderFilterResult(){");
-    lines.push("  var select=document.getElementById('activite-filter');");
-    lines.push("  var result=document.getElementById('activite-filter-result');");
-    lines.push("  var act=select.value;");
-    lines.push("  if(!act){ result.innerHTML = '<p class=\"activite-filter-empty\">Choisissez une activité pour voir les établissements concernés.</p>'; return; }");
-    lines.push("  var pratique=practicingEtabs(act);");
-    lines.push("  var competition=competitionEtabs(act);");
-    lines.push("  function chip(e){ return '<span class=\"tag\"><span class=\"etab-dot\" style=\"background:'+etabColorVar(e)+'\"></span>'+escapeHtml(e.nom)+'</span>'; }");
-    lines.push("  result.innerHTML = '<div class=\"activite-card\"><h4>'+escapeHtml(act)+' <span class=\"count-badge\">'+pratique.length+' loisir / '+competition.length+' compétition</span></h4><div class=\"group-label\">Loisir</div><div>'+(pratique.length?pratique.map(chip).join(''):'<span class=\"none\">Aucun établissement</span>')+'</div><div class=\"group-label\">Compétition</div><div>'+(competition.length?competition.map(chip).join(''):'<span class=\"none\">Aucun établissement</span>')+'</div></div>';");
-    lines.push("}");
-    lines.push("var filterSelect = document.getElementById('activite-filter');");
-    lines.push("if(filterSelect){ filterSelect.addEventListener('change', renderFilterResult); renderFilterResult(); }");
-    lines.push("})();");
-    lines.push("<" + "/script>");
-    lines.push("</body></html>");
-
-    return lines.join("\n");
+  // ---------- EXPORT CONSULTATION (PDF / Markdown) ----------
+  function activitesPratiqueesSummary(){
+    return ACTIVITES.filter(act => sortedEtabs().some(e=>practicesFlag(e,act)))
+      .map(act => ({ activite: act, etabs: sortedEtabs().filter(e=>practicesFlag(e,act)).map(e=>e.nom) }));
+  }
+  function activitesCompetitionSummary(){
+    return ACTIVITES.filter(act => sortedEtabs().some(e=>competesFlag(e,act)))
+      .map(act => ({ activite: act, etabs: sortedEtabs().filter(e=>competesFlag(e,act)).map(e=>e.nom) }));
   }
 
-  document.getElementById("btn-export-readonly").addEventListener("click", ()=>{
-    const html = buildReadOnlyHtml();
-    downloadFile("district-villeurbanne-consultation.html", html, "text/html");
-  });
-
-  function buildActivitesReadOnlyHtml(){
-    const dateStr = new Date().toLocaleDateString("fr-FR");
-    const styleTag = document.querySelector("style").outerHTML;
-
-    // Données allégées : ni nom, ni téléphone, ni email des collègues, uniquement
-    // les activités par établissement (le récap Activités n'affiche pas ces infos).
-    const trimmedState = {
-      etablissements: state.etablissements.map(e=>({
-        id: e.id, nom: e.nom,
-        profs: e.profs.map(p=>({
-          activitesPratiquees: p.activitesPratiquees||[],
-          activitesCompetition: p.activitesCompetition||[]
-        }))
+  function gatherAnnuaireData(){
+    return sortedEtabs().map(etab=>({
+      nom: etab.nom, adresse: etab.adresse, telephone: etab.telephone, email: etab.email, lienPartage: etab.lienPartage,
+      profs: etab.profs.filter(p=>!p.virtual).map(p=>({
+        nom: p.nom, telephone: p.telephone, email: p.email,
+        coordoAS: p.coordoAS, coordoEPS: p.coordoEPS,
+        activitesPratiquees: (p.activitesPratiquees||[]).map(a=> a==="Autres" && p.autrePratiqueePrecision ? `Autres (${p.autrePratiqueePrecision})` : a),
+        activitesCompetition: (p.activitesCompetition||[]).map(a=> a==="Autres" && p.autreCompetitionPrecision ? `Autres (${p.autreCompetitionPrecision})` : a)
       }))
-    };
-
-    const activitesClone = document.getElementById("tab-activites").cloneNode(true);
-    activitesClone.className = "tab-panel active";
-    const exportBtn = activitesClone.querySelector("#btn-export-activites-readonly");
-    if(exportBtn) exportBtn.closest(".actions").remove();
-
-    const stateJson = JSON.stringify(trimmedState).replace(/</g, "\\u003C");
-    const activitesJson = JSON.stringify(ACTIVITES);
-    const paletteJson = JSON.stringify(PALETTE);
-
-    const lines = [];
-    lines.push("<!doctype html>");
-    lines.push("<html lang='fr'>");
-    lines.push("<head>");
-    lines.push("<meta charset='UTF-8'>");
-    lines.push("<meta name='viewport' content='width=device-width, initial-scale=1.0'>");
-    lines.push("<title>District de Villeurbanne - 2026-2027 (Activités - Consultation)</title>");
-    lines.push(styleTag);
-    lines.push("<style>.readonly-banner{background:#fff3cd;color:#7a5b00;text-align:center;padding:8px 14px;font-size:.82rem;font-weight:700;}</style>");
-    lines.push("</head><body>");
-    lines.push("<div class='readonly-banner'>Version consultation (lecture seule) — données figées au " + dateStr + "</div>");
-    lines.push("<header class='topbar'><div class='topbar-inner'><h1>District de Villeurbanne</h1><span class='year-badge'>2026-2027</span></div></header>");
-    lines.push("<main>");
-    lines.push(activitesClone.outerHTML);
-    lines.push("</main>");
-    lines.push("<footer class='app-footer'>District UNSS de Villeurbanne — Version consultation, lecture seule</footer>");
-    lines.push("<script>");
-    lines.push("(function(){");
-    lines.push("'use strict';");
-    lines.push("var state = " + stateJson + ";");
-    lines.push("var ACTIVITES = " + activitesJson + ";");
-    lines.push("var PALETTE = " + paletteJson + ";");
-    lines.push("function escapeHtml(str){ str = String(str==null?'':str); return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }");
-    lines.push("function sortedEtabs(){ return state.etablissements.slice().sort(function(a,b){ return a.nom.localeCompare(b.nom,'fr',{sensitivity:'base'}); }); }");
-    lines.push("function etabColorVar(etab){ var idx = sortedEtabs().findIndex(function(e){ return e.id===etab.id; }); return 'var(--'+PALETTE[idx % PALETTE.length]+')'; }");
-    lines.push("function practicesFlag(etab, act){ return etab.profs.some(function(p){ return (p.activitesPratiquees||[]).indexOf(act)>=0; }); }");
-    lines.push("function competesFlag(etab, act){ return etab.profs.some(function(p){ return (p.activitesCompetition||[]).indexOf(act)>=0; }); }");
-    lines.push("function practicingEtabs(act){ return sortedEtabs().filter(function(e){ return practicesFlag(e,act)||competesFlag(e,act); }); }");
-    lines.push("function competitionEtabs(act){ return sortedEtabs().filter(function(e){ return competesFlag(e,act); }); }");
-    lines.push("function renderFilterResult(){");
-    lines.push("  var select=document.getElementById('activite-filter');");
-    lines.push("  var result=document.getElementById('activite-filter-result');");
-    lines.push("  var act=select.value;");
-    lines.push("  if(!act){ result.innerHTML = '<p class=\"activite-filter-empty\">Choisissez une activité pour voir les établissements concernés.</p>'; return; }");
-    lines.push("  var pratique=practicingEtabs(act);");
-    lines.push("  var competition=competitionEtabs(act);");
-    lines.push("  function chip(e){ return '<span class=\"tag\"><span class=\"etab-dot\" style=\"background:'+etabColorVar(e)+'\"></span>'+escapeHtml(e.nom)+'</span>'; }");
-    lines.push("  result.innerHTML = '<div class=\"activite-card\"><h4>'+escapeHtml(act)+' <span class=\"count-badge\">'+pratique.length+' loisir / '+competition.length+' compétition</span></h4><div class=\"group-label\">Loisir</div><div>'+(pratique.length?pratique.map(chip).join(''):'<span class=\"none\">Aucun établissement</span>')+'</div><div class=\"group-label\">Compétition</div><div>'+(competition.length?competition.map(chip).join(''):'<span class=\"none\">Aucun établissement</span>')+'</div></div>';");
-    lines.push("}");
-    lines.push("var filterSelect = document.getElementById('activite-filter');");
-    lines.push("if(filterSelect){ filterSelect.addEventListener('change', renderFilterResult); renderFilterResult(); }");
-    lines.push("})();");
-    lines.push("<" + "/script>");
-    lines.push("</body></html>");
-
-    return lines.join("\n");
+    }));
   }
 
-  document.getElementById("btn-export-activites-readonly").addEventListener("click", ()=>{
-    const html = buildActivitesReadOnlyHtml();
-    downloadFile("district-villeurbanne-activites-consultation.html", html, "text/html");
-  });
+  function wrapPrintDocument(title, bodyHtml){
+    return `<!doctype html><html lang="fr"><head><meta charset="UTF-8"><title>${escapeHtml(title)}</title>
+<style>
+  body{ font-family:Georgia,"Times New Roman",serif; color:#1f2430; max-width:800px; margin:24px auto; padding:0 16px; line-height:1.5; }
+  h1{ font-size:1.5rem; margin-bottom:2px; }
+  h2{ font-size:1.15rem; margin-top:28px; border-bottom:2px solid #4A6FA5; padding-bottom:4px; }
+  .meta{ color:#68708a; font-size:.85rem; margin-top:0; }
+  .etab{ margin-top:18px; page-break-inside:avoid; }
+  .coord{ color:#33415c; font-size:.9rem; margin:2px 0; }
+  ul.profs{ list-style:none; padding:0; margin:8px 0 0; }
+  ul.profs li{ padding:8px 0; border-top:1px solid #e2e6f0; font-size:.92rem; }
+  table.summary{ border-collapse:collapse; width:100%; margin-top:10px; font-size:.88rem; }
+  table.summary th, table.summary td{ border:1px solid #cfd6e6; padding:6px 10px; text-align:left; vertical-align:top; }
+  table.summary th{ background:#eef1fa; }
+  .none{ color:#98a0b8; font-style:italic; }
+  @media print{ body{ margin:0; padding:12px; } }
+</style></head><body>${bodyHtml}</body></html>`;
+  }
 
-  function parseCsv(text){
-    const lines = text.replace(/\r\n/g,"\n").split("\n").filter(l=>l.length);
-    return lines.map(line=>{
-      const result = []; let cur = ""; let inQuotes = false;
-      for(let i=0;i<line.length;i++){
-        const ch = line[i];
-        if(inQuotes){
-          if(ch === '"'){
-            if(line[i+1] === '"'){ cur += '"'; i++; } else { inQuotes = false; }
-          } else cur += ch;
-        } else {
-          if(ch === '"') inQuotes = true;
-          else if(ch === ','){ result.push(cur); cur=""; }
-          else cur += ch;
-        }
+  function summaryTableHtml(summary){
+    if(!summary.length) return "<p class='none'>Aucune donnée.</p>";
+    return "<table class='summary'><thead><tr><th>Activité</th><th>Établissements</th></tr></thead><tbody>" +
+      summary.map(s=>`<tr><td>${escapeHtml(s.activite)}</td><td>${s.etabs.map(escapeHtml).join(", ")}</td></tr>`).join("") +
+      "</tbody></table>";
+  }
+
+  function summaryTableMarkdown(summary){
+    if(!summary.length) return "_Aucune donnée._";
+    const rows = ["| Activité | Établissements |", "|---|---|"];
+    summary.forEach(s=> rows.push(`| ${s.activite} | ${s.etabs.join(", ")} |`));
+    return rows.join("\n");
+  }
+
+  function openPrintPreview(html){
+    const win = isEmbedded ? null : window.open("", "_blank");
+    if(!win){ downloadFile("consultation.html", html, "text/html"); return; }
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(()=>{ win.print(); }, 250);
+  }
+
+  function buildAnnuaireBodyHtml(){
+    const dateStr = new Date().toLocaleDateString("fr-FR");
+    const data = gatherAnnuaireData();
+    let body = `<h1>District de Villeurbanne — Annuaire</h1><p class="meta">Édité le ${dateStr}</p>`;
+    data.forEach(etab=>{
+      body += `<div class="etab"><h2>${escapeHtml(etab.nom)}</h2>`;
+      const coord = [etab.adresse, etab.telephone, etab.email].filter(Boolean).map(escapeHtml).join(" · ");
+      if(coord) body += `<p class="coord">${coord}</p>`;
+      if(etab.lienPartage) body += `<p class="coord">Fichiers : ${escapeHtml(etab.lienPartage)}</p>`;
+      if(etab.profs.length){
+        body += "<ul class='profs'>";
+        etab.profs.forEach(p=>{
+          const badges = [p.coordoAS?"Coordo AS":"", p.coordoEPS?"Coordo EPS":""].filter(Boolean).join(", ");
+          body += `<li><strong>${escapeHtml(p.nom)}</strong>${badges?` (${escapeHtml(badges)})`:""}<br>`;
+          const contact = [p.telephone, p.email].filter(Boolean).map(escapeHtml).join(" · ");
+          if(contact) body += `${contact}<br>`;
+          if(p.activitesPratiquees.length) body += `Pratiquées : ${p.activitesPratiquees.map(escapeHtml).join(", ")}<br>`;
+          if(p.activitesCompetition.length) body += `Compétition : ${p.activitesCompetition.map(escapeHtml).join(", ")}`;
+          body += "</li>";
+        });
+        body += "</ul>";
+      } else {
+        body += "<p class='none'>Aucun collègue renseigné.</p>";
       }
-      result.push(cur);
-      return result;
+      body += "</div>";
     });
+    body += "<h2>Récapitulatif — Activités pratiquées (loisir)</h2>" + summaryTableHtml(activitesPratiqueesSummary());
+    body += "<h2>Récapitulatif — Activités engagées en compétition</h2>" + summaryTableHtml(activitesCompetitionSummary());
+    return body;
   }
 
-  document.getElementById("input-import-csv").addEventListener("change", function(){
-    const file = this.files[0];
-    if(!file) return;
-    const reader = new FileReader();
-    reader.onload = ()=>{
-      const rows = parseCsv(reader.result);
-      const header = rows.shift().map(h=>h.trim().toLowerCase());
-      const idx = {
-        nom: header.findIndex(h=>/etabl|nom|coll/.test(h)),
-        adresse: header.findIndex(h=>/adress/.test(h)),
-        telephone: header.findIndex(h=>/tel/.test(h)),
-        email: header.findIndex(h=>/mail/.test(h)),
-        lien: header.findIndex(h=>/lien|partage|drive|url/.test(h))
-      };
-      rows.forEach(row=>{
-        const nom = idx.nom>=0 ? (row[idx.nom]||"").trim() : "";
-        if(!nom) return;
-        let etab = state.etablissements.find(e=>e.nom.toLowerCase() === nom.toLowerCase());
-        if(!etab){
-          etab = { id: uid(), nom, adresse:"", telephone:"", email:"", lienPartage:"", profs:[], cartes:[], recompenses:[] };
-          state.etablissements.push(etab);
-        }
-        if(idx.adresse>=0 && row[idx.adresse]) etab.adresse = row[idx.adresse].trim();
-        if(idx.telephone>=0 && row[idx.telephone]) etab.telephone = row[idx.telephone].trim();
-        if(idx.email>=0 && row[idx.email]) etab.email = row[idx.email].trim();
-        if(idx.lien>=0 && row[idx.lien]) etab.lienPartage = row[idx.lien].trim();
-      });
-      saveState();
-      renderAll();
-      alert("Import CSV terminé.");
-      this.value = "";
-    };
-    reader.readAsText(file, "utf-8");
-  });
-
-  document.getElementById("input-import-json").addEventListener("change", function(){
-    const file = this.files[0];
-    if(!file) return;
-    const reader = new FileReader();
-    reader.onload = ()=>{
-      try{
-        const parsed = JSON.parse(reader.result);
-        if(!parsed.etablissements) throw new Error("format invalide");
-        state = parsed;
-        saveState(false);
-        renderAll();
-        alert("Restauration effectuée.");
-      }catch(err){
-        alert("Fichier invalide : " + err.message);
+  function buildAnnuaireMarkdown(){
+    const dateStr = new Date().toLocaleDateString("fr-FR");
+    const data = gatherAnnuaireData();
+    const lines = ["# District de Villeurbanne — Annuaire", "", "_Édité le " + dateStr + "_", ""];
+    data.forEach(etab=>{
+      lines.push("## " + etab.nom);
+      const coord = [etab.adresse, etab.telephone, etab.email].filter(Boolean).join(" · ");
+      if(coord) lines.push(coord);
+      if(etab.lienPartage) lines.push("Fichiers : " + etab.lienPartage);
+      lines.push("");
+      if(etab.profs.length){
+        etab.profs.forEach(p=>{
+          const badges = [p.coordoAS?"Coordo AS":"", p.coordoEPS?"Coordo EPS":""].filter(Boolean).join(", ");
+          lines.push("- **" + p.nom + "**" + (badges?" ("+badges+")":""));
+          const contact = [p.telephone, p.email].filter(Boolean).join(" · ");
+          if(contact) lines.push("  " + contact);
+          if(p.activitesPratiquees.length) lines.push("  Pratiquées : " + p.activitesPratiquees.join(", "));
+          if(p.activitesCompetition.length) lines.push("  Compétition : " + p.activitesCompetition.join(", "));
+        });
+      } else {
+        lines.push("_Aucun collègue renseigné._");
       }
-      this.value = "";
-    };
-    reader.readAsText(file, "utf-8");
+      lines.push("");
+    });
+    lines.push("## Récapitulatif — Activités pratiquées (loisir)", "", summaryTableMarkdown(activitesPratiqueesSummary()), "");
+    lines.push("## Récapitulatif — Activités engagées en compétition", "", summaryTableMarkdown(activitesCompetitionSummary()));
+    return lines.join("\n");
+  }
+
+  function buildActivitesBodyHtml(){
+    const dateStr = new Date().toLocaleDateString("fr-FR");
+    let body = `<h1>District de Villeurbanne — Activités</h1><p class="meta">Édité le ${dateStr}</p>`;
+    body += "<h2>Activités pratiquées (loisir)</h2>" + summaryTableHtml(activitesPratiqueesSummary());
+    body += "<h2>Activités engagées en compétition</h2>" + summaryTableHtml(activitesCompetitionSummary());
+    return body;
+  }
+
+  function buildActivitesMarkdown(){
+    const dateStr = new Date().toLocaleDateString("fr-FR");
+    return [
+      "# District de Villeurbanne — Activités", "", "_Édité le " + dateStr + "_", "",
+      "## Activités pratiquées (loisir)", "", summaryTableMarkdown(activitesPratiqueesSummary()), "",
+      "## Activités engagées en compétition", "", summaryTableMarkdown(activitesCompetitionSummary())
+    ].join("\n");
+  }
+
+  document.getElementById("btn-export-annuaire-pdf").addEventListener("click", ()=>{
+    openPrintPreview(wrapPrintDocument("District de Villeurbanne — Annuaire", buildAnnuaireBodyHtml()));
+  });
+  document.getElementById("btn-export-annuaire-md").addEventListener("click", ()=>{
+    downloadFile("district-villeurbanne-annuaire.md", buildAnnuaireMarkdown(), "text/markdown");
+  });
+  document.getElementById("btn-export-activites-pdf").addEventListener("click", ()=>{
+    openPrintPreview(wrapPrintDocument("District de Villeurbanne — Activités", buildActivitesBodyHtml()));
+  });
+  document.getElementById("btn-export-activites-md").addEventListener("click", ()=>{
+    downloadFile("district-villeurbanne-activites.md", buildActivitesMarkdown(), "text/markdown");
   });
 
   // ---------- RENDER: CROSS DISTRICT ----------
