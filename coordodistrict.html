@@ -1672,36 +1672,38 @@ ${innerHtml}
     </div>`;
   }
 
-  function buildAnnuaireRowsHtml(){
-    let rows = "";
-    sortedEtabs().forEach(etab=>{
-      const color = etabColorVar(etab);
-      const profs = etab.profs.filter(p=>!p.virtual);
-      const coord = [etab.adresse, etab.telephone, etab.email].filter(Boolean).map(escapeHtml).join(" · ");
-      rows += `<div class="etab-row" style="border-left-color:${color}">
-        <div class="etab-row-head">
-          <h3><span class="etab-dot" style="background:${color}"></span>${escapeHtml(etab.nom)}</h3>
-          ${coord?`<div class="coord">${coord}</div>`:""}
-        </div>
-        <div class="etab-row-profs">${profs.length ? profs.map(profChipHtml).join("") : "<span class='none'>Aucun collègue renseigné.</span>"}</div>
-      </div>`;
-    });
-    return rows;
+  function etabRowHtml(etab){
+    const color = etabColorVar(etab);
+    const profs = etab.profs.filter(p=>!p.virtual);
+    const coord = [etab.adresse, etab.telephone, etab.email].filter(Boolean).map(escapeHtml).join(" · ");
+    return `<div class="etab-row" style="border-left-color:${color}">
+      <div class="etab-row-head">
+        <h3><span class="etab-dot" style="background:${color}"></span>${escapeHtml(etab.nom)}</h3>
+        ${coord?`<div class="coord">${coord}</div>`:""}
+      </div>
+      <div class="etab-row-profs">${profs.length ? profs.map(profChipHtml).join("") : "<span class='none'>Aucun collègue renseigné.</span>"}</div>
+    </div>`;
   }
 
   function buildAnnuairePrintHtml(){
     const pratTable = document.getElementById("table-activites-pratiquees").cloneNode(true);
     const compTable = document.getElementById("table-activites-competition").cloneNode(true);
-    const body = `<div class="etab-rows">${buildAnnuaireRowsHtml()}</div>`
+    const etabs = sortedEtabs();
+    const PAGE1_COUNT = 7;
+    const page1 = etabs.slice(0, PAGE1_COUNT).map(etabRowHtml).join("");
+    const page2 = etabs.slice(PAGE1_COUNT).map(etabRowHtml).join("");
+    const body = `<div class="etab-page">${page1}</div>`
+      + (page2 ? `<div class="etab-page" style="page-break-before:always;">${page2}</div>` : "")
       + `<div class="activites-page"><h2 class="section-title">Activités pratiquées (loisir)</h2><div class="table-wrap">${pratTable.outerHTML}</div></div>`
       + `<div class="activites-page"><h2 class="section-title">Activités engagées en compétition</h2><div class="table-wrap">${compTable.outerHTML}</div></div>`;
     return buildPrintDocument("District de Villeurbanne — Annuaire", body,
-      `.etab-row{ display:flex; align-items:flex-start; gap:10px; padding:6px 4px; border-bottom:1px solid var(--border); border-left:5px solid; page-break-inside:avoid; }
-      .etab-row-head{ flex:0 0 190px; padding-left:6px; }
+      `.etab-page{ display:flex; flex-direction:column; min-height:160mm; }
+      .etab-row{ display:grid; grid-template-columns:190px 1fr; align-items:start; gap:10px; padding:6px 4px; border-bottom:1px solid var(--border); border-left:5px solid; flex:1 1 auto; break-inside:avoid; page-break-inside:avoid; }
+      .etab-row-head{ padding-left:6px; }
       .etab-row-head h3{ margin:0 0 2px; font-size:.82rem; display:flex; align-items:center; }
       .etab-row-head .coord{ font-size:.6rem; color:var(--muted); line-height:1.3; }
-      .etab-row-profs{ flex:1; display:flex; flex-wrap:wrap; gap:5px; align-content:flex-start; }
-      .prof-chip{ border:1px solid var(--border); border-left:3px solid var(--border); border-radius:6px; padding:4px 6px; font-size:.64rem; min-width:150px; max-width:200px; background:#fbfcff; }
+      .etab-row-profs{ }
+      .prof-chip{ display:inline-block; vertical-align:top; border:1px solid var(--border); border-left:3px solid var(--border); border-radius:6px; padding:4px 6px; font-size:.64rem; min-width:150px; max-width:200px; margin:0 5px 5px 0; background:#fbfcff; }
       .prof-chip.is-as{ border-left-color:#2b4fb0; }
       .prof-chip.is-eps{ border-left-color:#a1590b; }
       .prof-chip .name{ font-weight:700; font-size:.68rem; }
