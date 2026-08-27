@@ -1692,25 +1692,25 @@ ${innerHtml}
     const PAGE1_COUNT = 7;
     const page1 = etabs.slice(0, PAGE1_COUNT).map(etabRowHtml).join("");
     const page2 = etabs.slice(PAGE1_COUNT).map(etabRowHtml).join("");
-    const body = `<div class="etab-page">${page1}</div>`
-      + (page2 ? `<div class="etab-page" style="page-break-before:always;">${page2}</div>` : "")
+    const body = `<div class="etab-page" style="min-height:172mm;">${page1}</div>`
+      + (page2 ? `<div class="etab-page" style="min-height:188mm; page-break-before:always;">${page2}</div>` : "")
       + `<div class="activites-page"><h2 class="section-title">Activités pratiquées (loisir)</h2><div class="table-wrap">${pratTable.outerHTML}</div></div>`
       + `<div class="activites-page"><h2 class="section-title">Activités engagées en compétition</h2><div class="table-wrap">${compTable.outerHTML}</div></div>`;
     return buildPrintDocument("District de Villeurbanne — Annuaire", body,
-      `.etab-page{ display:flex; flex-direction:column; min-height:160mm; }
-      .etab-row{ display:grid; grid-template-columns:190px 1fr; align-items:start; gap:10px; padding:6px 4px; border-bottom:1px solid var(--border); border-left:5px solid; flex:1 1 auto; break-inside:avoid; page-break-inside:avoid; }
-      .etab-row-head{ padding-left:6px; }
-      .etab-row-head h3{ margin:0 0 2px; font-size:.82rem; display:flex; align-items:center; }
-      .etab-row-head .coord{ font-size:.6rem; color:var(--muted); line-height:1.3; }
+      `.etab-page{ display:flex; flex-direction:column; }
+      .etab-row{ display:grid; grid-template-columns:200px 1fr; align-items:center; gap:12px; padding:14px 10px; border-bottom:1px solid var(--border); border-left:6px solid; flex:1 1 auto; break-inside:avoid; page-break-inside:avoid; }
+      .etab-row-head{ padding-left:8px; }
+      .etab-row-head h3{ margin:0 0 4px; font-size:1.05rem; display:flex; align-items:center; }
+      .etab-row-head .coord{ font-size:.78rem; color:var(--muted); line-height:1.4; }
       .etab-row-profs{ }
-      .prof-chip{ display:inline-block; vertical-align:top; border:1px solid var(--border); border-left:3px solid var(--border); border-radius:6px; padding:4px 6px; font-size:.64rem; min-width:150px; max-width:200px; margin:0 5px 5px 0; background:#fbfcff; }
+      .prof-chip{ display:inline-block; vertical-align:top; border:1px solid var(--border); border-left:4px solid var(--border); border-radius:8px; padding:8px 10px; font-size:.82rem; min-width:170px; max-width:230px; margin:0 8px 8px 0; background:#fbfcff; }
       .prof-chip.is-as{ border-left-color:#2b4fb0; }
       .prof-chip.is-eps{ border-left-color:#a1590b; }
-      .prof-chip .name{ font-weight:700; font-size:.68rem; }
+      .prof-chip .name{ font-weight:700; font-size:.92rem; }
       .prof-chip .role{ font-weight:700; color:#2b4fb0; }
-      .prof-chip .contact{ color:var(--muted); }
-      .prof-chip .tags{ margin-top:2px; }
-      .prof-chip .tag{ font-size:.58rem; padding:1px 6px; margin:1px 2px 0 0; }`);
+      .prof-chip .contact{ color:var(--muted); margin-top:2px; }
+      .prof-chip .tags{ margin-top:5px; }
+      .prof-chip .tag{ font-size:.74rem; padding:2px 9px; margin:2px 3px 0 0; }`);
   }
 
   function buildActivitesPrintHtml(){
