@@ -1645,16 +1645,57 @@ ${innerHtml}
     setTimeout(()=>{ win.print(); }, 250);
   }
 
+  function profChipHtml(p){
+    const badges = [p.coordoAS?"★ AS":"", p.coordoEPS?"★ EPS":""].filter(Boolean).join(" · ");
+    const contact = [p.telephone, p.email].filter(Boolean).map(escapeHtml).join(" · ");
+    const pratiquees = (p.activitesPratiquees||[]).map(a=> a==="Autres" && p.autrePratiqueePrecision ? `Autres (${p.autrePratiqueePrecision})` : a);
+    const competition = (p.activitesCompetition||[]).map(a=> a==="Autres" && p.autreCompetitionPrecision ? `Autres (${p.autreCompetitionPrecision})` : a);
+    const tags = pratiquees.map(a=>`<span class="tag">${escapeHtml(a)}</span>`).join("")
+      + competition.map(a=>`<span class="tag comp">${escapeHtml(a)}</span>`).join("");
+    return `<div class="prof-chip${p.coordoAS?" is-as":""}${p.coordoEPS?" is-eps":""}">
+      <div class="name">${escapeHtml(p.nom)}${badges?` <span class="role">${badges}</span>`:""}</div>
+      ${contact?`<div class="contact">${contact}</div>`:""}
+      ${tags?`<div class="tags">${tags}</div>`:""}
+    </div>`;
+  }
+
+  function buildAnnuaireRowsHtml(){
+    let rows = "";
+    sortedEtabs().forEach(etab=>{
+      const color = etabColorVar(etab);
+      const profs = etab.profs.filter(p=>!p.virtual);
+      const coord = [etab.adresse, etab.telephone, etab.email].filter(Boolean).map(escapeHtml).join(" · ");
+      rows += `<div class="etab-row" style="border-left-color:${color}">
+        <div class="etab-row-head">
+          <h3><span class="etab-dot" style="background:${color}"></span>${escapeHtml(etab.nom)}</h3>
+          ${coord?`<div class="coord">${coord}</div>`:""}
+        </div>
+        <div class="etab-row-profs">${profs.length ? profs.map(profChipHtml).join("") : "<span class='none'>Aucun collègue renseigné.</span>"}</div>
+      </div>`;
+    });
+    return rows;
+  }
+
   function buildAnnuairePrintHtml(){
-    const profsClone = document.getElementById("profs-container").cloneNode(true);
-    profsClone.querySelectorAll(".card-actions, .add-prof-btn, .icon-btn-light").forEach(el=>el.remove());
     const pratTable = document.getElementById("table-activites-pratiquees").cloneNode(true);
     const compTable = document.getElementById("table-activites-competition").cloneNode(true);
-    const body = profsClone.outerHTML
+    const body = `<div class="etab-rows">${buildAnnuaireRowsHtml()}</div>`
       + `<div class="activites-page"><h2 class="section-title">Activités pratiquées (loisir)</h2><div class="table-wrap">${pratTable.outerHTML}</div></div>`
       + `<div class="activites-page"><h2 class="section-title">Activités engagées en compétition</h2><div class="table-wrap">${compTable.outerHTML}</div></div>`;
     return buildPrintDocument("District de Villeurbanne — Annuaire", body,
-      "#profs-container{ grid-template-columns:repeat(auto-fill,minmax(380px,1fr)); } .prof-grid{ grid-template-columns:repeat(2,1fr); }");
+      `.etab-row{ display:flex; align-items:flex-start; gap:10px; padding:6px 4px; border-bottom:1px solid var(--border); border-left:5px solid; page-break-inside:avoid; }
+      .etab-row-head{ flex:0 0 190px; padding-left:6px; }
+      .etab-row-head h3{ margin:0 0 2px; font-size:.82rem; display:flex; align-items:center; }
+      .etab-row-head .coord{ font-size:.6rem; color:var(--muted); line-height:1.3; }
+      .etab-row-profs{ flex:1; display:flex; flex-wrap:wrap; gap:5px; align-content:flex-start; }
+      .prof-chip{ border:1px solid var(--border); border-left:3px solid var(--border); border-radius:6px; padding:4px 6px; font-size:.64rem; min-width:150px; max-width:200px; background:#fbfcff; }
+      .prof-chip.is-as{ border-left-color:#2b4fb0; }
+      .prof-chip.is-eps{ border-left-color:#a1590b; }
+      .prof-chip .name{ font-weight:700; font-size:.68rem; }
+      .prof-chip .role{ font-weight:700; color:#2b4fb0; }
+      .prof-chip .contact{ color:var(--muted); }
+      .prof-chip .tags{ margin-top:2px; }
+      .prof-chip .tag{ font-size:.58rem; padding:1px 6px; margin:1px 2px 0 0; }`);
   }
 
   function buildActivitesPrintHtml(){
