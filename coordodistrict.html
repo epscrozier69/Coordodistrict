@@ -224,22 +224,25 @@
   .modal-overlay.hidden{ display:none; }
   .modal{
     background:#fff; border-radius:var(--radius); max-width:520px; width:100%;
-    max-height:90vh; overflow-y:auto; padding:22px; box-shadow:0 10px 40px rgba(0,0,0,.25);
+    max-height:94vh; overflow-y:auto; padding:16px 18px; box-shadow:0 10px 40px rgba(0,0,0,.25);
   }
   .modal.hidden{ display:none; }
-  .modal h3{ margin-top:0; }
-  .form-row{ margin-bottom:12px; display:flex; flex-direction:column; gap:5px; }
-  .form-row label{ font-size:.8rem; font-weight:700; color:var(--muted); }
+  .modal h3{ margin:0 0 10px; font-size:1.05rem; }
+  #modal-overlay-prof .modal{ max-width:660px; }
+  .form-row{ margin-bottom:8px; display:flex; flex-direction:column; gap:3px; }
+  .form-row label{ font-size:.76rem; font-weight:700; color:var(--muted); }
   .form-row input[type=text], .form-row input[type=email], .form-row input[type=tel],
   .form-row input[type=number], .form-row input[type=date], .form-row input[type=url]{
-    padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size:.88rem;
+    padding:6px 8px; border:1px solid var(--border); border-radius:7px; font-size:.85rem;
   }
-  .checkbox-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:6px; }
-  .checkbox-grid label{ font-weight:500; font-size:.82rem; display:flex; gap:6px; align-items:center; color:var(--text); }
-  .modal-footer{ display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
+  .form-row-3col{ display:grid; grid-template-columns:1fr 1fr 1.3fr; gap:10px; }
+  .checkbox-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:3px 8px; }
+  .checkbox-grid label{ font-weight:500; font-size:.76rem; display:flex; gap:4px; align-items:center; color:var(--text); }
+  .modal-footer{ display:flex; justify-content:flex-end; gap:8px; margin-top:12px; }
+  .photo-row{ display:flex; align-items:center; gap:12px; }
   .photo-preview{
-    width:70px; height:70px; border-radius:50%; object-fit:cover; background:#dde3f3;
-    display:flex; align-items:center; justify-content:center; margin-bottom:8px;
+    width:44px; height:44px; border-radius:50%; object-fit:cover; background:#dde3f3;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
   }
 
   footer.app-footer{ text-align:center; color:var(--muted); font-size:.78rem; padding:26px 10px; }
@@ -491,12 +494,16 @@
       <input type="hidden" id="prof-etab-id">
       <div class="form-row">
         <label>Photo de profil</label>
-        <div id="prof-photo-preview" class="photo-preview"></div>
-        <input type="file" id="prof-photo-input" accept="image/*">
+        <div class="photo-row">
+          <div id="prof-photo-preview" class="photo-preview"></div>
+          <input type="file" id="prof-photo-input" accept="image/*">
+        </div>
       </div>
-      <div class="form-row"><label>Nom</label><input type="text" id="prof-nom" required></div>
-      <div class="form-row"><label>Téléphone</label><input type="tel" id="prof-telephone"></div>
-      <div class="form-row"><label>Email</label><input type="email" id="prof-email"></div>
+      <div class="form-row-3col">
+        <div class="form-row"><label>Nom</label><input type="text" id="prof-nom" required></div>
+        <div class="form-row"><label>Téléphone</label><input type="tel" id="prof-telephone"></div>
+        <div class="form-row"><label>Email</label><input type="email" id="prof-email"></div>
+      </div>
       <div class="form-row">
         <label>Activités pratiquées</label>
         <div class="checkbox-grid" id="prof-activites-pratiquees"></div>
@@ -1697,20 +1704,20 @@ ${innerHtml}
       + `<div class="activites-page"><h2 class="section-title">Activités pratiquées (loisir)</h2><div class="table-wrap">${pratTable.outerHTML}</div></div>`
       + `<div class="activites-page"><h2 class="section-title">Activités engagées en compétition</h2><div class="table-wrap">${compTable.outerHTML}</div></div>`;
     return buildPrintDocument("District de Villeurbanne — Annuaire", body,
-      `.etab-page{ display:flex; flex-direction:column; }
-      .etab-row{ display:grid; grid-template-columns:200px 1fr; align-items:center; gap:12px; padding:14px 10px; border-bottom:1px solid var(--border); border-left:6px solid; flex:1 1 auto; break-inside:avoid; page-break-inside:avoid; }
+      `.etab-page{ display:flex; flex-direction:column; justify-content:space-between; }
+      .etab-row{ display:grid; grid-template-columns:190px 1fr; align-items:center; gap:10px; padding:8px 8px; border-bottom:1px solid var(--border); border-left:6px solid; flex:0 0 auto; break-inside:avoid; page-break-inside:avoid; }
       .etab-row-head{ padding-left:8px; }
-      .etab-row-head h3{ margin:0 0 4px; font-size:1.05rem; display:flex; align-items:center; }
-      .etab-row-head .coord{ font-size:.78rem; color:var(--muted); line-height:1.4; }
+      .etab-row-head h3{ margin:0 0 3px; font-size:.9rem; display:flex; align-items:center; }
+      .etab-row-head .coord{ font-size:.66rem; color:var(--muted); line-height:1.35; }
       .etab-row-profs{ }
-      .prof-chip{ display:inline-block; vertical-align:top; border:1px solid var(--border); border-left:4px solid var(--border); border-radius:8px; padding:8px 10px; font-size:.82rem; min-width:170px; max-width:230px; margin:0 8px 8px 0; background:#fbfcff; }
+      .prof-chip{ display:inline-block; vertical-align:top; border:1px solid var(--border); border-left:4px solid var(--border); border-radius:7px; padding:5px 8px; font-size:.7rem; min-width:160px; max-width:210px; margin:0 6px 6px 0; background:#fbfcff; }
       .prof-chip.is-as{ border-left-color:#2b4fb0; }
       .prof-chip.is-eps{ border-left-color:#a1590b; }
-      .prof-chip .name{ font-weight:700; font-size:.92rem; }
+      .prof-chip .name{ font-weight:700; font-size:.8rem; }
       .prof-chip .role{ font-weight:700; color:#2b4fb0; }
-      .prof-chip .contact{ color:var(--muted); margin-top:2px; }
-      .prof-chip .tags{ margin-top:5px; }
-      .prof-chip .tag{ font-size:.74rem; padding:2px 9px; margin:2px 3px 0 0; }`);
+      .prof-chip .contact{ color:var(--muted); margin-top:1px; }
+      .prof-chip .tags{ margin-top:3px; }
+      .prof-chip .tag{ font-size:.64rem; padding:1px 7px; margin:1px 2px 0 0; }`);
   }
 
   function buildActivitesPrintHtml(){
