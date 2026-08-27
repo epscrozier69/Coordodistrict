@@ -284,7 +284,6 @@
         <button id="btn-copy-emails" class="secondary">✉️ Copier les emails des collègues</button>
         <button id="btn-copy-emails-coordo-as" class="secondary">✉️ Copier les emails des coordos AS</button>
         <button id="btn-export-annuaire-pdf" class="secondary">📄 Export PDF (consultation)</button>
-        <button id="btn-export-annuaire-md" class="secondary">📝 Export Markdown (consultation)</button>
         <button id="btn-force-sync" class="secondary">🔄 Synchroniser maintenant</button>
       </div>
     </div>
@@ -299,7 +298,6 @@
       <h2>Activités pratiquées (loisir)</h2>
       <div class="actions">
         <button id="btn-export-activites-pdf" class="secondary">📄 Export PDF</button>
-        <button id="btn-export-activites-md" class="secondary">📝 Export Markdown</button>
       </div>
     </div>
     <div class="panel-header">
@@ -817,6 +815,10 @@
   let syncPending = false;
   function pushRemoteState(){
     if(!SYNC_URL) return;
+    if(JSON.stringify(state).length > 45000){
+      setSyncStatus("Échec de synchronisation : données trop volumineuses (probablement trop de photos ou des photos trop lourdes). Réduisez-en le nombre ou leur taille.");
+      return;
+    }
     if(syncInFlight){ syncPending = true; return; }
     syncInFlight = true;
     setSyncStatus("Synchronisation en cours…");
@@ -1093,13 +1095,32 @@
     openModal("modal-overlay-prof");
   }
 
+  function compressPhoto(dataUrl, maxDim, quality){
+    return new Promise(resolve=>{
+      const img = new Image();
+      img.onload = ()=>{
+        let w = img.width, h = img.height;
+        if(w > h){ if(w > maxDim){ h = Math.round(h * maxDim / w); w = maxDim; } }
+        else { if(h > maxDim){ w = Math.round(w * maxDim / h); h = maxDim; } }
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = ()=> resolve(dataUrl);
+      img.src = dataUrl;
+    });
+  }
+
   document.getElementById("prof-photo-input").addEventListener("change", function(){
     const file = this.files[0];
     if(!file) return;
     const reader = new FileReader();
     reader.onload = ()=>{
-      currentProfPhoto = reader.result;
-      document.getElementById("prof-photo-preview").innerHTML = `<img src="${currentProfPhoto}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`;
+      compressPhoto(reader.result, 160, 0.72).then(compressed=>{
+        currentProfPhoto = compressed;
+        document.getElementById("prof-photo-preview").innerHTML = `<img src="${currentProfPhoto}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`;
+      });
     };
     reader.readAsDataURL(file);
   });
@@ -1596,7 +1617,7 @@
     }
   }
 
-  // ---------- EXPORT CONSULTATION (PDF / Markdown) ----------
+  // ---------- EXPORT CONSULTATION (PDF) ----------
   function activitesPratiqueesSummary(){
     return ACTIVITES.filter(act => sortedEtabs().some(e=>practicesFlag(e,act)))
       .map(act => ({ activite: act, etabs: sortedEtabs().filter(e=>practicesFlag(e,act)).map(e=>e.nom) }));
@@ -1604,18 +1625,6 @@
   function activitesCompetitionSummary(){
     return ACTIVITES.filter(act => sortedEtabs().some(e=>competesFlag(e,act)))
       .map(act => ({ activite: act, etabs: sortedEtabs().filter(e=>competesFlag(e,act)).map(e=>e.nom) }));
-  }
-
-  function gatherAnnuaireData(){
-    return sortedEtabs().map(etab=>({
-      nom: etab.nom, adresse: etab.adresse, telephone: etab.telephone, email: etab.email, lienPartage: etab.lienPartage,
-      profs: etab.profs.filter(p=>!p.virtual).map(p=>({
-        nom: p.nom, telephone: p.telephone, email: p.email,
-        coordoAS: p.coordoAS, coordoEPS: p.coordoEPS,
-        activitesPratiquees: (p.activitesPratiquees||[]).map(a=> a==="Autres" && p.autrePratiqueePrecision ? `Autres (${p.autrePratiqueePrecision})` : a),
-        activitesCompetition: (p.activitesCompetition||[]).map(a=> a==="Autres" && p.autreCompetitionPrecision ? `Autres (${p.autreCompetitionPrecision})` : a)
-      }))
-    }));
   }
 
   function buildPrintDocument(title, innerHtml, extraStyle){
@@ -1648,13 +1657,6 @@ ${innerHtml}
 </body></html>`;
   }
 
-  function summaryTableMarkdown(summary){
-    if(!summary.length) return "_Aucune donnée._";
-    const rows = ["| Activité | Établissements |", "|---|---|"];
-    summary.forEach(s=> rows.push(`| ${s.activite} | ${s.etabs.join(", ")} |`));
-    return rows.join("\n");
-  }
-
   function openPrintPreview(html){
     const win = isEmbedded ? null : window.open("", "_blank");
     if(!win){ downloadFile("consultation.html", html, "text/html"); return; }
@@ -1672,9 +1674,17 @@ ${innerHtml}
     const competition = (p.activitesCompetition||[]).map(a=> a==="Autres" && p.autreCompetitionPrecision ? `Autres (${p.autreCompetitionPrecision})` : a);
     const tags = pratiquees.map(a=>`<span class="tag">${escapeHtml(a)}</span>`).join("")
       + competition.map(a=>`<span class="tag comp">${escapeHtml(a)}</span>`).join("");
+    const avatar = p.photo
+      ? `<img class="chip-avatar" src="${p.photo}" alt="${escapeAttr(p.nom)}">`
+      : `<div class="chip-avatar chip-avatar-initials">${escapeHtml(initials(p.nom))}</div>`;
     return `<div class="prof-chip${p.coordoAS?" is-as":""}${p.coordoEPS?" is-eps":""}">
-      <div class="name">${escapeHtml(p.nom)}${badges?` <span class="role">${badges}</span>`:""}</div>
-      ${contact?`<div class="contact">${contact}</div>`:""}
+      <div class="chip-head">
+        ${avatar}
+        <div class="chip-name-block">
+          <div class="name">${escapeHtml(p.nom)}${badges?` <span class="role">${badges}</span>`:""}</div>
+          ${contact?`<div class="contact">${contact}</div>`:""}
+        </div>
+      </div>
       ${tags?`<div class="tags">${tags}</div>`:""}
     </div>`;
   }
@@ -1717,7 +1727,10 @@ ${innerHtml}
       .prof-chip .role{ font-weight:700; color:#2b4fb0; }
       .prof-chip .contact{ color:var(--muted); margin-top:1px; }
       .prof-chip .tags{ margin-top:3px; }
-      .prof-chip .tag{ font-size:.64rem; padding:1px 7px; margin:1px 2px 0 0; }`);
+      .prof-chip .tag{ font-size:.64rem; padding:1px 7px; margin:1px 2px 0 0; }
+      .chip-head{ display:flex; align-items:center; gap:6px; }
+      .chip-avatar{ width:26px; height:26px; border-radius:50%; object-fit:cover; flex-shrink:0; }
+      .chip-avatar-initials{ display:flex; align-items:center; justify-content:center; background:#dde3f3; color:#4A6FA5; font-weight:700; font-size:.6rem; }`);
   }
 
   function buildActivitesPrintHtml(){
@@ -1728,53 +1741,11 @@ ${innerHtml}
     return buildPrintDocument("District de Villeurbanne — Activités", body);
   }
 
-  function buildAnnuaireMarkdown(){
-    const dateStr = new Date().toLocaleDateString("fr-FR");
-    const data = gatherAnnuaireData();
-    const lines = ["# District de Villeurbanne — Annuaire", "", "_Édité le " + dateStr + "_", ""];
-    data.forEach(etab=>{
-      lines.push("## " + etab.nom);
-      const coord = [etab.adresse, etab.telephone, etab.email].filter(Boolean).join(" · ");
-      if(coord) lines.push(coord);
-      if(etab.lienPartage) lines.push("Fichiers : " + etab.lienPartage);
-      lines.push("");
-      if(etab.profs.length){
-        lines.push("| Nom | Téléphone | Email | Rôles | Activités pratiquées | Activités compétition |");
-        lines.push("|---|---|---|---|---|---|");
-        etab.profs.forEach(p=>{
-          const badges = [p.coordoAS?"Coordo AS":"", p.coordoEPS?"Coordo EPS":""].filter(Boolean).join(", ");
-          lines.push(`| ${p.nom} | ${p.telephone||""} | ${p.email||""} | ${badges} | ${p.activitesPratiquees.join(", ")} | ${p.activitesCompetition.join(", ")} |`);
-        });
-      } else {
-        lines.push("_Aucun collègue renseigné._");
-      }
-      lines.push("");
-    });
-    lines.push("## Récapitulatif — Activités pratiquées (loisir)", "", summaryTableMarkdown(activitesPratiqueesSummary()), "");
-    lines.push("## Récapitulatif — Activités engagées en compétition", "", summaryTableMarkdown(activitesCompetitionSummary()));
-    return lines.join("\n");
-  }
-
-  function buildActivitesMarkdown(){
-    const dateStr = new Date().toLocaleDateString("fr-FR");
-    return [
-      "# District de Villeurbanne — Activités", "", "_Édité le " + dateStr + "_", "",
-      "## Activités pratiquées (loisir)", "", summaryTableMarkdown(activitesPratiqueesSummary()), "",
-      "## Activités engagées en compétition", "", summaryTableMarkdown(activitesCompetitionSummary())
-    ].join("\n");
-  }
-
   document.getElementById("btn-export-annuaire-pdf").addEventListener("click", ()=>{
     openPrintPreview(buildAnnuairePrintHtml());
   });
-  document.getElementById("btn-export-annuaire-md").addEventListener("click", ()=>{
-    downloadFile("district-villeurbanne-annuaire.md", buildAnnuaireMarkdown(), "text/markdown");
-  });
   document.getElementById("btn-export-activites-pdf").addEventListener("click", ()=>{
     openPrintPreview(buildActivitesPrintHtml());
-  });
-  document.getElementById("btn-export-activites-md").addEventListener("click", ()=>{
-    downloadFile("district-villeurbanne-activites.md", buildActivitesMarkdown(), "text/markdown");
   });
 
   // ---------- RENDER: CROSS DISTRICT ----------
