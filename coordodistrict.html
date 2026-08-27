@@ -127,62 +127,62 @@
 
   /* Onglet profs */
   #profs-container{
-    display:grid; grid-template-columns:repeat(auto-fit,minmax(440px,1fr)); gap:16px; align-items:start;
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:12px; align-items:start;
   }
   .etab-block{ cursor:default; }
   .etab-block-head{
     display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;
-    gap:10px; padding:10px 14px; border-radius:var(--radius) var(--radius) 0 0;
+    gap:8px; padding:7px 12px; border-radius:var(--radius) var(--radius) 0 0;
     color:#fff; cursor:pointer;
   }
-  .etab-block-head h3{ margin:0 0 2px; font-size:.98rem; font-weight:700; }
-  .etab-head-meta{ font-size:.74rem; opacity:.92; display:flex; gap:10px; flex-wrap:wrap; }
+  .etab-block-head h3{ margin:0 0 2px; font-size:.92rem; font-weight:700; }
+  .etab-head-meta{ font-size:.7rem; opacity:.92; display:flex; gap:10px; flex-wrap:wrap; }
   .icon-btn-light{
     background:rgba(255,255,255,.2); border:1px solid rgba(255,255,255,.4); color:#fff;
-    border-radius:6px; width:30px; height:30px; padding:0; font-size:.85rem; cursor:pointer;
+    border-radius:6px; width:26px; height:26px; padding:0; font-size:.78rem; cursor:pointer;
   }
   .icon-btn-light:hover{ background:rgba(255,255,255,.35); }
   .prof-grid{
-    display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
-    gap:10px; padding:12px; background:#fff; border-radius:0 0 var(--radius) var(--radius);
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
+    gap:8px; padding:9px; background:#fff; border-radius:0 0 var(--radius) var(--radius);
     box-shadow:var(--shadow);
   }
   .prof-card{
-    border:1px solid var(--border); border-left:4px solid var(--border); border-radius:12px; padding:11px; position:relative;
+    border:1px solid var(--border); border-left:4px solid var(--border); border-radius:10px; padding:8px; position:relative;
     background:#fbfcff;
   }
   .prof-card.is-as{ border-left-color:#2b4fb0; background:#f5f8ff; }
   .prof-card.is-eps{ border-left-color:#a1590b; background:#fffaf3; }
   .prof-card.is-as.is-eps{ border-left:4px solid; border-image:linear-gradient(#2b4fb0,#a1590b) 1; background:linear-gradient(180deg,#f5f8ff,#fffaf3); }
   .prof-card .avatar{
-    width:44px; height:44px; border-radius:50%; object-fit:cover; background:#dde3f3;
+    width:34px; height:34px; border-radius:50%; object-fit:cover; background:#dde3f3;
     display:flex; align-items:center; justify-content:center; font-weight:700; color:#4A6FA5;
-    margin-bottom:6px; font-size:1rem;
+    margin-bottom:4px; font-size:.85rem;
   }
-  .prof-card h4{ margin:0 0 4px; font-size:.95rem; }
+  .prof-card h4{ margin:0 0 3px; font-size:.86rem; }
   .prof-card .prof-name-row{
     display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;
   }
-  .prof-card p{ margin:2px 0; font-size:.8rem; color:var(--muted); }
+  .prof-card p{ margin:1px 0; font-size:.74rem; color:var(--muted); }
   .prof-card .badges{ display:inline-flex; gap:4px; }
   .badge{
-    display:inline-flex; align-items:center; gap:4px; font-size:.72rem; font-weight:700; padding:3px 9px;
+    display:inline-flex; align-items:center; gap:4px; font-size:.66rem; font-weight:700; padding:2px 7px;
     border-radius:10px; margin-right:5px; background:#eef1fa; color:#33415c;
   }
   .badge.as{
     background:#2b4fb0; color:#fff; font-weight:800; letter-spacing:.2px; text-transform:uppercase;
     box-shadow:0 2px 5px rgba(0,0,0,.18);
   }
-  .prof-card .card-actions{ position:absolute; top:10px; right:10px; display:flex; gap:4px; }
+  .prof-card .card-actions{ position:absolute; top:6px; right:6px; display:flex; gap:3px; }
   .icon-btn{
     background:#fff; border:1px solid var(--border); color:var(--muted); border-radius:6px;
-    width:26px; height:26px; padding:0; font-size:.8rem; cursor:pointer;
+    width:22px; height:22px; padding:0; font-size:.72rem; cursor:pointer;
   }
   .icon-btn:hover{ background:#eef1fa; }
   .add-prof-btn{
     border:2px dashed var(--border); background:transparent; color:var(--muted);
-    border-radius:12px; min-height:120px; display:flex; align-items:center; justify-content:center;
-    cursor:pointer; font-weight:600;
+    border-radius:12px; min-height:80px; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; font-weight:600; font-size:.85rem;
   }
   .add-prof-btn:hover{ border-color:var(--c1); color:var(--c1); }
 
@@ -1598,30 +1598,29 @@
     }));
   }
 
-  function wrapPrintDocument(title, bodyHtml){
+  function buildPrintDocument(title, innerHtml, extraStyle){
+    const styleTag = document.querySelector("style").outerHTML;
+    const dateStr = new Date().toLocaleDateString("fr-FR");
     return `<!doctype html><html lang="fr"><head><meta charset="UTF-8"><title>${escapeHtml(title)}</title>
+${styleTag}
 <style>
-  body{ font-family:Georgia,"Times New Roman",serif; color:#1f2430; max-width:800px; margin:24px auto; padding:0 16px; line-height:1.5; }
-  h1{ font-size:1.5rem; margin-bottom:2px; }
-  h2{ font-size:1.15rem; margin-top:28px; border-bottom:2px solid #4A6FA5; padding-bottom:4px; }
-  .meta{ color:#68708a; font-size:.85rem; margin-top:0; }
-  .etab{ margin-top:18px; page-break-inside:avoid; }
-  .coord{ color:#33415c; font-size:.9rem; margin:2px 0; }
-  ul.profs{ list-style:none; padding:0; margin:8px 0 0; }
-  ul.profs li{ padding:8px 0; border-top:1px solid #e2e6f0; font-size:.92rem; }
-  table.summary{ border-collapse:collapse; width:100%; margin-top:10px; font-size:.88rem; }
-  table.summary th, table.summary td{ border:1px solid #cfd6e6; padding:6px 10px; text-align:left; vertical-align:top; }
-  table.summary th{ background:#eef1fa; }
-  .none{ color:#98a0b8; font-style:italic; }
-  @media print{ body{ margin:0; padding:12px; } }
-</style></head><body>${bodyHtml}</body></html>`;
+  body{ background:#fff; padding:18px; }
+  .print-title{ text-align:center; margin:0 0 2px; }
+  .print-date{ text-align:center; color:var(--muted); font-size:.85rem; margin:0 0 20px; }
+  .section-title{ margin-top:30px; }
+  .table-wrap{ margin-top:10px; overflow:visible; }
+  table{ min-width:0; width:100%; }
+  @media print{
+    body{ padding:6px; }
+    .etab-block{ page-break-inside:avoid; }
   }
-
-  function summaryTableHtml(summary){
-    if(!summary.length) return "<p class='none'>Aucune donnée.</p>";
-    return "<table class='summary'><thead><tr><th>Activité</th><th>Établissements</th></tr></thead><tbody>" +
-      summary.map(s=>`<tr><td>${escapeHtml(s.activite)}</td><td>${s.etabs.map(escapeHtml).join(", ")}</td></tr>`).join("") +
-      "</tbody></table>";
+  ${extraStyle||""}
+</style>
+</head><body>
+<h1 class="print-title">${escapeHtml(title)}</h1>
+<p class="print-date">Édité le ${dateStr}</p>
+${innerHtml}
+</body></html>`;
   }
 
   function summaryTableMarkdown(summary){
@@ -1641,35 +1640,24 @@
     setTimeout(()=>{ win.print(); }, 250);
   }
 
-  function buildAnnuaireBodyHtml(){
-    const dateStr = new Date().toLocaleDateString("fr-FR");
-    const data = gatherAnnuaireData();
-    let body = `<h1>District de Villeurbanne — Annuaire</h1><p class="meta">Édité le ${dateStr}</p>`;
-    data.forEach(etab=>{
-      body += `<div class="etab"><h2>${escapeHtml(etab.nom)}</h2>`;
-      const coord = [etab.adresse, etab.telephone, etab.email].filter(Boolean).map(escapeHtml).join(" · ");
-      if(coord) body += `<p class="coord">${coord}</p>`;
-      if(etab.lienPartage) body += `<p class="coord">Fichiers : ${escapeHtml(etab.lienPartage)}</p>`;
-      if(etab.profs.length){
-        body += "<ul class='profs'>";
-        etab.profs.forEach(p=>{
-          const badges = [p.coordoAS?"Coordo AS":"", p.coordoEPS?"Coordo EPS":""].filter(Boolean).join(", ");
-          body += `<li><strong>${escapeHtml(p.nom)}</strong>${badges?` (${escapeHtml(badges)})`:""}<br>`;
-          const contact = [p.telephone, p.email].filter(Boolean).map(escapeHtml).join(" · ");
-          if(contact) body += `${contact}<br>`;
-          if(p.activitesPratiquees.length) body += `Pratiquées : ${p.activitesPratiquees.map(escapeHtml).join(", ")}<br>`;
-          if(p.activitesCompetition.length) body += `Compétition : ${p.activitesCompetition.map(escapeHtml).join(", ")}`;
-          body += "</li>";
-        });
-        body += "</ul>";
-      } else {
-        body += "<p class='none'>Aucun collègue renseigné.</p>";
-      }
-      body += "</div>";
-    });
-    body += "<h2>Récapitulatif — Activités pratiquées (loisir)</h2>" + summaryTableHtml(activitesPratiqueesSummary());
-    body += "<h2>Récapitulatif — Activités engagées en compétition</h2>" + summaryTableHtml(activitesCompetitionSummary());
-    return body;
+  function buildAnnuairePrintHtml(){
+    const profsClone = document.getElementById("profs-container").cloneNode(true);
+    profsClone.querySelectorAll(".card-actions, .add-prof-btn, .icon-btn-light").forEach(el=>el.remove());
+    const pratTable = document.getElementById("table-activites-pratiquees").cloneNode(true);
+    const compTable = document.getElementById("table-activites-competition").cloneNode(true);
+    const body = profsClone.outerHTML
+      + `<h2 class="section-title">Activités pratiquées (loisir)</h2><div class="table-wrap">${pratTable.outerHTML}</div>`
+      + `<h2 class="section-title">Activités engagées en compétition</h2><div class="table-wrap">${compTable.outerHTML}</div>`;
+    return buildPrintDocument("District de Villeurbanne — Annuaire", body,
+      "#profs-container{ grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); }");
+  }
+
+  function buildActivitesPrintHtml(){
+    const pratTable = document.getElementById("table-activites-pratiquees").cloneNode(true);
+    const compTable = document.getElementById("table-activites-competition").cloneNode(true);
+    const body = `<h2 class="section-title">Activités pratiquées (loisir)</h2><div class="table-wrap">${pratTable.outerHTML}</div>`
+      + `<h2 class="section-title">Activités engagées en compétition</h2><div class="table-wrap">${compTable.outerHTML}</div>`;
+    return buildPrintDocument("District de Villeurbanne — Activités", body);
   }
 
   function buildAnnuaireMarkdown(){
@@ -1683,13 +1671,11 @@
       if(etab.lienPartage) lines.push("Fichiers : " + etab.lienPartage);
       lines.push("");
       if(etab.profs.length){
+        lines.push("| Nom | Téléphone | Email | Rôles | Activités pratiquées | Activités compétition |");
+        lines.push("|---|---|---|---|---|---|");
         etab.profs.forEach(p=>{
           const badges = [p.coordoAS?"Coordo AS":"", p.coordoEPS?"Coordo EPS":""].filter(Boolean).join(", ");
-          lines.push("- **" + p.nom + "**" + (badges?" ("+badges+")":""));
-          const contact = [p.telephone, p.email].filter(Boolean).join(" · ");
-          if(contact) lines.push("  " + contact);
-          if(p.activitesPratiquees.length) lines.push("  Pratiquées : " + p.activitesPratiquees.join(", "));
-          if(p.activitesCompetition.length) lines.push("  Compétition : " + p.activitesCompetition.join(", "));
+          lines.push(`| ${p.nom} | ${p.telephone||""} | ${p.email||""} | ${badges} | ${p.activitesPratiquees.join(", ")} | ${p.activitesCompetition.join(", ")} |`);
         });
       } else {
         lines.push("_Aucun collègue renseigné._");
@@ -1699,14 +1685,6 @@
     lines.push("## Récapitulatif — Activités pratiquées (loisir)", "", summaryTableMarkdown(activitesPratiqueesSummary()), "");
     lines.push("## Récapitulatif — Activités engagées en compétition", "", summaryTableMarkdown(activitesCompetitionSummary()));
     return lines.join("\n");
-  }
-
-  function buildActivitesBodyHtml(){
-    const dateStr = new Date().toLocaleDateString("fr-FR");
-    let body = `<h1>District de Villeurbanne — Activités</h1><p class="meta">Édité le ${dateStr}</p>`;
-    body += "<h2>Activités pratiquées (loisir)</h2>" + summaryTableHtml(activitesPratiqueesSummary());
-    body += "<h2>Activités engagées en compétition</h2>" + summaryTableHtml(activitesCompetitionSummary());
-    return body;
   }
 
   function buildActivitesMarkdown(){
@@ -1719,13 +1697,13 @@
   }
 
   document.getElementById("btn-export-annuaire-pdf").addEventListener("click", ()=>{
-    openPrintPreview(wrapPrintDocument("District de Villeurbanne — Annuaire", buildAnnuaireBodyHtml()));
+    openPrintPreview(buildAnnuairePrintHtml());
   });
   document.getElementById("btn-export-annuaire-md").addEventListener("click", ()=>{
     downloadFile("district-villeurbanne-annuaire.md", buildAnnuaireMarkdown(), "text/markdown");
   });
   document.getElementById("btn-export-activites-pdf").addEventListener("click", ()=>{
-    openPrintPreview(wrapPrintDocument("District de Villeurbanne — Activités", buildActivitesBodyHtml()));
+    openPrintPreview(buildActivitesPrintHtml());
   });
   document.getElementById("btn-export-activites-md").addEventListener("click", ()=>{
     downloadFile("district-villeurbanne-activites.md", buildActivitesMarkdown(), "text/markdown");
