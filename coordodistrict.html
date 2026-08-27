@@ -193,6 +193,7 @@
   .state-off{ color:#c7cbd8; }
   .state-pratique{ color:#2E8FA3; }
   .state-competition{ color:#C9435C; }
+  .activite-count{ display:inline-block; margin-top:2px; font-size:.68rem; font-weight:600; text-transform:none; letter-spacing:0; opacity:.85; }
 
   #activite-filter{
     padding:9px 14px; border:1px solid var(--border); border-radius:9px; font-size:.85rem; font-weight:600;
@@ -1181,7 +1182,10 @@
 
     const theadRow = document.getElementById(theadId);
     theadRow.innerHTML = `<th style="background:var(--c1)">Établissement</th>` +
-      activesCols.map((a,i)=>`<th style="background:var(--${PALETTE[(i+1)%PALETTE.length]})">${escapeHtml(a)}</th>`).join("");
+      activesCols.map((a,i)=>{
+        const count = etabs.filter(etab=>flagFn(etab, a)).length;
+        return `<th style="background:var(--${PALETTE[(i+1)%PALETTE.length]})">${escapeHtml(a)}<br><span class="activite-count">${count} étab.${count>1?"s":""}</span></th>`;
+      }).join("");
 
     const tbody = document.getElementById(tbodyId);
     tbody.innerHTML = "";
