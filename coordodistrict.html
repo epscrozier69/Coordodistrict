@@ -1610,9 +1610,14 @@ ${styleTag}
   .section-title{ margin-top:30px; }
   .table-wrap{ margin-top:10px; overflow:visible; }
   table{ min-width:0; width:100%; }
+  .activites-page table{ font-size:.62rem; }
+  .activites-page th, .activites-page td{ padding:3px 4px !important; }
+  .activites-page thead th{ white-space:normal !important; }
   @media print{
-    body{ padding:6px; }
+    @page{ size: A4 landscape; margin:10mm; }
+    body{ padding:0; }
     .etab-block{ page-break-inside:avoid; }
+    .activites-page{ page-break-before:always; page-break-inside:avoid; }
   }
   ${extraStyle||""}
 </style>
@@ -1646,17 +1651,17 @@ ${innerHtml}
     const pratTable = document.getElementById("table-activites-pratiquees").cloneNode(true);
     const compTable = document.getElementById("table-activites-competition").cloneNode(true);
     const body = profsClone.outerHTML
-      + `<h2 class="section-title">Activités pratiquées (loisir)</h2><div class="table-wrap">${pratTable.outerHTML}</div>`
-      + `<h2 class="section-title">Activités engagées en compétition</h2><div class="table-wrap">${compTable.outerHTML}</div>`;
+      + `<div class="activites-page"><h2 class="section-title">Activités pratiquées (loisir)</h2><div class="table-wrap">${pratTable.outerHTML}</div></div>`
+      + `<div class="activites-page"><h2 class="section-title">Activités engagées en compétition</h2><div class="table-wrap">${compTable.outerHTML}</div></div>`;
     return buildPrintDocument("District de Villeurbanne — Annuaire", body,
-      "#profs-container{ grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); }");
+      "#profs-container{ grid-template-columns:repeat(auto-fill,minmax(380px,1fr)); } .prof-grid{ grid-template-columns:repeat(2,1fr); }");
   }
 
   function buildActivitesPrintHtml(){
     const pratTable = document.getElementById("table-activites-pratiquees").cloneNode(true);
     const compTable = document.getElementById("table-activites-competition").cloneNode(true);
-    const body = `<h2 class="section-title">Activités pratiquées (loisir)</h2><div class="table-wrap">${pratTable.outerHTML}</div>`
-      + `<h2 class="section-title">Activités engagées en compétition</h2><div class="table-wrap">${compTable.outerHTML}</div>`;
+    const body = `<div class="activites-page" style="page-break-before:auto;"><h2 class="section-title">Activités pratiquées (loisir)</h2><div class="table-wrap">${pratTable.outerHTML}</div></div>`
+      + `<div class="activites-page"><h2 class="section-title">Activités engagées en compétition</h2><div class="table-wrap">${compTable.outerHTML}</div></div>`;
     return buildPrintDocument("District de Villeurbanne — Activités", body);
   }
 
