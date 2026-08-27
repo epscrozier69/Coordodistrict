@@ -279,6 +279,7 @@
       <div class="actions">
         <button id="btn-copy-phones" class="secondary">📱 Copier les téléphones des collègues</button>
         <button id="btn-copy-emails" class="secondary">✉️ Copier les emails des collègues</button>
+        <button id="btn-copy-emails-coordo-as" class="secondary">✉️ Copier les emails des coordos AS</button>
         <button id="btn-export-annuaire-pdf" class="secondary">📄 Export PDF (consultation)</button>
         <button id="btn-export-annuaire-md" class="secondary">📝 Export Markdown (consultation)</button>
         <button id="btn-force-sync" class="secondary">🔄 Synchroniser maintenant</button>
@@ -1492,6 +1493,13 @@
     });
     return [...set];
   }
+  function gatherCoordoASEmails(){
+    const set = new Set();
+    state.etablissements.forEach(etab=>{
+      etab.profs.forEach(p=>{ if(!p.virtual && p.coordoAS && p.email && p.email.trim()) set.add(p.email.trim()); });
+    });
+    return [...set];
+  }
   function copyToClipboard(text, label){
     if(navigator.clipboard && window.isSecureContext){
       navigator.clipboard.writeText(text).then(
@@ -1507,6 +1515,11 @@
   });
   document.getElementById("btn-copy-emails").addEventListener("click", ()=>{
     copyToClipboard(gatherEmails().join("; "), "Les adresses email");
+  });
+  document.getElementById("btn-copy-emails-coordo-as").addEventListener("click", ()=>{
+    const emails = gatherCoordoASEmails();
+    if(!emails.length){ alert("Aucun coordonnateur AS avec une adresse email renseignée."); return; }
+    copyToClipboard(emails.join("; "), "Les adresses email des coordos AS");
   });
 
   const isEmbedded = (function(){ try{ return window.self !== window.top; }catch(e){ return true; } })();
@@ -1613,8 +1626,8 @@ ${styleTag}
   .activites-page table{ font-size:.62rem; }
   .activites-page th, .activites-page td{ padding:3px 4px !important; }
   .activites-page thead th{ white-space:normal !important; }
+  @page{ size: A4 landscape; margin:10mm; }
   @media print{
-    @page{ size: A4 landscape; margin:10mm; }
     body{ padding:0; }
     .etab-block{ page-break-inside:avoid; }
     .activites-page{ page-break-before:always; page-break-inside:avoid; }
