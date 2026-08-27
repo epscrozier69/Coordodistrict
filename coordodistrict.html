@@ -194,6 +194,15 @@
   .state-pratique{ color:#2E8FA3; }
   .state-competition{ color:#C9435C; }
   .activite-count{ display:inline-block; margin-top:2px; font-size:.68rem; font-weight:600; text-transform:none; letter-spacing:0; opacity:.85; }
+  #table-activites-pratiquees th:first-child, #table-activites-competition th:first-child{
+    position:sticky; left:0; z-index:2;
+  }
+  #table-activites-pratiquees td:first-child, #table-activites-competition td:first-child{
+    position:sticky; left:0; z-index:1; background:#fff;
+  }
+  #table-activites-pratiquees tbody tr:hover td:first-child, #table-activites-competition tbody tr:hover td:first-child{
+    background:#f7f9fd;
+  }
 
   #activite-filter{
     padding:9px 14px; border:1px solid var(--border); border-radius:9px; font-size:.85rem; font-weight:600;
