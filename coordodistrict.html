@@ -179,13 +179,6 @@
     width:22px; height:22px; padding:0; font-size:.72rem; cursor:pointer;
   }
   .icon-btn:hover{ background:#eef1fa; }
-  .add-prof-btn{
-    border:2px dashed var(--border); background:transparent; color:var(--muted);
-    border-radius:12px; min-height:80px; display:flex; align-items:center; justify-content:center;
-    cursor:pointer; font-weight:600; font-size:.85rem;
-  }
-  .add-prof-btn:hover{ border-color:var(--c1); color:var(--c1); }
-
   /* Activites (récapitulatif non modifiable) */
   #table-activites-pratiquees td:not(:first-child), #table-activites-competition td:not(:first-child){
     text-align:center; font-weight:700;
@@ -1036,12 +1029,6 @@
         `;
         grid.appendChild(card);
       });
-
-      const addBtn = document.createElement("div");
-      addBtn.className = "add-prof-btn";
-      addBtn.textContent = "+ Ajouter un professeur";
-      addBtn.addEventListener("click", ()=>openProfModal(etab.id, null));
-      grid.appendChild(addBtn);
 
       block.appendChild(grid);
       container.appendChild(block);
