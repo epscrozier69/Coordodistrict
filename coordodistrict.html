@@ -135,8 +135,8 @@
     gap:8px; padding:10px 12px;
     color:#fff; cursor:pointer;
   }
-  .etab-block-head h3{ margin:0 0 2px; font-size:.9rem; font-weight:700; }
-  .etab-head-meta{ font-size:.66rem; opacity:.92; display:flex; flex-direction:column; gap:2px; }
+  .etab-block-head h3{ margin:0 0 4px; font-size:1.15rem; font-weight:700; }
+  .etab-head-meta{ font-size:.7rem; opacity:.92; display:flex; flex-direction:column; gap:3px; }
   .icon-btn-light{
     align-self:flex-start;
     background:rgba(255,255,255,.2); border:1px solid rgba(255,255,255,.4); color:#fff;
@@ -148,7 +148,7 @@
     gap:8px; padding:9px; background:#fff; min-width:0;
   }
   .prof-card{
-    flex:0 0 auto; width:160px;
+    flex:0 0 auto; width:230px;
     border:1px solid var(--border); border-left:4px solid var(--border); border-radius:10px; padding:8px; position:relative;
     background:#fbfcff;
   }
@@ -156,15 +156,17 @@
   .prof-card.is-eps{ border-left-color:#a1590b; background:#fffaf3; }
   .prof-card.is-as.is-eps{ border-left:4px solid; border-image:linear-gradient(#2b4fb0,#a1590b) 1; background:linear-gradient(180deg,#f5f8ff,#fffaf3); }
   .prof-card .avatar{
-    width:34px; height:34px; border-radius:50%; object-fit:cover; background:#dde3f3;
+    width:72px; height:72px; border-radius:50%; object-fit:cover; background:#dde3f3;
     display:flex; align-items:center; justify-content:center; font-weight:700; color:#4A6FA5;
-    margin-bottom:4px; font-size:.85rem;
+    margin-bottom:6px; font-size:1.5rem;
   }
   .prof-card h4{ margin:0 0 3px; font-size:.86rem; }
   .prof-card .prof-name-row{
     display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;
   }
-  .prof-card p{ margin:1px 0; font-size:.74rem; color:var(--muted); }
+  .prof-card p{ margin:1px 0; font-size:.74rem; color:var(--muted); overflow-wrap:anywhere; }
+  .prof-card .email-copy{ cursor:pointer; }
+  .prof-card .email-copy:hover{ color:var(--c1); text-decoration:underline; }
   .prof-card .badges{ display:inline-flex; gap:4px; }
   .badge{
     display:inline-flex; align-items:center; gap:4px; font-size:.66rem; font-weight:700; padding:2px 7px;
@@ -993,13 +995,13 @@
       const color = etabColorVar(etab);
       const block = document.createElement("div");
       block.className = "etab-block";
-      const meta = [etab.adresse, etab.telephone, etab.email].filter(Boolean).map(escapeHtml).join(" · ") || "Coordonnées non renseignées";
+      const metaLines = [etab.adresse, etab.telephone, etab.email].filter(Boolean).map(v=>`<div>${escapeHtml(v)}</div>`).join("") || "<div>Coordonnées non renseignées</div>";
       const lien = etab.lienPartage ? `<a href="${escapeAttr(etab.lienPartage)}" target="_blank" rel="noopener" style="color:#fff;">📎 Fichiers</a>` : "";
       block.innerHTML = `
         <div class="etab-block-head" style="background:${color}" data-edit-etab="${etab.id}">
           <div>
             <h3>${escapeHtml(etab.nom)}</h3>
-            <div class="etab-head-meta"><span>${meta}</span>${lien ? `<span>${lien}</span>` : ""}</div>
+            <div class="etab-head-meta">${metaLines}${lien ? `<div>${lien}</div>` : ""}</div>
           </div>
           <button type="button" class="icon-btn-light" title="Modifier l'établissement" data-edit-etab="${etab.id}">✎</button>
         </div>
@@ -1007,7 +1009,9 @@
       const grid = document.createElement("div");
       grid.className = "prof-grid";
 
-      etab.profs.filter(prof=>!prof.virtual).forEach(prof=>{
+      etab.profs.filter(prof=>!prof.virtual)
+        .sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}))
+        .forEach(prof=>{
         const card = document.createElement("div");
         card.className = "prof-card" + (prof.coordoAS ? " is-as" : "") + (prof.coordoEPS ? " is-eps" : "");
         const avatar = prof.photo
@@ -1024,7 +1028,7 @@
             ${prof.coordoEPS ? '<span class="badge eps">★ Coordo EPS</span>' : ""}
           </span>` : ""}</h4>
           <p>${escapeHtml(prof.telephone)||"—"}</p>
-          <p>${escapeHtml(prof.email)||"—"}</p>
+          ${prof.email ? `<p class="email-copy" title="Cliquer pour copier l'email" data-copy-email="${escapeAttr(prof.email)}">${escapeHtml(prof.email)}</p>` : "<p>—</p>"}
           <div class="tags">
             ${(prof.activitesPratiquees||[]).map(a=>`<span class="tag">${escapeHtml(a==="Autres" && prof.autrePratiqueePrecision ? `Autres (${prof.autrePratiqueePrecision})` : a)}</span>`).join("")}
             ${(prof.activitesCompetition||[]).map(a=>`<span class="tag comp">${escapeHtml(a==="Autres" && prof.autreCompetitionPrecision ? `Autres (${prof.autreCompetitionPrecision})` : a)}</span>`).join("")}
@@ -1059,6 +1063,11 @@
           etab.profs = etab.profs.filter(p=>p.id!==btn.dataset.delProf);
           saveState(); renderAll();
         }
+      });
+    });
+    container.querySelectorAll("[data-copy-email]").forEach(el=>{
+      el.addEventListener("click", ()=>{
+        copyToClipboard(el.dataset.copyEmail, "L'adresse email");
       });
     });
   }
