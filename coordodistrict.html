@@ -127,27 +127,28 @@
 
   /* Onglet profs */
   #profs-container{
-    display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:12px; align-items:start;
+    display:flex; flex-direction:column; gap:10px;
   }
-  .etab-block{ cursor:default; }
+  .etab-block{ display:flex; align-items:stretch; background:#fff; border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; }
   .etab-block-head{
-    display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;
-    gap:8px; padding:7px 12px; border-radius:var(--radius) var(--radius) 0 0;
+    display:flex; flex-direction:column; justify-content:space-between; flex:0 0 190px;
+    gap:8px; padding:10px 12px;
     color:#fff; cursor:pointer;
   }
-  .etab-block-head h3{ margin:0 0 2px; font-size:.92rem; font-weight:700; }
-  .etab-head-meta{ font-size:.7rem; opacity:.92; display:flex; gap:10px; flex-wrap:wrap; }
+  .etab-block-head h3{ margin:0 0 2px; font-size:.9rem; font-weight:700; }
+  .etab-head-meta{ font-size:.66rem; opacity:.92; display:flex; flex-direction:column; gap:2px; }
   .icon-btn-light{
+    align-self:flex-start;
     background:rgba(255,255,255,.2); border:1px solid rgba(255,255,255,.4); color:#fff;
     border-radius:6px; width:26px; height:26px; padding:0; font-size:.78rem; cursor:pointer;
   }
   .icon-btn-light:hover{ background:rgba(255,255,255,.35); }
   .prof-grid{
-    display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
-    gap:8px; padding:9px; background:#fff; border-radius:0 0 var(--radius) var(--radius);
-    box-shadow:var(--shadow);
+    flex:1; display:flex; flex-wrap:wrap; align-content:flex-start;
+    gap:8px; padding:9px; background:#fff; min-width:0;
   }
   .prof-card{
+    flex:0 0 auto; width:160px;
     border:1px solid var(--border); border-left:4px solid var(--border); border-radius:10px; padding:8px; position:relative;
     background:#fbfcff;
   }
@@ -256,6 +257,8 @@
     .tab-btn{ padding:7px 11px; font-size:.78rem; }
     .panel-header h2{ font-size:1.05rem; }
     table{ min-width:640px; }
+    .etab-block{ flex-direction:column; }
+    .etab-block-head{ flex:0 0 auto; flex-direction:row; align-items:center; justify-content:space-between; }
   }
 </style>
 </head>
