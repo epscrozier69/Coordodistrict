@@ -92,7 +92,7 @@
     padding:2px 9px; font-size:.72rem; margin:2px 3px 0 0; font-weight:600;
   }
   .tag.comp{ background:#fde4ea; color:#a12f52; }
-  .prof-card .tags{ margin-top:2px; }
+  .prof-card .tags{ margin-top:2px; width:100%; }
   .prof-card .tag{ font-size:.72rem; padding:2px 8px; margin:2px 3px 0 0; }
   .prof-card .tag:not(.comp){ background:#4b5563; color:#fff; }
 
@@ -175,7 +175,7 @@
   .prof-card p{ margin:0; font-size:.78rem; color:var(--muted); white-space:nowrap; }
   .prof-card .email-copy{ cursor:pointer; }
   .prof-card .email-copy:hover{ color:var(--c1); text-decoration:underline; }
-  .prof-card .badges{ display:flex; flex-wrap:wrap; gap:3px; margin-bottom:2px; }
+  .prof-card .badges{ display:flex; flex-wrap:wrap; gap:3px; margin-bottom:2px; width:100%; }
   .badge{
     display:inline-flex; align-items:center; gap:3px; font-size:.72rem; font-weight:700; padding:2px 8px;
     border-radius:10px; margin-right:4px; background:#eef1fa; color:#33415c;
@@ -803,7 +803,9 @@
   function pushRemoteState(){
     if(!SYNC_URL) return;
     if(JSON.stringify(state).length > 45000){
-      setSyncStatus("Échec de synchronisation : données trop volumineuses (probablement trop de photos ou des photos trop lourdes). Réduisez-en le nombre ou leur taille.");
+      const msg = "Échec de synchronisation : données trop volumineuses (probablement trop de photos ou des photos trop lourdes). Réduisez-en le nombre ou leur taille. Vos modifications restent enregistrées sur cet appareil mais ne seront pas envoyées tant que ce n'est pas résolu.";
+      setSyncStatus(msg);
+      alert(msg);
       return;
     }
     if(syncInFlight){ syncPending = true; return; }
@@ -959,67 +961,74 @@
   }
 
   // ---------- RENDER: PROFS ----------
-  function renderProfs(){
-    renderLastModifiedInfo();
-    const container = document.getElementById("profs-container");
-    container.innerHTML = "";
-    sortedEtabs().forEach(etab=>{
-      const color = etabColorVar(etab);
-      const textColor = etabHeadTextColor(etab);
-      const block = document.createElement("div");
-      block.className = "etab-block";
-      const metaLines = [etab.adresse, etab.telephone, etab.email].filter(Boolean).map(v=>`<div>${escapeHtml(v)}</div>`).join("") || "<div>Coordonnées non renseignées</div>";
-      const lien = etab.lienPartage ? `<a href="${escapeAttr(etab.lienPartage)}" target="_blank" rel="noopener" style="color:${textColor};">📎 Fichiers</a>` : "";
-      block.innerHTML = `
+  function profCardHtml(prof, etab, opts){
+    opts = opts || {};
+    const avatar = prof.photo
+      ? `<img class="avatar" src="${prof.photo}" alt="${escapeAttr(prof.nom)}">`
+      : `<div class="avatar">${initials(prof.nom)}</div>`;
+    const nomMatch = prof.nom.match(/^(.*?)(\s*\([^)]*\)\s*)$/);
+    const nomMain = nomMatch ? nomMatch[1].trim() : prof.nom;
+    const nomNote = nomMatch ? nomMatch[2].trim() : "";
+    const uploadBtn = opts.editable ? `
+      <label class="photo-upload-btn" title="Ajouter / changer la photo">
+        📷
+        <input type="file" accept="image/*" data-photo-input="${escapeAttr(prof.id)}" data-photo-etab="${escapeAttr(etab.id)}" style="display:none">
+      </label>` : "";
+    const emailHtml = prof.email
+      ? (opts.editable
+          ? `<p class="email-copy" title="Cliquer pour copier l'email" data-copy-email="${escapeAttr(prof.email)}">${escapeHtml(prof.email)}</p>`
+          : `<p><a href="mailto:${escapeAttr(prof.email)}" style="color:inherit;text-decoration:none;">${escapeHtml(prof.email)}</a></p>`)
+      : "<p>—</p>";
+    return `
+      <div class="prof-card${prof.coordoAS ? " is-as" : ""}${prof.coordoEPS ? " is-eps" : ""}">
+        <div class="card-photo">
+          ${avatar}
+          ${uploadBtn}
+        </div>
+        <div class="card-info">
+          <h4 class="prof-name-row"><span>${escapeHtml(nomMain)}</span>${nomNote ? `<span class="prof-name-note">${escapeHtml(nomNote)}</span>` : ""}</h4>
+          ${(prof.coordoAS || prof.coordoEPS) ? `<div class="badges">
+            ${prof.coordoAS ? '<span class="badge as">★ Coordo AS</span>' : ""}
+            ${prof.coordoEPS ? '<span class="badge eps">★ Coordo EPS</span>' : ""}
+          </div>` : ""}
+          <p>${escapeHtml(prof.telephone)||"—"}</p>
+          ${emailHtml}
+          <div class="tags">
+            ${(prof.activitesPratiquees||[]).map(a=>`<span class="tag">${escapeHtml(a==="Autres" && prof.autrePratiqueePrecision ? prof.autrePratiqueePrecision : a)}</span>`).join("")}
+            ${(prof.activitesCompetition||[]).map(a=>`<span class="tag comp">${escapeHtml(a==="Autres" && prof.autreCompetitionPrecision ? prof.autreCompetitionPrecision : a)}</span>`).join("")}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function etabBlockHtml(etab, opts){
+    opts = opts || {};
+    const color = etabColorVar(etab);
+    const textColor = etabHeadTextColor(etab);
+    const metaLines = [etab.adresse, etab.telephone, etab.email].filter(Boolean).map(v=>`<div>${escapeHtml(v)}</div>`).join("") || "<div>Coordonnées non renseignées</div>";
+    const lien = etab.lienPartage ? `<a href="${escapeAttr(etab.lienPartage)}" target="_blank" rel="noopener" style="color:${textColor};">📎 Fichiers</a>` : "";
+    const profsHtml = etab.profs.filter(prof=>!prof.virtual)
+      .sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}))
+      .map(prof=>profCardHtml(prof, etab, opts))
+      .join("");
+    return `
+      <div class="etab-block">
         <div class="etab-block-head" style="background:${color}; color:${textColor};">
           <div>
             <h3>${escapeHtml(etab.nom)}</h3>
             <div class="etab-head-meta">${metaLines}${lien ? `<div>${lien}</div>` : ""}</div>
           </div>
         </div>
-      `;
-      const grid = document.createElement("div");
-      grid.className = "prof-grid";
+        <div class="prof-grid">${profsHtml}</div>
+      </div>
+    `;
+  }
 
-      etab.profs.filter(prof=>!prof.virtual)
-        .sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}))
-        .forEach(prof=>{
-        const card = document.createElement("div");
-        card.className = "prof-card" + (prof.coordoAS ? " is-as" : "") + (prof.coordoEPS ? " is-eps" : "");
-        const avatar = prof.photo
-          ? `<img class="avatar" src="${prof.photo}" alt="${escapeAttr(prof.nom)}">`
-          : `<div class="avatar">${initials(prof.nom)}</div>`;
-        const nomMatch = prof.nom.match(/^(.*?)(\s*\([^)]*\)\s*)$/);
-        const nomMain = nomMatch ? nomMatch[1].trim() : prof.nom;
-        const nomNote = nomMatch ? nomMatch[2].trim() : "";
-        card.innerHTML = `
-          <div class="card-photo">
-            ${avatar}
-            <label class="photo-upload-btn" title="Ajouter / changer la photo">
-              📷
-              <input type="file" accept="image/*" data-photo-input="${escapeAttr(prof.id)}" data-photo-etab="${escapeAttr(etab.id)}" style="display:none">
-            </label>
-          </div>
-          <div class="card-info">
-            <h4 class="prof-name-row"><span>${escapeHtml(nomMain)}</span>${nomNote ? `<span class="prof-name-note">${escapeHtml(nomNote)}</span>` : ""}</h4>
-            ${(prof.coordoAS || prof.coordoEPS) ? `<div class="badges">
-              ${prof.coordoAS ? '<span class="badge as">★ Coordo AS</span>' : ""}
-              ${prof.coordoEPS ? '<span class="badge eps">★ Coordo EPS</span>' : ""}
-            </div>` : ""}
-            <p>${escapeHtml(prof.telephone)||"—"}</p>
-            ${prof.email ? `<p class="email-copy" title="Cliquer pour copier l'email" data-copy-email="${escapeAttr(prof.email)}">${escapeHtml(prof.email)}</p>` : "<p>—</p>"}
-            <div class="tags">
-              ${(prof.activitesPratiquees||[]).map(a=>`<span class="tag">${escapeHtml(a==="Autres" && prof.autrePratiqueePrecision ? prof.autrePratiqueePrecision : a)}</span>`).join("")}
-              ${(prof.activitesCompetition||[]).map(a=>`<span class="tag comp">${escapeHtml(a==="Autres" && prof.autreCompetitionPrecision ? prof.autreCompetitionPrecision : a)}</span>`).join("")}
-            </div>
-          </div>
-        `;
-        grid.appendChild(card);
-      });
-
-      block.appendChild(grid);
-      container.appendChild(block);
-    });
+  function renderProfs(){
+    renderLastModifiedInfo();
+    const container = document.getElementById("profs-container");
+    container.innerHTML = sortedEtabs().map(etab=>etabBlockHtml(etab, {editable:true})).join("");
 
     container.querySelectorAll(".etab-block-head a").forEach(a=>{
       a.addEventListener("click", e=>e.stopPropagation());
@@ -1616,70 +1625,14 @@ ${innerHtml}
     setTimeout(()=>{ win.print(); }, 250);
   }
 
-  function profChipHtml(p){
-    const badges = [p.coordoAS?"★ AS":"", p.coordoEPS?"★ EPS":""].filter(Boolean).join(" · ");
-    const contact = [p.telephone, p.email].filter(Boolean).map(escapeHtml).join(" · ");
-    const pratiquees = (p.activitesPratiquees||[]).map(a=> a==="Autres" && p.autrePratiqueePrecision ? p.autrePratiqueePrecision : a);
-    const competition = (p.activitesCompetition||[]).map(a=> a==="Autres" && p.autreCompetitionPrecision ? p.autreCompetitionPrecision : a);
-    const tags = pratiquees.map(a=>`<span class="tag">${escapeHtml(a)}</span>`).join("")
-      + competition.map(a=>`<span class="tag comp">${escapeHtml(a)}</span>`).join("");
-    const avatar = p.photo
-      ? `<img class="chip-avatar" src="${p.photo}" alt="${escapeAttr(p.nom)}">`
-      : `<div class="chip-avatar chip-avatar-initials">${escapeHtml(initials(p.nom))}</div>`;
-    return `<div class="prof-chip${p.coordoAS?" is-as":""}${p.coordoEPS?" is-eps":""}">
-      <div class="chip-head">
-        ${avatar}
-        <div class="chip-name-block">
-          <div class="name">${escapeHtml(p.nom)}${badges?` <span class="role">${badges}</span>`:""}</div>
-          ${contact?`<div class="contact">${contact}</div>`:""}
-        </div>
-      </div>
-      ${tags?`<div class="tags">${tags}</div>`:""}
-    </div>`;
-  }
-
-  function etabRowHtml(etab){
-    const color = etabColorVar(etab);
-    const profs = etab.profs.filter(p=>!p.virtual);
-    const coord = [etab.adresse, etab.telephone, etab.email].filter(Boolean).map(escapeHtml).join(" · ");
-    return `<div class="etab-row" style="border-left-color:${color}">
-      <div class="etab-row-head">
-        <h3><span class="etab-dot" style="background:${color}"></span>${escapeHtml(etab.nom)}</h3>
-        ${coord?`<div class="coord">${coord}</div>`:""}
-      </div>
-      <div class="etab-row-profs">${profs.length ? profs.map(profChipHtml).join("") : "<span class='none'>Aucun collègue renseigné.</span>"}</div>
-    </div>`;
-  }
-
   function buildAnnuairePrintHtml(){
     const pratTable = document.getElementById("table-activites-pratiquees").cloneNode(true);
     const compTable = document.getElementById("table-activites-competition").cloneNode(true);
-    const etabs = sortedEtabs();
-    const PAGE1_COUNT = 7;
-    const page1 = etabs.slice(0, PAGE1_COUNT).map(etabRowHtml).join("");
-    const page2 = etabs.slice(PAGE1_COUNT).map(etabRowHtml).join("");
-    const body = `<div class="etab-page" style="min-height:172mm;">${page1}</div>`
-      + (page2 ? `<div class="etab-page" style="min-height:188mm; page-break-before:always;">${page2}</div>` : "")
-      + `<div class="activites-page"><h2 class="section-title">Activités pratiquées (loisir)</h2><div class="table-wrap">${pratTable.outerHTML}</div></div>`
+    const etabsHtml = sortedEtabs().map(etab=>etabBlockHtml(etab, {editable:false})).join("");
+    const body = `<div id="profs-container">${etabsHtml}</div>`
+      + `<div class="activites-page" style="page-break-before:always;"><h2 class="section-title">Activités pratiquées (loisir)</h2><div class="table-wrap">${pratTable.outerHTML}</div></div>`
       + `<div class="activites-page"><h2 class="section-title">Activités engagées en compétition</h2><div class="table-wrap">${compTable.outerHTML}</div></div>`;
-    return buildPrintDocument("District de Villeurbanne — Annuaire", body,
-      `.etab-page{ display:flex; flex-direction:column; justify-content:space-between; }
-      .etab-row{ display:grid; grid-template-columns:165px 1fr; align-items:center; gap:8px; padding:5px 6px; border-bottom:1px solid var(--border); border-left:6px solid; flex:0 0 auto; break-inside:avoid; page-break-inside:avoid; }
-      .etab-row-head{ padding-left:6px; }
-      .etab-row-head h3{ margin:0 0 2px; font-size:.82rem; display:flex; align-items:center; }
-      .etab-row-head .coord{ font-size:.6rem; color:var(--muted); line-height:1.3; }
-      .etab-row-profs{ }
-      .prof-chip{ display:inline-block; vertical-align:top; border:1px solid var(--border); border-left:3px solid var(--border); border-radius:6px; padding:3px 5px; font-size:.6rem; min-width:118px; max-width:150px; margin:0 3px 3px 0; background:#fbfcff; }
-      .prof-chip.is-as{ border-left-color:#2b4fb0; }
-      .prof-chip.is-eps{ border-left-color:#a1590b; }
-      .prof-chip .name{ font-weight:700; font-size:.68rem; }
-      .prof-chip .role{ font-weight:700; color:#2b4fb0; }
-      .prof-chip .contact{ color:var(--muted); margin-top:1px; }
-      .prof-chip .tags{ margin-top:2px; }
-      .prof-chip .tag{ font-size:.54rem; padding:1px 5px; margin:1px 1px 0 0; }
-      .chip-head{ display:flex; align-items:center; gap:4px; }
-      .chip-avatar{ width:20px; height:20px; border-radius:50%; object-fit:cover; flex-shrink:0; }
-      .chip-avatar-initials{ display:flex; align-items:center; justify-content:center; background:#dde3f3; color:#4A6FA5; font-weight:700; font-size:.52rem; }`);
+    return buildPrintDocument("District de Villeurbanne — Annuaire", body);
   }
 
   function buildActivitesPrintHtml(){
@@ -1740,10 +1693,18 @@ ${innerHtml}
   // Au lancement : si la synchro est configurée, on récupère la version la plus
   // à jour depuis Google Sheets et on ré-affiche avec ces données fraîches.
   fetchRemoteState().then(remote=>{
-    if(remote){
+    if(!remote) return;
+    const localTime = state.lastModified ? new Date(state.lastModified).getTime() : 0;
+    const remoteTime = remote.lastModified ? new Date(remote.lastModified).getTime() : 0;
+    if(remoteTime >= localTime){
       state = remote;
       cacheStateLocally();
       renderAll();
+    } else {
+      // Cet appareil a des modifications plus récentes que le serveur (probablement
+      // pas encore synchronisées avec succès) : on ne les écrase pas, on retente l'envoi.
+      setSyncStatus("Des modifications locales non encore synchronisées ont été détectées : nouvel envoi en cours…");
+      pushRemoteState();
     }
   });
 })();
