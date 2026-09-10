@@ -980,9 +980,14 @@
           ? `<p class="email-copy" title="Cliquer pour copier l'email" data-copy-email="${escapeAttr(prof.email)}">${escapeHtml(prof.email)}</p>`
           : `<p><a href="mailto:${escapeAttr(prof.email)}" style="color:inherit;text-decoration:none;">${escapeHtml(prof.email)}</a></p>`)
       : "<p>—</p>";
+    const tagLabel = (a, i, displayArr, precision) => {
+      if(displayArr && displayArr[i]) return displayArr[i];
+      if(a==="Autres" && precision) return precision;
+      return a;
+    };
     const tagsHtml = `
-      ${(prof.activitesPratiquees||[]).map(a=>`<span class="tag">${escapeHtml(a==="Autres" && prof.autrePratiqueePrecision ? prof.autrePratiqueePrecision : a)}</span>`).join("")}
-      ${(prof.activitesCompetition||[]).map(a=>`<span class="tag comp">${escapeHtml(a==="Autres" && prof.autreCompetitionPrecision ? prof.autreCompetitionPrecision : a)}</span>`).join("")}
+      ${(prof.activitesPratiquees||[]).map((a,i)=>`<span class="tag">${escapeHtml(tagLabel(a, i, prof.activitesPratiqueesDisplay, prof.autrePratiqueePrecision))}</span>`).join("")}
+      ${(prof.activitesCompetition||[]).map((a,i)=>`<span class="tag comp">${escapeHtml(tagLabel(a, i, prof.activitesCompetitionDisplay, prof.autreCompetitionPrecision))}</span>`).join("")}
     `;
     return `
       <div class="prof-card${prof.coordoAS ? " is-as" : ""}${prof.coordoEPS ? " is-eps" : ""}">
