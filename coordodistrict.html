@@ -235,6 +235,16 @@
   .modal.hidden{ display:none; }
   .modal h3{ margin:0 0 10px; font-size:1.05rem; }
   #modal-overlay-prof .modal{ max-width:660px; }
+  #modal-overlay-select-emails .modal{ max-width:640px; }
+  .select-emails-toolbar{ display:flex; align-items:center; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
+  .select-emails-list{ max-height:55vh; overflow-y:auto; border:1px solid var(--border); border-radius:8px; padding:8px; }
+  .select-emails-etab{ margin-bottom:10px; }
+  .select-emails-etab:last-child{ margin-bottom:0; }
+  .select-emails-etab-head{ display:flex; align-items:center; gap:6px; font-weight:700; padding:4px 2px; border-bottom:1px solid var(--border); margin-bottom:4px; cursor:pointer; }
+  .select-emails-profs{ display:flex; flex-direction:column; gap:2px; padding-left:22px; }
+  .select-emails-prof{ display:flex; align-items:center; gap:6px; font-size:.85rem; padding:2px 0; cursor:pointer; }
+  .select-emails-prof.no-email{ color:var(--muted); cursor:default; }
+  .select-emails-prof .prof-email-text{ font-size:.78rem; color:var(--muted); }
   .form-row{ margin-bottom:8px; display:flex; flex-direction:column; gap:3px; }
   .form-row label{ font-size:.76rem; font-weight:700; color:var(--muted); }
   .form-row input[type=text], .form-row input[type=email], .form-row input[type=tel],
@@ -471,6 +481,23 @@
 </main>
 
 <footer class="app-footer">District UNSS de Villeurbanne — 13 établissements — Données stockées localement dans ce navigateur</footer>
+
+<!-- MODAL SELECTION EMAILS -->
+<div class="modal-overlay hidden" id="modal-overlay-select-emails">
+  <div class="modal">
+    <h3>Choisir les établissements et collègues</h3>
+    <div class="select-emails-toolbar">
+      <button type="button" class="secondary" id="btn-select-emails-all">Tout cocher</button>
+      <button type="button" class="secondary" id="btn-select-emails-none">Tout décocher</button>
+      <span class="hint" id="select-emails-count"></span>
+    </div>
+    <div class="select-emails-list" id="select-emails-list"></div>
+    <div class="modal-footer">
+      <button type="button" class="secondary" data-close="modal-overlay-select-emails">Annuler</button>
+      <button type="button" id="btn-select-emails-copy">Copier les emails sélectionnés</button>
+    </div>
+  </div>
+</div>
 
 <!-- MODAL CARTE -->
 <div class="modal-overlay hidden" id="modal-overlay-carte">
@@ -1315,13 +1342,6 @@
     });
     return [...set];
   }
-  function gatherEmails(){
-    const set = new Set();
-    state.etablissements.forEach(etab=>{
-      etab.profs.forEach(p=>{ if(!p.virtual && p.email && p.email.trim()) set.add(p.email.trim()); });
-    });
-    return [...set];
-  }
   function gatherCoordoASEmails(){
     const set = new Set();
     state.etablissements.forEach(etab=>{
@@ -1343,7 +1363,77 @@
     copyToClipboard(gatherPhones().join(", "), "Les numéros de téléphone");
   });
   document.getElementById("btn-copy-emails").addEventListener("click", ()=>{
-    copyToClipboard(gatherEmails().join("; "), "Les adresses email");
+    openSelectEmailsModal();
+  });
+
+  function openSelectEmailsModal(){
+    const list = document.getElementById("select-emails-list");
+    list.innerHTML = sortedEtabs().map(etab=>{
+      const profs = etab.profs.filter(p=>!p.virtual)
+        .sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}));
+      if(!profs.length) return "";
+      const profsHtml = profs.map(p=>{
+        const hasEmail = !!(p.email && p.email.trim());
+        return `
+          <label class="select-emails-prof${hasEmail ? "" : " no-email"}">
+            <input type="checkbox" data-email-check value="${escapeAttr(hasEmail ? p.email.trim() : "")}" ${hasEmail ? "checked" : "disabled"}>
+            <span>${escapeHtml(p.nom)}</span>
+            ${hasEmail ? `<span class="prof-email-text">${escapeHtml(p.email.trim())}</span>` : `<span class="prof-email-text">(pas d'email)</span>`}
+          </label>
+        `;
+      }).join("");
+      return `
+        <div class="select-emails-etab" data-etab-id="${escapeAttr(etab.id)}">
+          <label class="select-emails-etab-head">
+            <input type="checkbox" data-etab-check checked>
+            <span>${escapeHtml(etab.nom)}</span>
+          </label>
+          <div class="select-emails-profs">${profsHtml}</div>
+        </div>
+      `;
+    }).join("");
+
+    list.querySelectorAll(".select-emails-etab").forEach(block=>{
+      const etabCheck = block.querySelector("[data-etab-check]");
+      const profChecks = [...block.querySelectorAll("[data-email-check]:not(:disabled)")];
+      etabCheck.addEventListener("change", ()=>{
+        profChecks.forEach(c=>{ c.checked = etabCheck.checked; });
+        updateSelectEmailsCount();
+      });
+      profChecks.forEach(c=>{
+        c.addEventListener("change", ()=>{
+          const checkedCount = profChecks.filter(pc=>pc.checked).length;
+          etabCheck.checked = checkedCount > 0;
+          etabCheck.indeterminate = checkedCount > 0 && checkedCount < profChecks.length;
+          updateSelectEmailsCount();
+        });
+      });
+    });
+
+    updateSelectEmailsCount();
+    openModal("modal-overlay-select-emails");
+  }
+
+  function updateSelectEmailsCount(){
+    const n = document.querySelectorAll("#select-emails-list [data-email-check]:checked").length;
+    document.getElementById("select-emails-count").textContent = n + " adresse" + (n>1?"s":"") + " sélectionnée" + (n>1?"s":"");
+  }
+
+  document.getElementById("btn-select-emails-all").addEventListener("click", ()=>{
+    document.querySelectorAll("#select-emails-list [data-etab-check]").forEach(c=>{ c.checked = true; c.indeterminate = false; });
+    document.querySelectorAll("#select-emails-list [data-email-check]:not(:disabled)").forEach(c=>{ c.checked = true; });
+    updateSelectEmailsCount();
+  });
+  document.getElementById("btn-select-emails-none").addEventListener("click", ()=>{
+    document.querySelectorAll("#select-emails-list [data-etab-check]").forEach(c=>{ c.checked = false; c.indeterminate = false; });
+    document.querySelectorAll("#select-emails-list [data-email-check]:not(:disabled)").forEach(c=>{ c.checked = false; });
+    updateSelectEmailsCount();
+  });
+  document.getElementById("btn-select-emails-copy").addEventListener("click", ()=>{
+    const emails = [...new Set([...document.querySelectorAll("#select-emails-list [data-email-check]:checked")].map(c=>c.value).filter(Boolean))];
+    if(!emails.length){ alert("Aucune adresse email sélectionnée."); return; }
+    copyToClipboard(emails.join("; "), "Les adresses email sélectionnées");
+    closeModal("modal-overlay-select-emails");
   });
   document.getElementById("btn-copy-emails-coordo-as").addEventListener("click", ()=>{
     const emails = gatherCoordoASEmails();
