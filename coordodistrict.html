@@ -92,7 +92,7 @@
     padding:2px 9px; font-size:.72rem; margin:2px 3px 0 0; font-weight:600;
   }
   .tag.comp{ background:#fde4ea; color:#a12f52; }
-  .prof-card .tags{ margin-top:2px; width:100%; }
+  .prof-card .tags{ margin-top:2px; }
   .prof-card .tag{ font-size:.72rem; padding:2px 8px; margin:2px 3px 0 0; }
   .prof-card .tag:not(.comp){ background:#4b5563; color:#fff; }
 
@@ -145,13 +145,14 @@
     gap:8px; padding:9px; background:#fff; min-width:0;
   }
   .prof-card{
-    flex:1 1 220px; min-width:190px; display:flex; align-items:center; gap:9px;
+    flex:1 1 220px; min-width:190px; display:flex; flex-direction:column; justify-content:center; gap:4px;
     border:1px solid var(--border); border-left:4px solid var(--border); border-radius:9px; padding:6px; position:relative;
     background:#fbfcff;
   }
   .prof-card.is-as{ border-left-color:#2b4fb0; background:#f5f8ff; }
   .prof-card.is-eps{ border-left-color:#a1590b; background:#fffaf3; }
   .prof-card.is-as.is-eps{ border-left:4px solid; border-image:linear-gradient(#2b4fb0,#a1590b) 1; background:linear-gradient(180deg,#f5f8ff,#fffaf3); }
+  .prof-card .card-top{ display:flex; align-items:center; gap:9px; }
   .prof-card .card-photo{ flex:0 0 auto; position:relative; }
   .prof-card .card-info{ flex:0 0 auto; }
   .prof-card .avatar{
@@ -979,25 +980,28 @@
           ? `<p class="email-copy" title="Cliquer pour copier l'email" data-copy-email="${escapeAttr(prof.email)}">${escapeHtml(prof.email)}</p>`
           : `<p><a href="mailto:${escapeAttr(prof.email)}" style="color:inherit;text-decoration:none;">${escapeHtml(prof.email)}</a></p>`)
       : "<p>—</p>";
+    const tagsHtml = `
+      ${(prof.activitesPratiquees||[]).map(a=>`<span class="tag">${escapeHtml(a==="Autres" && prof.autrePratiqueePrecision ? prof.autrePratiqueePrecision : a)}</span>`).join("")}
+      ${(prof.activitesCompetition||[]).map(a=>`<span class="tag comp">${escapeHtml(a==="Autres" && prof.autreCompetitionPrecision ? prof.autreCompetitionPrecision : a)}</span>`).join("")}
+    `;
     return `
       <div class="prof-card${prof.coordoAS ? " is-as" : ""}${prof.coordoEPS ? " is-eps" : ""}">
-        <div class="card-photo">
-          ${avatar}
-          ${uploadBtn}
-        </div>
-        <div class="card-info">
-          <h4 class="prof-name-row"><span>${escapeHtml(nomMain)}</span>${nomNote ? `<span class="prof-name-note">${escapeHtml(nomNote)}</span>` : ""}</h4>
-          ${(prof.coordoAS || prof.coordoEPS) ? `<div class="badges">
-            ${prof.coordoAS ? '<span class="badge as">★ Coordo AS</span>' : ""}
-            ${prof.coordoEPS ? '<span class="badge eps">★ Coordo EPS</span>' : ""}
-          </div>` : ""}
-          <p>${escapeHtml(prof.telephone)||"—"}</p>
-          ${emailHtml}
-          <div class="tags">
-            ${(prof.activitesPratiquees||[]).map(a=>`<span class="tag">${escapeHtml(a==="Autres" && prof.autrePratiqueePrecision ? prof.autrePratiqueePrecision : a)}</span>`).join("")}
-            ${(prof.activitesCompetition||[]).map(a=>`<span class="tag comp">${escapeHtml(a==="Autres" && prof.autreCompetitionPrecision ? prof.autreCompetitionPrecision : a)}</span>`).join("")}
+        <div class="card-top">
+          <div class="card-photo">
+            ${avatar}
+            ${uploadBtn}
+          </div>
+          <div class="card-info">
+            <h4 class="prof-name-row"><span>${escapeHtml(nomMain)}</span>${nomNote ? `<span class="prof-name-note">${escapeHtml(nomNote)}</span>` : ""}</h4>
+            ${(prof.coordoAS || prof.coordoEPS) ? `<div class="badges">
+              ${prof.coordoAS ? '<span class="badge as">★ Coordo AS</span>' : ""}
+              ${prof.coordoEPS ? '<span class="badge eps">★ Coordo EPS</span>' : ""}
+            </div>` : ""}
+            <p>${escapeHtml(prof.telephone)||"—"}</p>
+            ${emailHtml}
           </div>
         </div>
+        <div class="tags">${tagsHtml}</div>
       </div>
     `;
   }
