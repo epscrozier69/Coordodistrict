@@ -150,7 +150,7 @@
     gap:8px; padding:9px; background:#fff; min-width:0;
   }
   .prof-card{
-    flex:0 0 auto; min-width:130px; display:flex; align-items:center; gap:6px;
+    flex:1 1 190px; min-width:170px; display:flex; align-items:center; gap:6px;
     border:1px solid var(--border); border-left:4px solid var(--border); border-radius:9px; padding:5px; position:relative;
     background:#fbfcff;
   }
@@ -160,9 +160,9 @@
   .prof-card .card-photo{ flex:0 0 auto; }
   .prof-card .card-info{ flex:0 0 auto; padding-right:36px; }
   .prof-card .avatar{
-    width:34px; height:34px; border-radius:50%; object-fit:cover; background:#dde3f3;
+    width:42px; height:42px; border-radius:50%; object-fit:cover; background:#dde3f3;
     display:flex; align-items:center; justify-content:center; font-weight:700; color:#4A6FA5;
-    font-size:.82rem;
+    font-size:.92rem;
   }
   .prof-card h4{ margin:0 0 1px; font-size:.72rem; white-space:nowrap; }
   .prof-card .prof-name-row{
@@ -1036,8 +1036,8 @@
             <p>${escapeHtml(prof.telephone)||"—"}</p>
             ${prof.email ? `<p class="email-copy" title="Cliquer pour copier l'email" data-copy-email="${escapeAttr(prof.email)}">${escapeHtml(prof.email)}</p>` : "<p>—</p>"}
             <div class="tags">
-              ${(prof.activitesPratiquees||[]).map(a=>`<span class="tag">${escapeHtml(a==="Autres" && prof.autrePratiqueePrecision ? `Autres (${prof.autrePratiqueePrecision})` : a)}</span>`).join("")}
-              ${(prof.activitesCompetition||[]).map(a=>`<span class="tag comp">${escapeHtml(a==="Autres" && prof.autreCompetitionPrecision ? `Autres (${prof.autreCompetitionPrecision})` : a)}</span>`).join("")}
+              ${(prof.activitesPratiquees||[]).map(a=>`<span class="tag">${escapeHtml(a==="Autres" && prof.autrePratiqueePrecision ? prof.autrePratiqueePrecision : a)}</span>`).join("")}
+              ${(prof.activitesCompetition||[]).map(a=>`<span class="tag comp">${escapeHtml(a==="Autres" && prof.autreCompetitionPrecision ? prof.autreCompetitionPrecision : a)}</span>`).join("")}
             </div>
           </div>
         `;
@@ -1689,8 +1689,8 @@ ${innerHtml}
   function profChipHtml(p){
     const badges = [p.coordoAS?"★ AS":"", p.coordoEPS?"★ EPS":""].filter(Boolean).join(" · ");
     const contact = [p.telephone, p.email].filter(Boolean).map(escapeHtml).join(" · ");
-    const pratiquees = (p.activitesPratiquees||[]).map(a=> a==="Autres" && p.autrePratiqueePrecision ? `Autres (${p.autrePratiqueePrecision})` : a);
-    const competition = (p.activitesCompetition||[]).map(a=> a==="Autres" && p.autreCompetitionPrecision ? `Autres (${p.autreCompetitionPrecision})` : a);
+    const pratiquees = (p.activitesPratiquees||[]).map(a=> a==="Autres" && p.autrePratiqueePrecision ? p.autrePratiqueePrecision : a);
+    const competition = (p.activitesCompetition||[]).map(a=> a==="Autres" && p.autreCompetitionPrecision ? p.autreCompetitionPrecision : a);
     const tags = pratiquees.map(a=>`<span class="tag">${escapeHtml(a)}</span>`).join("")
       + competition.map(a=>`<span class="tag comp">${escapeHtml(a)}</span>`).join("");
     const avatar = p.photo
