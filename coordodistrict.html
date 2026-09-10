@@ -139,12 +139,6 @@
   }
   .etab-block-head h3{ margin:0 0 4px; font-size:1.15rem; font-weight:700; }
   .etab-head-meta{ font-size:.7rem; opacity:.92; display:flex; flex-direction:column; gap:3px; }
-  .icon-btn-light{
-    align-self:flex-start;
-    background:rgba(255,255,255,.2); border:1px solid rgba(255,255,255,.4); color:#fff;
-    border-radius:6px; width:26px; height:26px; padding:0; font-size:.78rem; cursor:pointer;
-  }
-  .icon-btn-light:hover{ background:rgba(255,255,255,.35); }
   .prof-grid{
     flex:1; display:flex; flex-wrap:wrap; align-content:stretch; align-items:stretch;
     gap:8px; padding:9px; background:#fff; min-width:0;
@@ -158,15 +152,18 @@
   .prof-card.is-eps{ border-left-color:#a1590b; background:#fffaf3; }
   .prof-card.is-as.is-eps{ border-left:4px solid; border-image:linear-gradient(#2b4fb0,#a1590b) 1; background:linear-gradient(180deg,#f5f8ff,#fffaf3); }
   .prof-card .card-photo{ flex:0 0 auto; }
-  .prof-card .card-info{ flex:0 0 auto; padding-right:36px; }
+  .prof-card .card-info{ flex:0 0 auto; }
   .prof-card .avatar{
     width:42px; height:42px; border-radius:50%; object-fit:cover; background:#dde3f3;
     display:flex; align-items:center; justify-content:center; font-weight:700; color:#4A6FA5;
     font-size:.92rem;
   }
-  .prof-card h4{ margin:0 0 2px; font-size:.9rem; white-space:nowrap; }
+  .prof-card h4{ margin:0 0 2px; font-size:.9rem; }
   .prof-card .prof-name-row{
     display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+  }
+  .prof-card .prof-name-note{
+    display:block; width:100%; font-weight:400; font-size:.78rem; color:var(--muted);
   }
   .prof-card p{ margin:0; font-size:.78rem; color:var(--muted); white-space:nowrap; }
   .prof-card .email-copy{ cursor:pointer; }
@@ -180,7 +177,6 @@
     background:#2b4fb0; color:#fff; font-weight:800; letter-spacing:.2px; text-transform:uppercase;
     box-shadow:0 2px 5px rgba(0,0,0,.18);
   }
-  .prof-card .card-actions{ position:absolute; top:6px; right:6px; display:flex; gap:3px; }
   .icon-btn{
     background:#fff; border:1px solid var(--border); color:var(--muted); border-radius:6px;
     width:22px; height:22px; padding:0; font-size:.72rem; cursor:pointer;
@@ -475,69 +471,6 @@
 </main>
 
 <footer class="app-footer">District UNSS de Villeurbanne — 13 établissements — Données stockées localement dans ce navigateur</footer>
-
-<!-- MODAL ETABLISSEMENT -->
-<div class="modal-overlay hidden" id="modal-overlay-etab">
-  <div class="modal">
-    <h3>Modifier l'établissement</h3>
-    <form id="form-etab">
-      <input type="hidden" id="etab-id">
-      <div class="form-row"><label>Nom</label><input type="text" id="etab-nom" required></div>
-      <div class="form-row"><label>Adresse</label><input type="text" id="etab-adresse"></div>
-      <div class="form-row"><label>Téléphone</label><input type="tel" id="etab-telephone"></div>
-      <div class="form-row"><label>Email</label><input type="email" id="etab-email"></div>
-      <div class="form-row"><label>Lien de partage de fichiers</label><input type="url" id="etab-lien" placeholder="https://..."></div>
-      <div class="modal-footer">
-        <button type="button" class="secondary" data-close="modal-overlay-etab">Annuler</button>
-        <button type="submit">Enregistrer</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<!-- MODAL PROF -->
-<div class="modal-overlay hidden" id="modal-overlay-prof">
-  <div class="modal">
-    <h3 id="prof-modal-title">Ajouter un professeur EPS</h3>
-    <form id="form-prof">
-      <input type="hidden" id="prof-id">
-      <input type="hidden" id="prof-etab-id">
-      <div class="form-row">
-        <label>Photo de profil</label>
-        <div class="photo-row">
-          <div id="prof-photo-preview" class="photo-preview"></div>
-          <input type="file" id="prof-photo-input" accept="image/*">
-        </div>
-      </div>
-      <div class="form-row-3col">
-        <div class="form-row"><label>Nom</label><input type="text" id="prof-nom" required></div>
-        <div class="form-row"><label>Téléphone</label><input type="tel" id="prof-telephone"></div>
-        <div class="form-row"><label>Email</label><input type="email" id="prof-email"></div>
-      </div>
-      <div class="form-row">
-        <label>Activités pratiquées</label>
-        <div class="checkbox-grid" id="prof-activites-pratiquees"></div>
-        <input type="text" id="prof-autre-pratiquee-precision" placeholder="Si « Autres » coché, précisez l'activité">
-      </div>
-      <div class="form-row">
-        <label>Activités engagées en compétition</label>
-        <div class="checkbox-grid" id="prof-activites-competition"></div>
-        <input type="text" id="prof-autre-competition-precision" placeholder="Si « Autres » coché, précisez l'activité">
-      </div>
-      <div class="form-row">
-        <label>Rôles de coordination</label>
-        <div class="checkbox-grid">
-          <label><input type="checkbox" id="prof-coordo-as"> Coordination AS</label>
-          <label><input type="checkbox" id="prof-coordo-eps"> Coordination EPS</label>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="secondary" data-close="modal-overlay-prof">Annuler</button>
-        <button type="submit">Enregistrer</button>
-      </div>
-    </form>
-  </div>
-</div>
 
 <!-- MODAL CARTE -->
 <div class="modal-overlay hidden" id="modal-overlay-carte">
@@ -954,30 +887,6 @@
     return name.split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0].toUpperCase()).join("");
   }
 
-  function openEtabModal(id){
-    const etab = getEtab(id);
-    document.getElementById("etab-id").value = etab.id;
-    document.getElementById("etab-nom").value = etab.nom;
-    document.getElementById("etab-adresse").value = etab.adresse;
-    document.getElementById("etab-telephone").value = etab.telephone;
-    document.getElementById("etab-email").value = etab.email;
-    document.getElementById("etab-lien").value = etab.lienPartage;
-    openModal("modal-overlay-etab");
-  }
-
-  document.getElementById("form-etab").addEventListener("submit", e=>{
-    e.preventDefault();
-    const etab = getEtab(document.getElementById("etab-id").value);
-    etab.nom = document.getElementById("etab-nom").value.trim();
-    etab.adresse = document.getElementById("etab-adresse").value.trim();
-    etab.telephone = document.getElementById("etab-telephone").value.trim();
-    etab.email = document.getElementById("etab-email").value.trim();
-    etab.lienPartage = document.getElementById("etab-lien").value.trim();
-    saveState();
-    closeModal("modal-overlay-etab");
-    renderAll();
-  });
-
   function renderLastModifiedInfo(){
     const el = document.getElementById("last-modified-info");
     syncStatusEl.current = document.getElementById("sync-status-info");
@@ -1002,12 +911,11 @@
       const metaLines = [etab.adresse, etab.telephone, etab.email].filter(Boolean).map(v=>`<div>${escapeHtml(v)}</div>`).join("") || "<div>Coordonnées non renseignées</div>";
       const lien = etab.lienPartage ? `<a href="${escapeAttr(etab.lienPartage)}" target="_blank" rel="noopener" style="color:#fff;">📎 Fichiers</a>` : "";
       block.innerHTML = `
-        <div class="etab-block-head" style="background:${color}" data-edit-etab="${etab.id}">
+        <div class="etab-block-head" style="background:${color}">
           <div>
             <h3>${escapeHtml(etab.nom)}</h3>
             <div class="etab-head-meta">${metaLines}${lien ? `<div>${lien}</div>` : ""}</div>
           </div>
-          <button type="button" class="icon-btn-light" title="Modifier l'établissement" data-edit-etab="${etab.id}">✎</button>
         </div>
       `;
       const grid = document.createElement("div");
@@ -1021,14 +929,13 @@
         const avatar = prof.photo
           ? `<img class="avatar" src="${prof.photo}" alt="${escapeAttr(prof.nom)}">`
           : `<div class="avatar">${initials(prof.nom)}</div>`;
+        const nomMatch = prof.nom.match(/^(.*?)(\s*\([^)]*\)\s*)$/);
+        const nomMain = nomMatch ? nomMatch[1].trim() : prof.nom;
+        const nomNote = nomMatch ? nomMatch[2].trim() : "";
         card.innerHTML = `
-          <div class="card-actions">
-            <button class="icon-btn" title="Modifier" data-edit-prof="${prof.id}">✎</button>
-            <button class="icon-btn" title="Supprimer" data-del-prof="${prof.id}">🗑</button>
-          </div>
           <div class="card-photo">${avatar}</div>
           <div class="card-info">
-            <h4 class="prof-name-row"><span>${escapeHtml(prof.nom)}</span></h4>
+            <h4 class="prof-name-row"><span>${escapeHtml(nomMain)}</span>${nomNote ? `<span class="prof-name-note">${escapeHtml(nomNote)}</span>` : ""}</h4>
             ${(prof.coordoAS || prof.coordoEPS) ? `<div class="badges">
               ${prof.coordoAS ? '<span class="badge as">★ Coordo AS</span>' : ""}
               ${prof.coordoEPS ? '<span class="badge eps">★ Coordo EPS</span>' : ""}
@@ -1051,137 +958,12 @@
     container.querySelectorAll(".etab-block-head a").forEach(a=>{
       a.addEventListener("click", e=>e.stopPropagation());
     });
-    container.querySelectorAll("[data-edit-etab]").forEach(el=>{
-      el.addEventListener("click", (e)=>{
-        e.stopPropagation();
-        openEtabModal(el.dataset.editEtab);
-      });
-    });
-    container.querySelectorAll("[data-edit-prof]").forEach(btn=>{
-      btn.addEventListener("click", ()=>{
-        const etab = state.etablissements.find(e=>e.profs.some(p=>p.id===btn.dataset.editProf));
-        openProfModal(etab.id, btn.dataset.editProf);
-      });
-    });
-    container.querySelectorAll("[data-del-prof]").forEach(btn=>{
-      btn.addEventListener("click", ()=>{
-        const etab = state.etablissements.find(e=>e.profs.some(p=>p.id===btn.dataset.delProf));
-        if(confirm("Supprimer ce professeur ?")){
-          etab.profs = etab.profs.filter(p=>p.id!==btn.dataset.delProf);
-          saveState(); renderAll();
-        }
-      });
-    });
     container.querySelectorAll("[data-copy-email]").forEach(el=>{
       el.addEventListener("click", ()=>{
         copyToClipboard(el.dataset.copyEmail, "L'adresse email");
       });
     });
   }
-
-  let currentProfPhoto = "";
-
-  function buildCheckboxGrid(container, groupName, selected){
-    container.innerHTML = ACTIVITES.map(a=>`
-      <label><input type="checkbox" name="${groupName}" value="${escapeAttr(a)}" ${selected.includes(a)?"checked":""}> ${escapeHtml(a)}</label>
-    `).join("");
-  }
-
-  function openProfModal(etabId, profId){
-    const etab = getEtab(etabId);
-    const prof = profId ? getProf(etab, profId) : null;
-    document.getElementById("prof-modal-title").textContent = prof ? "Modifier le professeur" : "Ajouter un professeur EPS";
-    document.getElementById("prof-id").value = profId || "";
-    document.getElementById("prof-etab-id").value = etabId;
-    document.getElementById("prof-nom").value = prof ? prof.nom : "";
-    document.getElementById("prof-telephone").value = prof ? prof.telephone : "";
-    document.getElementById("prof-email").value = prof ? prof.email : "";
-    document.getElementById("prof-coordo-as").checked = prof ? !!prof.coordoAS : false;
-    document.getElementById("prof-coordo-eps").checked = prof ? !!prof.coordoEPS : false;
-    currentProfPhoto = prof ? (prof.photo || "") : "";
-    const preview = document.getElementById("prof-photo-preview");
-    preview.innerHTML = currentProfPhoto ? `<img src="${currentProfPhoto}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">` : "";
-    document.getElementById("prof-photo-input").value = "";
-
-    buildCheckboxGrid(document.getElementById("prof-activites-pratiquees"), "pratiquees", prof ? (prof.activitesPratiquees||[]) : []);
-    buildCheckboxGrid(document.getElementById("prof-activites-competition"), "competition", prof ? (prof.activitesCompetition||[]) : []);
-    document.getElementById("prof-autre-pratiquee-precision").value = prof ? (prof.autrePratiqueePrecision||"") : "";
-    document.getElementById("prof-autre-competition-precision").value = prof ? (prof.autreCompetitionPrecision||"") : "";
-
-    openModal("modal-overlay-prof");
-  }
-
-  function compressPhoto(dataUrl, maxDim, quality){
-    return new Promise(resolve=>{
-      const img = new Image();
-      img.onload = ()=>{
-        let w = img.width, h = img.height;
-        if(w > h){ if(w > maxDim){ h = Math.round(h * maxDim / w); w = maxDim; } }
-        else { if(h > maxDim){ w = Math.round(w * maxDim / h); h = maxDim; } }
-        const canvas = document.createElement("canvas");
-        canvas.width = w; canvas.height = h;
-        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL("image/jpeg", quality));
-      };
-      img.onerror = ()=> resolve(dataUrl);
-      img.src = dataUrl;
-    });
-  }
-
-  document.getElementById("prof-photo-input").addEventListener("change", function(){
-    const file = this.files[0];
-    if(!file) return;
-    const reader = new FileReader();
-    reader.onload = ()=>{
-      compressPhoto(reader.result, 160, 0.72).then(compressed=>{
-        currentProfPhoto = compressed;
-        document.getElementById("prof-photo-preview").innerHTML = `<img src="${currentProfPhoto}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`;
-      });
-    };
-    reader.readAsDataURL(file);
-  });
-
-  document.getElementById("form-prof").addEventListener("submit", e=>{
-    e.preventDefault();
-    const etab = getEtab(document.getElementById("prof-etab-id").value);
-    const profId = document.getElementById("prof-id").value;
-    const pratiquees = [...document.querySelectorAll('input[name="pratiquees"]:checked')].map(c=>c.value);
-    const competition = [...document.querySelectorAll('input[name="competition"]:checked')].map(c=>c.value);
-    const autrePratiqueePrecision = document.getElementById("prof-autre-pratiquee-precision").value.trim();
-    const autreCompetitionPrecision = document.getElementById("prof-autre-competition-precision").value.trim();
-
-    if(pratiquees.includes("Autres") && !autrePratiqueePrecision){
-      alert("Veuillez préciser l'activité \"Autres\" (pratiquée).");
-      document.getElementById("prof-autre-pratiquee-precision").focus();
-      return;
-    }
-    if(competition.includes("Autres") && !autreCompetitionPrecision){
-      alert("Veuillez préciser l'activité \"Autres\" (compétition).");
-      document.getElementById("prof-autre-competition-precision").focus();
-      return;
-    }
-
-    const data = {
-      nom: document.getElementById("prof-nom").value.trim(),
-      telephone: document.getElementById("prof-telephone").value.trim(),
-      email: document.getElementById("prof-email").value.trim(),
-      photo: currentProfPhoto,
-      activitesPratiquees: pratiquees,
-      activitesCompetition: competition,
-      autrePratiqueePrecision, autreCompetitionPrecision,
-      coordoAS: document.getElementById("prof-coordo-as").checked,
-      coordoEPS: document.getElementById("prof-coordo-eps").checked
-    };
-
-    if(profId){
-      Object.assign(getProf(etab, profId), data);
-    } else {
-      etab.profs.push({ id: uid(), ...data });
-    }
-    saveState();
-    closeModal("modal-overlay-prof");
-    renderAll();
-  });
 
   // ---------- RENDER: ACTIVITES TABLES (récapitulatif non modifiable) ----------
   function practicesFlag(etab, activite){
