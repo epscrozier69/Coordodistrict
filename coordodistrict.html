@@ -1076,15 +1076,44 @@
     return etab.profs.some(p=>(p.activitesCompetition||[]).includes(activite));
   }
 
-  function renderActiviteTable(theadId, tbodyId, dimension, flagFn){
+  // Textes exacts (précision) des activités "Autres" réellement utilisés, pour
+  // leur donner chacun leur propre colonne dans le tableau récap au lieu de
+  // les regrouper sous une seule colonne "Autres" — même si un seul collègue
+  // pratique cette activité.
+  function autresTextsFor(dimension){
+    const set = new Set();
+    state.etablissements.forEach(etab=>{
+      etab.profs.forEach(p=>{
+        const list = dimension==="pratiquee" ? (p.activitesPratiquees||[]) : (p.activitesCompetition||[]);
+        const precision = dimension==="pratiquee" ? p.autrePratiqueePrecision : p.autreCompetitionPrecision;
+        if(list.includes("Autres") && precision) set.add(precision);
+      });
+    });
+    return [...set].sort((a,b)=>a.localeCompare(b,"fr",{sensitivity:"base"}));
+  }
+
+  function etabHasActiviteCol(etab, col, dimension){
+    return etab.profs.some(p=>{
+      const list = dimension==="pratiquee" ? (p.activitesPratiquees||[]) : (p.activitesCompetition||[]);
+      if(col.isAutre){
+        const precision = dimension==="pratiquee" ? p.autrePratiqueePrecision : p.autreCompetitionPrecision;
+        return list.includes("Autres") && precision === col.key;
+      }
+      return list.includes(col.key);
+    });
+  }
+
+  function renderActiviteTable(theadId, tbodyId, dimension){
     const etabs = sortedEtabs();
-    const activesCols = ACTIVITES.filter(act => etabs.some(etab => flagFn(etab, act)));
+    const standardCols = ACTIVITES.filter(act=>act!=="Autres").map(act=>({label:act, key:act, isAutre:false}));
+    const autreCols = autresTextsFor(dimension).map(text=>({label:text, key:text, isAutre:true}));
+    const activesCols = standardCols.concat(autreCols).filter(col => etabs.some(etab => etabHasActiviteCol(etab, col, dimension)));
 
     const theadRow = document.getElementById(theadId);
     theadRow.innerHTML = `<th style="background:var(--c1)">Établissement</th>` +
-      activesCols.map((a,i)=>{
-        const count = etabs.filter(etab=>flagFn(etab, a)).length;
-        return `<th style="background:var(--${PALETTE[(i+1)%PALETTE.length]})">${escapeHtml(a)}<br><span class="activite-count">${count} étab.${count>1?"s":""}</span></th>`;
+      activesCols.map((col,i)=>{
+        const count = etabs.filter(etab=>etabHasActiviteCol(etab, col, dimension)).length;
+        return `<th style="background:var(--${PALETTE[(i+1)%PALETTE.length]})">${escapeHtml(col.label)}<br><span class="activite-count">${count} étab.${count>1?"s":""}</span></th>`;
       }).join("");
 
     const tbody = document.getElementById(tbodyId);
@@ -1096,8 +1125,8 @@
     etabs.forEach(etab=>{
       const tr = document.createElement("tr");
       let rowHtml = `<td><span class="etab-dot" style="background:${etabColorVar(etab)}"></span><strong>${escapeHtml(etab.nom)}</strong></td>`;
-      activesCols.forEach(act=>{
-        const on = flagFn(etab, act);
+      activesCols.forEach(col=>{
+        const on = etabHasActiviteCol(etab, col, dimension);
         const cls = on ? (dimension==="pratiquee" ? "state-pratique" : "state-competition") : "state-off";
         rowHtml += `<td class="${cls}">${on ? "✓" : "—"}</td>`;
       });
@@ -1107,8 +1136,8 @@
   }
 
   function renderActivites(){
-    renderActiviteTable("thead-activites-pratiquees-row", "tbody-activites-pratiquees", "pratiquee", practicesFlag);
-    renderActiviteTable("thead-activites-competition-row", "tbody-activites-competition", "competition", competesFlag);
+    renderActiviteTable("thead-activites-pratiquees-row", "tbody-activites-pratiquees", "pratiquee");
+    renderActiviteTable("thead-activites-competition-row", "tbody-activites-competition", "competition");
     renderActiviteFilterResult();
   }
 
