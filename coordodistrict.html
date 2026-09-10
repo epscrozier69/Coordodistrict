@@ -94,6 +94,7 @@
   .tag.comp{ background:#fde4ea; color:#a12f52; }
   .prof-card .tags{ margin-top:2px; }
   .prof-card .tag{ font-size:.72rem; padding:2px 8px; margin:2px 3px 0 0; }
+  .prof-card .tag:not(.comp){ background:#4b5563; color:#fff; }
 
   #table-cartes thead th:nth-child(1){background:var(--c1);}
   #table-cartes thead th:nth-child(2){background:var(--c4);}
@@ -151,13 +152,19 @@
   .prof-card.is-as{ border-left-color:#2b4fb0; background:#f5f8ff; }
   .prof-card.is-eps{ border-left-color:#a1590b; background:#fffaf3; }
   .prof-card.is-as.is-eps{ border-left:4px solid; border-image:linear-gradient(#2b4fb0,#a1590b) 1; background:linear-gradient(180deg,#f5f8ff,#fffaf3); }
-  .prof-card .card-photo{ flex:0 0 auto; }
+  .prof-card .card-photo{ flex:0 0 auto; position:relative; }
   .prof-card .card-info{ flex:0 0 auto; }
   .prof-card .avatar{
     width:42px; height:42px; border-radius:50%; object-fit:cover; background:#dde3f3;
     display:flex; align-items:center; justify-content:center; font-weight:700; color:#4A6FA5;
     font-size:.92rem;
   }
+  .prof-card .photo-upload-btn{
+    position:absolute; right:-3px; bottom:-3px; width:19px; height:19px; border-radius:50%;
+    background:#fff; border:1px solid var(--border); display:flex; align-items:center; justify-content:center;
+    font-size:.62rem; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,.25); line-height:1;
+  }
+  .prof-card .photo-upload-btn:hover{ background:#eef1fa; }
   .prof-card h4{ margin:0 0 2px; font-size:.9rem; }
   .prof-card .prof-name-row{
     display:flex; align-items:center; gap:6px; flex-wrap:wrap;
@@ -589,9 +596,17 @@
   function sortedEtabs(){
     return state.etablissements.slice().sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}));
   }
+  function isJoliotCurie(etab){
+    const n = (etab.nom||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+    return n.includes("joliot") && n.includes("curie");
+  }
   function etabColorVar(etab){
+    if(isJoliotCurie(etab)) return "#F2B705";
     const idx = sortedEtabs().findIndex(e=>e.id===etab.id);
     return "var(--"+PALETTE[idx % PALETTE.length]+")";
+  }
+  function etabHeadTextColor(etab){
+    return isJoliotCurie(etab) ? "#3a2e00" : "#fff";
   }
 
   function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
@@ -914,6 +929,23 @@
     return name.split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0].toUpperCase()).join("");
   }
 
+  function compressPhoto(dataUrl, maxDim, quality){
+    return new Promise(resolve=>{
+      const img = new Image();
+      img.onload = ()=>{
+        let w = img.width, h = img.height;
+        if(w > h){ if(w > maxDim){ h = Math.round(h * maxDim / w); w = maxDim; } }
+        else { if(h > maxDim){ w = Math.round(w * maxDim / h); h = maxDim; } }
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = ()=> resolve(dataUrl);
+      img.src = dataUrl;
+    });
+  }
+
   function renderLastModifiedInfo(){
     const el = document.getElementById("last-modified-info");
     syncStatusEl.current = document.getElementById("sync-status-info");
@@ -933,12 +965,13 @@
     container.innerHTML = "";
     sortedEtabs().forEach(etab=>{
       const color = etabColorVar(etab);
+      const textColor = etabHeadTextColor(etab);
       const block = document.createElement("div");
       block.className = "etab-block";
       const metaLines = [etab.adresse, etab.telephone, etab.email].filter(Boolean).map(v=>`<div>${escapeHtml(v)}</div>`).join("") || "<div>Coordonnées non renseignées</div>";
-      const lien = etab.lienPartage ? `<a href="${escapeAttr(etab.lienPartage)}" target="_blank" rel="noopener" style="color:#fff;">📎 Fichiers</a>` : "";
+      const lien = etab.lienPartage ? `<a href="${escapeAttr(etab.lienPartage)}" target="_blank" rel="noopener" style="color:${textColor};">📎 Fichiers</a>` : "";
       block.innerHTML = `
-        <div class="etab-block-head" style="background:${color}">
+        <div class="etab-block-head" style="background:${color}; color:${textColor};">
           <div>
             <h3>${escapeHtml(etab.nom)}</h3>
             <div class="etab-head-meta">${metaLines}${lien ? `<div>${lien}</div>` : ""}</div>
@@ -960,7 +993,13 @@
         const nomMain = nomMatch ? nomMatch[1].trim() : prof.nom;
         const nomNote = nomMatch ? nomMatch[2].trim() : "";
         card.innerHTML = `
-          <div class="card-photo">${avatar}</div>
+          <div class="card-photo">
+            ${avatar}
+            <label class="photo-upload-btn" title="Ajouter / changer la photo">
+              📷
+              <input type="file" accept="image/*" data-photo-input="${escapeAttr(prof.id)}" data-photo-etab="${escapeAttr(etab.id)}" style="display:none">
+            </label>
+          </div>
           <div class="card-info">
             <h4 class="prof-name-row"><span>${escapeHtml(nomMain)}</span>${nomNote ? `<span class="prof-name-note">${escapeHtml(nomNote)}</span>` : ""}</h4>
             ${(prof.coordoAS || prof.coordoEPS) ? `<div class="badges">
@@ -988,6 +1027,25 @@
     container.querySelectorAll("[data-copy-email]").forEach(el=>{
       el.addEventListener("click", ()=>{
         copyToClipboard(el.dataset.copyEmail, "L'adresse email");
+      });
+    });
+    container.querySelectorAll("[data-photo-input]").forEach(input=>{
+      input.addEventListener("click", e=>e.stopPropagation());
+      input.addEventListener("change", function(){
+        const file = this.files[0];
+        if(!file) return;
+        const etab = getEtab(this.dataset.photoEtab);
+        const prof = etab && getProf(etab, this.dataset.photoInput);
+        if(!prof) return;
+        const reader = new FileReader();
+        reader.onload = ()=>{
+          compressPhoto(reader.result, 160, 0.72).then(compressed=>{
+            prof.photo = compressed;
+            saveState();
+            renderProfs();
+          });
+        };
+        reader.readAsDataURL(file);
       });
     });
   }
