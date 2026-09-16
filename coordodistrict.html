@@ -310,6 +310,7 @@
         <button id="btn-copy-emails" class="secondary">✉️ Copier les emails des collègues</button>
         <button id="btn-copy-emails-coordo-as" class="secondary">✉️ Copier les emails des coordos AS</button>
         <button id="btn-export-annuaire-pdf" class="secondary">📄 Export PDF (consultation)</button>
+        <button id="btn-compress-photos" class="secondary">🗜️ Alléger les photos</button>
         <button id="btn-force-sync" class="secondary">🔄 Synchroniser maintenant</button>
       </div>
     </div>
@@ -1057,7 +1058,7 @@
         if(!prof) return;
         const reader = new FileReader();
         reader.onload = ()=>{
-          compressPhoto(reader.result, 160, 0.72).then(compressed=>{
+          compressPhoto(reader.result, 96, 0.6).then(compressed=>{
             prof.photo = compressed;
             saveState();
             renderProfs();
@@ -1723,6 +1724,31 @@ ${innerHtml}
     btnForceSync.addEventListener("click", ()=>{
       if(!SYNC_URL){ alert("Synchronisation non configurée (SYNC_URL vide)."); return; }
       pushRemoteState();
+    });
+  }
+
+  const btnCompressPhotos = document.getElementById("btn-compress-photos");
+  if(btnCompressPhotos){
+    btnCompressPhotos.addEventListener("click", async ()=>{
+      const profsWithPhoto = [];
+      state.etablissements.forEach(etab=>{
+        etab.profs.forEach(p=>{ if(p.photo) profsWithPhoto.push(p); });
+      });
+      if(!profsWithPhoto.length){ alert("Aucune photo à alléger."); return; }
+      const beforeSize = JSON.stringify(state).length;
+      btnCompressPhotos.disabled = true;
+      const originalLabel = btnCompressPhotos.textContent;
+      btnCompressPhotos.textContent = "Compression en cours…";
+      for(const p of profsWithPhoto){
+        p.photo = await compressPhoto(p.photo, 96, 0.6);
+      }
+      const afterSize = JSON.stringify(state).length;
+      btnCompressPhotos.disabled = false;
+      btnCompressPhotos.textContent = originalLabel;
+      saveState();
+      renderAll();
+      alert(profsWithPhoto.length + " photo(s) allégée(s). Taille des données : "
+        + Math.round(beforeSize/1000) + " Ko → " + Math.round(afterSize/1000) + " Ko.");
     });
   }
 
