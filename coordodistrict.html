@@ -1878,6 +1878,27 @@ ${innerHtml}
       pushRemoteState();
     }
   });
+
+  // Rafraîchissement automatique en arrière-plan : relit le Google Sheet
+  // toutes les 60 secondes et met à jour l'affichage si une version plus
+  // récente est disponible (ex: modification de l'onglet Annuaire), sans
+  // avoir besoin de recharger la page manuellement. Ne pousse jamais de
+  // données locales ici (contrairement au fetch de lancement) — l'envoi se
+  // fait uniquement via saveState().
+  if(SYNC_URL){
+    setInterval(()=>{
+      fetchRemoteState().then(remote=>{
+        if(!remote) return;
+        const localTime = state.lastModified ? new Date(state.lastModified).getTime() : 0;
+        const remoteTime = remote.lastModified ? new Date(remote.lastModified).getTime() : 0;
+        if(remoteTime > localTime){
+          state = remote;
+          cacheStateLocally();
+          renderAll();
+        }
+      });
+    }, 60000);
+  }
 })();
 </script>
 </body>
