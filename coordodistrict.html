@@ -256,7 +256,7 @@
   .form-row{ margin-bottom:8px; display:flex; flex-direction:column; gap:3px; }
   .form-row label{ font-size:.76rem; font-weight:700; color:var(--muted); }
   .form-row input[type=text], .form-row input[type=email], .form-row input[type=tel],
-  .form-row input[type=number], .form-row input[type=date], .form-row input[type=url]{
+  .form-row input[type=number], .form-row input[type=date], .form-row input[type=url], .form-row select{
     padding:6px 8px; border:1px solid var(--border); border-radius:7px; font-size:.85rem;
   }
   .form-row-3col{ display:grid; grid-template-columns:1fr 1fr 1.3fr; gap:10px; }
@@ -307,7 +307,8 @@
       <h2>Coordonnées des établissements et des collègues EPS</h2>
       <div class="actions">
         <button id="btn-copy-phones" class="secondary">📱 Copier les téléphones des collègues</button>
-        <button id="btn-copy-emails" class="secondary">✉️ Copier les emails des collègues</button>
+        <button id="btn-copy-emails" class="secondary">✉️ Emails collègues par établissement</button>
+        <button id="btn-copy-emails-activite" class="secondary">✉️ Emails collègues par activité</button>
         <button id="btn-copy-emails-coordo-as" class="secondary">✉️ Copier les emails des coordos AS</button>
         <button id="btn-export-annuaire-pdf" class="secondary">📄 Export PDF (consultation)</button>
         <button id="btn-compress-photos" class="secondary">🗜️ Alléger les photos</button>
@@ -490,6 +491,22 @@
 </main>
 
 <footer class="app-footer">District UNSS de Villeurbanne — 13 établissements — Données stockées localement dans ce navigateur</footer>
+
+<!-- MODAL EMAILS PAR ACTIVITE -->
+<div class="modal-overlay hidden" id="modal-overlay-emails-activite">
+  <div class="modal">
+    <h3>Copier les emails par activité</h3>
+    <div class="form-row">
+      <label>Activité (loisir ou compétition)</label>
+      <select id="emails-activite-select"></select>
+    </div>
+    <p class="hint" id="emails-activite-count"></p>
+    <div class="modal-footer">
+      <button type="button" class="secondary" data-close="modal-overlay-emails-activite">Annuler</button>
+      <button type="button" id="btn-emails-activite-copy">Copier les emails</button>
+    </div>
+  </div>
+</div>
 
 <!-- MODAL SELECTION EMAILS -->
 <div class="modal-overlay hidden" id="modal-overlay-select-emails">
@@ -1448,6 +1465,18 @@
     });
     return [...set];
   }
+  function gatherEmailsForActivite(activite){
+    const set = new Set();
+    state.etablissements.forEach(etab=>{
+      etab.profs.forEach(p=>{
+        if(p.virtual || !p.email || !p.email.trim()) return;
+        const pratique = (p.activitesPratiquees||[]).includes(activite);
+        const compete = (p.activitesCompetition||[]).includes(activite);
+        if(pratique || compete) set.add(p.email.trim());
+      });
+    });
+    return [...set];
+  }
   function gatherCoordoASEmails(){
     const set = new Set();
     state.etablissements.forEach(etab=>{
@@ -1540,6 +1569,26 @@
     if(!emails.length){ alert("Aucune adresse email sélectionnée."); return; }
     copyToClipboard(emails.join("; "), "Les adresses email sélectionnées");
     closeModal("modal-overlay-select-emails");
+  });
+
+  function updateEmailsActiviteCount(){
+    const activite = document.getElementById("emails-activite-select").value;
+    const n = gatherEmailsForActivite(activite).length;
+    document.getElementById("emails-activite-count").textContent = n + " adresse" + (n>1?"s":"") + " email trouvée" + (n>1?"s":"") + " pour cette activité.";
+  }
+  document.getElementById("btn-copy-emails-activite").addEventListener("click", ()=>{
+    const select = document.getElementById("emails-activite-select");
+    select.innerHTML = ACTIVITES.map(a=>`<option value="${escapeAttr(a)}">${escapeHtml(a)}</option>`).join("");
+    updateEmailsActiviteCount();
+    openModal("modal-overlay-emails-activite");
+  });
+  document.getElementById("emails-activite-select").addEventListener("change", updateEmailsActiviteCount);
+  document.getElementById("btn-emails-activite-copy").addEventListener("click", ()=>{
+    const activite = document.getElementById("emails-activite-select").value;
+    const emails = gatherEmailsForActivite(activite);
+    if(!emails.length){ alert("Aucun collègue avec un email trouvé pour cette activité."); return; }
+    copyToClipboard(emails.join("; "), "Les adresses email pour " + activite);
+    closeModal("modal-overlay-emails-activite");
   });
   document.getElementById("btn-copy-emails-coordo-as").addEventListener("click", ()=>{
     const emails = gatherCoordoASEmails();
