@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>District de Villeurbanne - 2026-2027</title>
 <style>
+  #app-toast{
+    position:fixed; bottom:22px; left:50%; transform:translateX(-50%) translateY(12px);
+    background:#2b2f38; color:#fff; padding:9px 18px; border-radius:8px; font-size:.85rem;
+    box-shadow:0 4px 16px rgba(0,0,0,.25); opacity:0; pointer-events:none; z-index:200;
+    transition:opacity .2s ease, transform .2s ease;
+  }
+  #app-toast.visible{ opacity:1; transform:translateX(-50%) translateY(0); }
   :root{
     --c1:#4A6FA5; --c2:#7B5EA7; --c3:#C0507A; --c4:#E0A72F; --c5:#D6455D;
     --c6:#2E8FA3; --c7:#6C63FF; --c8:#D98C3B; --c9:#A64AC9; --c10:#4A90D9;
@@ -1508,10 +1515,22 @@
     });
     return [...set];
   }
+  function showToast(msg){
+    let toast = document.getElementById("app-toast");
+    if(!toast){
+      toast = document.createElement("div");
+      toast.id = "app-toast";
+      document.body.appendChild(toast);
+    }
+    toast.textContent = msg;
+    toast.classList.add("visible");
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(()=>{ toast.classList.remove("visible"); }, 1600);
+  }
   function copyToClipboard(text, label){
     if(navigator.clipboard && window.isSecureContext){
       navigator.clipboard.writeText(text).then(
-        ()=>alert(label+" copiés dans le presse-papiers."),
+        ()=>showToast(label+" copiés dans le presse-papiers."),
         ()=>window.prompt(label+" — sélectionnez et copiez (Ctrl+C) :", text)
       );
     } else {
