@@ -1752,7 +1752,9 @@ ${styleTag}
   .activites-page table{ font-size:.62rem; }
   .activites-page th, .activites-page td{ padding:3px 4px !important; }
   .activites-page thead th{ white-space:normal !important; }
-  @page{ size: A4 landscape; margin:10mm; }
+  @page{ size: A4 portrait; margin:10mm; }
+  @page activites-landscape{ size: A4 landscape; margin:10mm; }
+  .activites-page{ page: activites-landscape; }
   @media print{
     body{ padding:0; }
     .etab-block{ page-break-inside:avoid; }
@@ -1784,11 +1786,7 @@ ${innerHtml}
     const body = `<div id="profs-container">${etabsHtml}</div>`
       + `<div class="activites-page" style="page-break-before:always;"><h2 class="section-title">Activités pratiquées (loisir)</h2><div class="table-wrap">${pratTable.outerHTML}</div></div>`
       + `<div class="activites-page"><h2 class="section-title">Activités engagées en compétition</h2><div class="table-wrap">${compTable.outerHTML}</div></div>`;
-    return buildPrintDocument("District de Villeurbanne — Annuaire", body, `
-      .prof-grid{ flex-wrap: nowrap; }
-      .prof-card{ flex: 1 1 0; min-width: 0; }
-      .prof-card p{ white-space: normal; word-break: break-word; }
-    `);
+    return buildPrintDocument("District de Villeurbanne — Annuaire", body);
   }
 
   function buildActivitesPrintHtml(){
