@@ -1786,19 +1786,8 @@ ${innerHtml}
       + `<div class="activites-page"><h2 class="section-title">Activités engagées en compétition</h2><div class="table-wrap">${compTable.outerHTML}</div></div>`;
     return buildPrintDocument("District de Villeurbanne — Annuaire", body, `
       .prof-grid{ flex-wrap: nowrap; }
-      .prof-card{ flex: 1 1 0; min-width: 0; padding:4px; gap:5px; }
-      .prof-card .card-top{ gap:5px; }
-      .prof-card .avatar{ width: 30px; height: 30px; font-size: .6rem; }
-      .prof-card h4{ font-size: .6rem; }
-      .prof-card .prof-name-note{ font-size: .5rem; }
-      .prof-card p{ font-size: .5rem; white-space: normal; word-break: break-word; }
-      .prof-card .badges{ gap:2px; }
-      .badge{ font-size: .48rem; padding:1px 4px; }
-      .prof-card .tags{ margin-top:1px; }
-      .prof-card .tag{ font-size: .46rem; padding:1px 4px; margin:1px 2px 0 0; }
-      .etab-block-head{ flex-basis: 140px; padding:6px 8px; }
-      .etab-block-head h3{ font-size: .82rem; }
-      .etab-head-meta{ font-size: .58rem; }
+      .prof-card{ flex: 1 1 0; min-width: 0; }
+      .prof-card p{ white-space: normal; word-break: break-word; }
     `);
   }
 
