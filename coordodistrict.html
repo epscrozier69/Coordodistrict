@@ -498,6 +498,27 @@
 
 <footer class="app-footer">District UNSS de Villeurbanne — 13 établissements — Données stockées localement dans ce navigateur</footer>
 
+<!-- MODAL EXPORT PDF -->
+<div class="modal-overlay hidden" id="modal-overlay-export-pdf">
+  <div class="modal">
+    <h3>Choisir le contenu à exporter</h3>
+    <div class="form-row">
+      <label style="display:flex; align-items:center; gap:6px; font-weight:500; color:var(--text);">
+        <input type="checkbox" id="export-pdf-annuaire" checked> Annuaire (établissements et collègues)
+      </label>
+    </div>
+    <div class="form-row">
+      <label style="display:flex; align-items:center; gap:6px; font-weight:500; color:var(--text);">
+        <input type="checkbox" id="export-pdf-activites" checked> Tableaux d'activités
+      </label>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="secondary" data-close="modal-overlay-export-pdf">Annuler</button>
+      <button type="button" id="btn-export-pdf-generate">Générer le PDF</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL CONTACT PAR ACTIVITE -->
 <div class="modal-overlay hidden" id="modal-overlay-contact-activite">
   <div class="modal">
@@ -1755,6 +1776,8 @@ ${styleTag}
   .activites-page thead th{ white-space:normal !important; }
   .prof-card .card-info{ flex: 1 1 auto; min-width: 0; }
   .prof-card h4, .prof-card p, .badge{ white-space: normal; word-break: break-word; }
+  .etab-block-head h3{ font-size:1.4rem; }
+  .etab-head-meta{ font-size:.85rem; }
   @page{ size: A4 portrait; margin:10mm; }
   @page activites-landscape{ size: A4 landscape; margin:10mm; }
   .activites-page{ page: activites-landscape; }
@@ -1782,29 +1805,37 @@ ${innerHtml}
     setTimeout(()=>{ win.print(); }, 250);
   }
 
-  function buildAnnuairePrintHtml(){
-    const pratTable = document.getElementById("table-activites-pratiquees").cloneNode(true);
-    const compTable = document.getElementById("table-activites-competition").cloneNode(true);
-    const etabsHtml = sortedEtabs().map(etab=>etabBlockHtml(etab, {editable:false})).join("");
-    const body = `<div id="profs-container">${etabsHtml}</div>`
-      + `<div class="activites-page" style="page-break-before:always;"><h2 class="section-title">Activités pratiquées (loisir)</h2><div class="table-wrap">${pratTable.outerHTML}</div></div>`
-      + `<div class="activites-page"><h2 class="section-title">Activités engagées en compétition</h2><div class="table-wrap">${compTable.outerHTML}</div></div>`;
-    return buildPrintDocument("District de Villeurbanne — Annuaire", body);
-  }
-
-  function buildActivitesPrintHtml(){
-    const pratTable = document.getElementById("table-activites-pratiquees").cloneNode(true);
-    const compTable = document.getElementById("table-activites-competition").cloneNode(true);
-    const body = `<div class="activites-page" style="page-break-before:auto;"><h2 class="section-title">Activités pratiquées (loisir)</h2><div class="table-wrap">${pratTable.outerHTML}</div></div>`
-      + `<div class="activites-page"><h2 class="section-title">Activités engagées en compétition</h2><div class="table-wrap">${compTable.outerHTML}</div></div>`;
-    return buildPrintDocument("District de Villeurbanne — Activités", body);
+  function buildConsultationPrintHtml(opts){
+    opts = opts || {};
+    const includeAnnuaire = opts.includeAnnuaire !== false;
+    const includeActivites = opts.includeActivites !== false;
+    let body = "";
+    if(includeAnnuaire){
+      const etabsHtml = sortedEtabs().map(etab=>etabBlockHtml(etab, {editable:false})).join("");
+      body += `<div id="profs-container">${etabsHtml}</div>`;
+    }
+    if(includeActivites){
+      const pratTable = document.getElementById("table-activites-pratiquees").cloneNode(true);
+      const compTable = document.getElementById("table-activites-competition").cloneNode(true);
+      body += `<div class="activites-page" style="page-break-before:${includeAnnuaire ? "always" : "auto"};"><h2 class="section-title">Activités pratiquées (loisir)</h2><div class="table-wrap">${pratTable.outerHTML}</div></div>`
+        + `<div class="activites-page"><h2 class="section-title">Activités engagées en compétition</h2><div class="table-wrap">${compTable.outerHTML}</div></div>`;
+    }
+    const title = includeAnnuaire ? "District de Villeurbanne — Annuaire" : "District de Villeurbanne — Activités";
+    return buildPrintDocument(title, body);
   }
 
   document.getElementById("btn-export-annuaire-pdf").addEventListener("click", ()=>{
-    openPrintPreview(buildAnnuairePrintHtml());
+    openModal("modal-overlay-export-pdf");
+  });
+  document.getElementById("btn-export-pdf-generate").addEventListener("click", ()=>{
+    const includeAnnuaire = document.getElementById("export-pdf-annuaire").checked;
+    const includeActivites = document.getElementById("export-pdf-activites").checked;
+    if(!includeAnnuaire && !includeActivites){ alert("Sélectionnez au moins une section à exporter."); return; }
+    closeModal("modal-overlay-export-pdf");
+    openPrintPreview(buildConsultationPrintHtml({includeAnnuaire, includeActivites}));
   });
   document.getElementById("btn-export-activites-pdf").addEventListener("click", ()=>{
-    openPrintPreview(buildActivitesPrintHtml());
+    openPrintPreview(buildConsultationPrintHtml({includeAnnuaire:false, includeActivites:true}));
   });
 
   // ---------- RENDER: CROSS DISTRICT ----------
