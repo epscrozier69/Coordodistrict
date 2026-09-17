@@ -1030,10 +1030,11 @@
           ? `<p class="email-copy" title="Cliquer pour copier l'email" data-copy-email="${escapeAttr(prof.email)}">${escapeHtml(prof.email)}</p>`
           : `<p><a href="mailto:${escapeAttr(prof.email)}" style="color:inherit;text-decoration:none;">${escapeHtml(prof.email)}</a></p>`)
       : "<p>—</p>";
+    const phoneFormatted = formatPhone(prof.telephone);
     const phoneHtml = prof.telephone
       ? (opts.editable
-          ? `<p class="copy-text" title="Cliquer pour copier le téléphone" data-copy-text="${escapeAttr(prof.telephone)}">${escapeHtml(prof.telephone)}</p>`
-          : `<p><a href="tel:${escapeAttr(prof.telephone.replace(/[^0-9+]/g,""))}" style="color:inherit;text-decoration:none;">${escapeHtml(prof.telephone)}</a></p>`)
+          ? `<p class="copy-text" title="Cliquer pour copier le téléphone" data-copy-text="${escapeAttr(phoneFormatted)}">${escapeHtml(phoneFormatted)}</p>`
+          : `<p><a href="tel:${escapeAttr(prof.telephone.replace(/[^0-9+]/g,""))}" style="color:inherit;text-decoration:none;">${escapeHtml(phoneFormatted)}</a></p>`)
       : "<p>—</p>";
     const tagLabel = (a, i, displayArr, precision) => {
       if(displayArr && displayArr[i]) return displayArr[i];
@@ -1077,10 +1078,12 @@
     if(etab.infoLines && etab.infoLines.length){
       // Ordre exact des lignes tel que saisi dans le Google Sheet (colonne
       // Info établissement), plutôt qu'un ordre fixe adresse/téléphone/email.
-      etab.infoLines.forEach(line=>{ metaParts.push(metaCopyLine(line, "Cliquer pour copier")); });
+      // formatPhone() ne touche pas aux lignes qui ne sont pas un numéro
+      // standard (adresse, email...), donc peut s'appliquer sans distinction.
+      etab.infoLines.forEach(line=>{ metaParts.push(metaCopyLine(formatPhone(line), "Cliquer pour copier")); });
     } else {
       if(etab.adresse) metaParts.push(metaCopyLine(etab.adresse, "Cliquer pour copier l'adresse"));
-      if(etab.telephone) metaParts.push(metaCopyLine(etab.telephone, "Cliquer pour copier le téléphone"));
+      if(etab.telephone) metaParts.push(metaCopyLine(formatPhone(etab.telephone), "Cliquer pour copier le téléphone"));
       if(etab.email) metaParts.push(`<div>${escapeHtml(etab.email)}</div>`);
     }
     const metaLines = metaParts.length ? metaParts.join("") : "<div>Coordonnées non renseignées</div>";
@@ -1514,6 +1517,21 @@
   }
   function escapeAttr(str){ return escapeHtml(str); }
 
+  // Reformate un numéro de téléphone français en groupes de 2 chiffres
+  // séparés par des espaces ("06 62 44 13 87"), quel que soit le séparateur
+  // d'origine (points, espaces, rien). Ne touche pas aux valeurs qui ne
+  // ressemblent pas à un numéro standard à 10 chiffres (adresse, texte
+  // libre, plusieurs numéros mélangés...) pour éviter de les déformer.
+  function formatPhone(raw){
+    if(!raw) return raw;
+    return String(raw).split("/").map(part=>{
+      const trimmed = part.trim();
+      const digits = trimmed.replace(/[^0-9+]/g, "").replace(/^\+33/, "0");
+      if(!/^\d{10}$/.test(digits)) return trimmed;
+      return digits.match(/.{2}/g).join(" ");
+    }).join(" / ");
+  }
+
   function gatherCoordoASEmails(){
     const set = new Set();
     state.etablissements.forEach(etab=>{
@@ -1565,7 +1583,7 @@
         .sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}));
       if(!profs.length) return "";
       const profsHtml = profs.map(p=>{
-        const value = (isEmail ? p.email : p.telephone || "").trim();
+        const value = isEmail ? (p.email||"").trim() : formatPhone((p.telephone||"").trim());
         const hasValue = !!value;
         return `
           <label class="select-contact-prof${hasValue ? "" : " no-value"}">
@@ -1647,7 +1665,7 @@
         .sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}));
       if(!profs.length) return "";
       const profsHtml = profs.map(p=>{
-        const value = (isEmail ? p.email : p.telephone || "").trim();
+        const value = isEmail ? (p.email||"").trim() : formatPhone((p.telephone||"").trim());
         const hasValue = !!value;
         return `
           <label class="select-contact-prof${hasValue ? "" : " no-value"}">
