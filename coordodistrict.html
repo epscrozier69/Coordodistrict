@@ -1743,6 +1743,7 @@
     return `<!doctype html><html lang="fr"><head><meta charset="UTF-8"><title>${escapeHtml(title)}</title>
 ${styleTag}
 <style>
+  *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
   body{ background:#fff; padding:18px; }
   .print-title{ text-align:center; margin:0 0 2px; }
   .print-date{ text-align:center; color:var(--muted); font-size:.85rem; margin:0 0 20px; }
@@ -1752,6 +1753,8 @@ ${styleTag}
   .activites-page table{ font-size:.62rem; }
   .activites-page th, .activites-page td{ padding:3px 4px !important; }
   .activites-page thead th{ white-space:normal !important; }
+  .prof-card .card-info{ flex: 1 1 auto; min-width: 0; }
+  .prof-card h4, .prof-card p, .badge{ white-space: normal; word-break: break-word; }
   @page{ size: A4 portrait; margin:10mm; }
   @page activites-landscape{ size: A4 landscape; margin:10mm; }
   .activites-page{ page: activites-landscape; }
