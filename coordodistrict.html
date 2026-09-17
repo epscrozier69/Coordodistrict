@@ -1028,7 +1028,7 @@
     const phoneHtml = prof.telephone
       ? (opts.editable
           ? `<p class="copy-text" title="Cliquer pour copier le téléphone" data-copy-text="${escapeAttr(prof.telephone)}">${escapeHtml(prof.telephone)}</p>`
-          : `<p>${escapeHtml(prof.telephone)}</p>`)
+          : `<p><a href="tel:${escapeAttr(prof.telephone.replace(/[^0-9+]/g,""))}" style="color:inherit;text-decoration:none;">${escapeHtml(prof.telephone)}</a></p>`)
       : "<p>—</p>";
     const tagLabel = (a, i, displayArr, precision) => {
       if(displayArr && displayArr[i]) return displayArr[i];
