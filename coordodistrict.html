@@ -170,9 +170,10 @@
   .interdistrict-card-head{ padding:10px 12px; color:#fff; }
   .interdistrict-card-head h4{ margin:0; font-size:1rem; }
   .interdistrict-card-head .count{ font-size:.75rem; opacity:.9; margin-top:2px; }
-  .interdistrict-rows{ padding:10px 12px; display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .interdistrict-rows{ padding:10px 12px 4px; display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; }
   .interdistrict-row{ border:1px solid var(--border); border-radius:8px; padding:8px; display:flex; flex-direction:column; gap:8px; min-height:60px; }
-  .interdistrict-row-head select{ width:100%; padding:5px 8px; border:1px solid var(--border); border-radius:6px; font-size:.8rem; }
+  .interdistrict-row-head{ display:flex; align-items:center; gap:4px; }
+  .interdistrict-row-head select{ flex:1; min-width:0; padding:5px 8px; border:1px solid var(--border); border-radius:6px; font-size:.8rem; }
   .interdistrict-equipe{ display:flex; flex-direction:column; gap:5px; }
   .interdistrict-pill{
     display:flex; align-items:center; gap:4px; font-size:.78rem; font-weight:600; color:#fff;
@@ -760,6 +761,11 @@
     "Tennis de table","Hip hop","Boxe","Rugby","Musculation","Football","Sport partagé","Autres"]
     .sort((a,b)=>a.localeCompare(b,"fr",{sensitivity:"base"}));
   const PALETTE = ["c1","c2","c3","c4","c5","c6","c7","c8","c9","c10","c11","c12","c13","c14","c15"];
+  const PALETTE_HEX = {
+    c1:"4A6FA5", c2:"7B5EA7", c3:"C0507A", c4:"E0A72F", c5:"D6455D",
+    c6:"2E8FA3", c7:"6C63FF", c8:"D98C3B", c9:"A64AC9", c10:"4A90D9",
+    c11:"D9527A", c12:"8E6FC9", c13:"C9435C", c14:"3D6FE0", c15:"B0559B"
+  };
 
   function sortedEtabs(){
     return state.etablissements.slice().sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}));
@@ -1369,18 +1375,14 @@
   }
 
   // ---------- RENDER: INTERDISTRICT ----------
-  // Garantit toujours exactement 2 colonnes (poules) pour une activité :
-  // soit tous les établissements dans la colonne 1 (1 seul lieu), soit
-  // répartis entre les deux colonnes (2 lieux).
-  function ensureInterdistrictTwoRows(act, etabs){
+  // Garantit au moins 1 colonne (lieu) pour une activité, sans jamais en
+  // forcer un nombre fixe : une activité à 1 ou 3 collèges peut très bien
+  // n'avoir qu'un seul lieu, pas besoin d'en imposer deux.
+  function ensureInterdistrictRows(act, etabs){
     let entry = state.interdistrict[act];
     if(!entry || !entry.rows || !entry.rows.length){
-      entry = { rows: [{ id: uid(), lieu: "", etabIds: etabs.map(e=>e.id) }, { id: uid(), lieu: "", etabIds: [] }] };
+      entry = { rows: [{ id: uid(), lieu: "", etabIds: etabs.map(e=>e.id) }] };
       state.interdistrict[act] = entry;
-    } else if(entry.rows.length === 1){
-      entry.rows.push({ id: uid(), lieu: "", etabIds: [] });
-    } else if(entry.rows.length > 2){
-      entry.rows = entry.rows.slice(0, 2);
     }
     return entry;
   }
@@ -1395,18 +1397,19 @@
     container.innerHTML = `<div class="interdistrict-grid">` + activitesConcernees.map((act,i)=>{
       const etabs = competitionEtabs(act);
       const color = `var(--${PALETTE[i % PALETTE.length]})`;
-      const entry = ensureInterdistrictTwoRows(act, etabs);
+      const entry = ensureInterdistrictRows(act, etabs);
       const rowsHtml = entry.rows.map((row,rIdx)=>{
         const lieuOptions = `<option value="">— Choisir —</option>` + sortedEtabs().map(e=>`<option value="${escapeAttr(e.id)}" ${row.lieu===e.id?"selected":""}>${escapeHtml(e.nom)}</option>`).join("");
         const pillsHtml = row.etabIds.map(id=>{
           const e = etabs.find(x=>x.id===id);
           if(!e) return "";
-          return `<button type="button" class="interdistrict-pill" data-interdistrict-pill data-act="${escapeAttr(act)}" data-etab="${escapeAttr(e.id)}" title="Cliquer pour déplacer vers l'autre colonne">✓ ${escapeHtml(e.nom)}</button>`;
+          return `<button type="button" class="interdistrict-pill" data-interdistrict-pill data-act="${escapeAttr(act)}" data-etab="${escapeAttr(e.id)}" title="Cliquer pour déplacer vers le lieu suivant">✓ ${escapeHtml(e.nom)}</button>`;
         }).join("");
         return `
           <div class="interdistrict-row" data-row-index="${rIdx}">
             <div class="interdistrict-row-head">
               <select data-interdistrict-lieu data-act="${escapeAttr(act)}" data-row="${row.id}">${lieuOptions}</select>
+              ${entry.rows.length > 1 ? `<button type="button" class="icon-btn" data-interdistrict-del-row data-act="${escapeAttr(act)}" data-row="${row.id}" title="Supprimer ce lieu (répartit ses établissements sur le 1er lieu)">🗑</button>` : ""}
             </div>
             <div class="interdistrict-equipe">${pillsHtml}</div>
           </div>
@@ -1419,6 +1422,9 @@
             <div class="count">${etabs.length} collège${etabs.length>1?"s":""}</div>
           </div>
           <div class="interdistrict-rows">${rowsHtml}</div>
+          <div style="padding:0 12px 12px;">
+            <button type="button" class="secondary interdistrict-add-row" data-interdistrict-add-row="${escapeAttr(act)}">+ Ajouter un lieu</button>
+          </div>
         </div>
       `;
     }).join("") + `</div>`;
@@ -1435,9 +1441,32 @@
         const etabId = btn.dataset.etab;
         const fromIdx = entry.rows.findIndex(r=>r.etabIds.includes(etabId));
         if(fromIdx === -1) return;
-        const toIdx = fromIdx === 0 ? 1 : 0;
+        const toIdx = (fromIdx + 1) % entry.rows.length;
+        if(toIdx === fromIdx) return;
         entry.rows[fromIdx].etabIds = entry.rows[fromIdx].etabIds.filter(id=>id!==etabId);
         entry.rows[toIdx].etabIds.push(etabId);
+        saveState();
+        renderInterdistrict();
+      });
+    });
+    container.querySelectorAll("[data-interdistrict-add-row]").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        const act = btn.dataset.interdistrictAddRow;
+        state.interdistrict[act].rows.push({ id: uid(), lieu: "", etabIds: [] });
+        saveState();
+        renderInterdistrict();
+      });
+    });
+    container.querySelectorAll("[data-interdistrict-del-row]").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        const entry = state.interdistrict[btn.dataset.act];
+        const rowIdx = entry.rows.findIndex(r=>r.id===btn.dataset.row);
+        if(rowIdx === -1) return;
+        // Conserve la répartition actuelle : les établissements de ce lieu
+        // rejoignent le 1er lieu restant plutôt que d'être perdus.
+        const removed = entry.rows.splice(rowIdx, 1)[0];
+        const target = entry.rows[0];
+        removed.etabIds.forEach(id=>{ if(!target.etabIds.includes(id)) target.etabIds.push(id); });
         saveState();
         renderInterdistrict();
       });
@@ -2149,17 +2178,24 @@ ${innerHtml}
       const ws = wb.addWorksheet(String(sheet.name).slice(0,31));
       ws.addRow(sheet.header);
       const headerRow = ws.getRow(1);
-      headerRow.font = { bold:true, color:{ argb:"FFFFFFFF" } };
-      headerRow.fill = { type:"pattern", pattern:"solid", fgColor:{ argb:"FF4A6FA5" } };
-      headerRow.alignment = { vertical:"middle" };
+      headerRow.eachCell((cell, colNumber)=>{
+        const hex = (sheet.headerColors && sheet.headerColors[colNumber-1]) || "4A6FA5";
+        cell.font = { bold:true, color:{ argb:"FFFFFFFF" } };
+        cell.fill = { type:"pattern", pattern:"solid", fgColor:{ argb:"FF"+hex } };
+        cell.alignment = { vertical:"middle", wrapText:true };
+      });
       sheet.rows.forEach((r, rIdx)=>{
         const excelRow = ws.addRow(r);
-        if(sheet.cellFill){
-          r.forEach((val, cIdx)=>{
+        r.forEach((val, cIdx)=>{
+          if(sheet.cellFill){
             const fill = sheet.cellFill(rIdx, cIdx, val);
             if(fill) excelRow.getCell(cIdx+1).fill = { type:"pattern", pattern:"solid", fgColor:{ argb:fill } };
-          });
-        }
+          }
+          if(sheet.cellFont){
+            const font = sheet.cellFont(rIdx, cIdx, val);
+            if(font) excelRow.getCell(cIdx+1).font = font;
+          }
+        });
       });
       ws.columns.forEach((col, i)=>{
         const header = String(sheet.header[i]||"");
@@ -2235,26 +2271,59 @@ ${innerHtml}
   document.getElementById("btn-export-annuaire-excel").addEventListener("click", exportAnnuaireExcel);
 
   function buildActiviteTableSheet(dimension, sheetName){
+    // Reproduit la présentation exacte de l'écran : même couleur de palette
+    // par colonne d'activité que le tableau affiché, ✓/— au lieu de Oui/Non,
+    // ✓ coloré (teal en loisir, rose/rouge en compétition) comme à l'écran.
     const etabs = sortedEtabs();
     const standardCols = ACTIVITES.filter(act=>act!=="Autres").map(act=>({label:act, key:act, isAutre:false}));
     const autreCols = autresTextsFor(dimension).map(text=>({label:text, key:text, isAutre:true}));
     const activesCols = standardCols.concat(autreCols).filter(col => etabs.some(etab => etabHasActiviteCol(etab, col, dimension)));
     const header = ["Établissement"].concat(activesCols.map(c=>c.label));
-    const rows = etabs.map(etab=>[etab.nom].concat(activesCols.map(col=>etabHasActiviteCol(etab, col, dimension) ? "Oui" : "")));
-    return { name: sheetName, header, rows };
+    const headerColors = [PALETTE_HEX.c1].concat(activesCols.map((c,i)=>PALETTE_HEX[PALETTE[(i+1) % PALETTE.length]]));
+    const rows = etabs.map(etab=>[etab.nom].concat(activesCols.map(col=>etabHasActiviteCol(etab, col, dimension) ? "✓" : "—")));
+    const markColor = dimension === "pratiquee" ? "FF2E8FA3" : "FFC9435C";
+    return {
+      name: sheetName, header, rows, headerColors,
+      cellFont: (rowIdx, colIdx, val)=>{
+        if(colIdx === 0) return { bold:true };
+        return val === "✓" ? { bold:true, color:{ argb:markColor } } : { color:{ argb:"FFC7CBD8" } };
+      }
+    };
   }
 
   function buildInterdistrictSheet(){
-    const rows = [];
-    Object.keys(state.interdistrict).forEach(act=>{
-      (state.interdistrict[act].rows||[]).forEach(row=>{
-        const lieuEtab = row.lieu ? getEtab(row.lieu) : null;
-        const equipeNames = row.etabIds.map(id=>{ const e=getEtab(id); return e?e.nom:""; }).filter(Boolean).join(", ");
-        if(!equipeNames && !lieuEtab) return;
-        rows.push([act, lieuEtab?lieuEtab.nom:"", equipeNames]);
-      });
+    // Une ligne par activité, avec autant de paires "Lieu N / Équipe N" que
+    // de colonnes affichées sur sa carte à l'écran — la cellule Activité
+    // reprend la même couleur que l'en-tête de la carte.
+    const activitesConcernees = ACTIVITES.filter(act => act !== "Autres" && competitionEtabs(act).length > 0);
+    let maxCols = 1;
+    activitesConcernees.forEach(act=>{
+      const entry = state.interdistrict[act];
+      if(entry && entry.rows && entry.rows.length > maxCols) maxCols = entry.rows.length;
     });
-    return { name: "Interdistrict", header: ["Activité","Lieu","Équipe"], rows };
+    const header = ["Activité"];
+    for(let i=1;i<=maxCols;i++) header.push("Lieu " + i, "Équipe " + i);
+    const headerColors = [PALETTE_HEX.c1];
+    for(let i=1;i<=maxCols;i++) headerColors.push(PALETTE_HEX.c7, PALETTE_HEX.c7);
+    const rows = [];
+    const rowColors = [];
+    activitesConcernees.forEach((act,i)=>{
+      const entry = state.interdistrict[act];
+      const row = [act];
+      (entry && entry.rows ? entry.rows : []).forEach(r=>{
+        const lieuEtab = r.lieu ? getEtab(r.lieu) : null;
+        const equipeNames = r.etabIds.map(id=>{ const e=getEtab(id); return e?e.nom:""; }).filter(Boolean).join(", ");
+        row.push(lieuEtab ? lieuEtab.nom : "", equipeNames);
+      });
+      while(row.length < header.length) row.push("");
+      rows.push(row);
+      rowColors.push(PALETTE_HEX[PALETTE[i % PALETTE.length]]);
+    });
+    return {
+      name: "Interdistrict", header, rows, headerColors,
+      cellFill: (rowIdx, colIdx)=> colIdx === 0 ? ("FF" + rowColors[rowIdx]) : null,
+      cellFont: (rowIdx, colIdx)=> colIdx === 0 ? { bold:true, color:{ argb:"FFFFFFFF" } } : null
+    };
   }
 
   function exportActivitesExcel(){
