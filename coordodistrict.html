@@ -165,18 +165,20 @@
   }
   .export-tile-icon{ font-size:1.8rem; }
   .export-tile:hover{ transform:translateY(-2px); box-shadow:0 6px 18px rgba(0,0,0,.2); }
-  .interdistrict-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:16px; margin-top:12px; }
+  .interdistrict-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:16px; margin-top:12px; }
   .interdistrict-card{ border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; background:#fff; box-shadow:var(--shadow); }
   .interdistrict-card-head{ padding:10px 12px; color:#fff; }
   .interdistrict-card-head h4{ margin:0; font-size:1rem; }
   .interdistrict-card-head .count{ font-size:.75rem; opacity:.9; margin-top:2px; }
-  .interdistrict-rows{ padding:10px 12px; display:flex; flex-direction:column; gap:10px; }
-  .interdistrict-row{ border:1px solid var(--border); border-radius:8px; padding:8px; }
-  .interdistrict-row-head{ display:flex; align-items:center; gap:6px; margin-bottom:6px; }
-  .interdistrict-row-head select{ flex:1; padding:5px 8px; border:1px solid var(--border); border-radius:6px; font-size:.82rem; }
-  .interdistrict-equipe{ display:flex; flex-wrap:wrap; gap:4px; }
-  .interdistrict-equipe label{ display:flex; align-items:center; gap:3px; font-size:.76rem; background:#f3f5fa; border-radius:10px; padding:2px 7px; cursor:pointer; }
-  .interdistrict-add-row{ font-size:.78rem; padding:6px 10px; align-self:flex-start; }
+  .interdistrict-rows{ padding:10px 12px; display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .interdistrict-row{ border:1px solid var(--border); border-radius:8px; padding:8px; display:flex; flex-direction:column; gap:8px; min-height:60px; }
+  .interdistrict-row-head select{ width:100%; padding:5px 8px; border:1px solid var(--border); border-radius:6px; font-size:.8rem; }
+  .interdistrict-equipe{ display:flex; flex-direction:column; gap:5px; }
+  .interdistrict-pill{
+    display:flex; align-items:center; gap:4px; font-size:.78rem; font-weight:600; color:#fff;
+    background:var(--c1); border:none; border-radius:14px; padding:4px 10px; cursor:pointer; text-align:left;
+  }
+  .interdistrict-pill:hover{ opacity:.85; }
   .etab-block{ display:flex; align-items:stretch; background:#fff; border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; }
   .etab-block-head{
     display:flex; flex-direction:column; justify-content:space-between; flex:0 0 190px;
@@ -361,30 +363,50 @@
   <!-- ONGLET ACTIVITES -->
   <section id="tab-activites" class="tab-panel">
     <div class="panel-header">
-      <h2>Activités pratiquées (loisir)</h2>
+      <h2>Activités</h2>
       <div class="actions">
-        <button id="btn-export-activites-pdf" class="secondary">📄 Export PDF</button>
-        <button id="btn-export-activites-excel" class="secondary">📊 Export Excel</button>
+        <button id="btn-export-activites-pdf" class="secondary">📄 Export PDF (tout)</button>
+        <button id="btn-export-activites-excel" class="secondary">📊 Export Excel (tout)</button>
       </div>
     </div>
-    <div class="panel-header">
-      <p class="hint">Récapitulatif non modifiable — le choix des activités se fait dans la fiche de chaque collègue</p>
-    </div>
-    <div class="table-wrap">
-      <table id="table-activites-pratiquees">
-        <thead><tr id="thead-activites-pratiquees-row"></tr></thead>
-        <tbody id="tbody-activites-pratiquees"></tbody>
-      </table>
-    </div>
 
-    <div class="panel-header" style="margin-top:22px;">
+    <!-- 1. Compétition -->
+    <div class="panel-header" style="margin-top:10px;">
       <h2>Activités engagées en compétition</h2>
-      <p class="hint">Récapitulatif non modifiable — le choix des activités se fait dans la fiche de chaque collègue</p>
+      <div class="actions">
+        <button id="btn-export-competition-excel" class="secondary">📊 Exporter ce tableau</button>
+      </div>
     </div>
+    <p class="hint">Récapitulatif non modifiable — le choix des activités se fait dans la fiche de chaque collègue</p>
     <div class="table-wrap">
       <table id="table-activites-competition">
         <thead><tr id="thead-activites-competition-row"></tr></thead>
         <tbody id="tbody-activites-competition"></tbody>
+      </table>
+    </div>
+
+    <!-- 2. Organisation District Villeurbanne -->
+    <div class="panel-header" style="margin-top:22px;">
+      <h2>Organisation District Villeurbanne</h2>
+      <div class="actions">
+        <button id="btn-export-interdistrict-excel" class="secondary">📊 Exporter ce tableau</button>
+      </div>
+    </div>
+    <p class="hint">Pour chaque activité en compétition : choisissez le lieu, répartissez les établissements en plusieurs poules si besoin.</p>
+    <div id="interdistrict-container"></div>
+
+    <!-- 3. Loisir -->
+    <div class="panel-header" style="margin-top:22px;">
+      <h2>Activités pratiquées (loisir)</h2>
+      <div class="actions">
+        <button id="btn-export-pratiquees-excel" class="secondary">📊 Exporter ce tableau</button>
+      </div>
+    </div>
+    <p class="hint">Récapitulatif non modifiable — le choix des activités se fait dans la fiche de chaque collègue</p>
+    <div class="table-wrap">
+      <table id="table-activites-pratiquees">
+        <thead><tr id="thead-activites-pratiquees-row"></tr></thead>
+        <tbody id="tbody-activites-pratiquees"></tbody>
       </table>
     </div>
 
@@ -397,12 +419,6 @@
       </div>
     </div>
     <div id="activite-filter-result"></div>
-
-    <div class="panel-header" style="margin-top:22px;">
-      <h2>Organisation District Villeurbanne</h2>
-      <p class="hint">Pour chaque activité en compétition : choisissez le lieu, répartissez les établissements en plusieurs poules si besoin.</p>
-    </div>
-    <div id="interdistrict-container"></div>
   </section>
 
   <!-- ONGLET CARTES TCL -->
@@ -1353,6 +1369,22 @@
   }
 
   // ---------- RENDER: INTERDISTRICT ----------
+  // Garantit toujours exactement 2 colonnes (poules) pour une activité :
+  // soit tous les établissements dans la colonne 1 (1 seul lieu), soit
+  // répartis entre les deux colonnes (2 lieux).
+  function ensureInterdistrictTwoRows(act, etabs){
+    let entry = state.interdistrict[act];
+    if(!entry || !entry.rows || !entry.rows.length){
+      entry = { rows: [{ id: uid(), lieu: "", etabIds: etabs.map(e=>e.id) }, { id: uid(), lieu: "", etabIds: [] }] };
+      state.interdistrict[act] = entry;
+    } else if(entry.rows.length === 1){
+      entry.rows.push({ id: uid(), lieu: "", etabIds: [] });
+    } else if(entry.rows.length > 2){
+      entry.rows = entry.rows.slice(0, 2);
+    }
+    return entry;
+  }
+
   function renderInterdistrict(){
     const container = document.getElementById("interdistrict-container");
     const activitesConcernees = ACTIVITES.filter(act => act !== "Autres" && competitionEtabs(act).length > 0);
@@ -1363,24 +1395,20 @@
     container.innerHTML = `<div class="interdistrict-grid">` + activitesConcernees.map((act,i)=>{
       const etabs = competitionEtabs(act);
       const color = `var(--${PALETTE[i % PALETTE.length]})`;
-      if(!state.interdistrict[act] || !state.interdistrict[act].rows || !state.interdistrict[act].rows.length){
-        state.interdistrict[act] = { rows: [{ id: uid(), lieu: "", etabIds: etabs.map(e=>e.id) }] };
-      }
-      const entry = state.interdistrict[act];
-      const rowsHtml = entry.rows.map(row=>{
+      const entry = ensureInterdistrictTwoRows(act, etabs);
+      const rowsHtml = entry.rows.map((row,rIdx)=>{
         const lieuOptions = `<option value="">— Choisir —</option>` + sortedEtabs().map(e=>`<option value="${escapeAttr(e.id)}" ${row.lieu===e.id?"selected":""}>${escapeHtml(e.nom)}</option>`).join("");
-        const equipeHtml = etabs.map(e=>{
-          const checked = row.etabIds.includes(e.id);
-          return `<label><input type="checkbox" data-interdistrict-equipe data-act="${escapeAttr(act)}" data-row="${row.id}" data-etab="${e.id}" ${checked?"checked":""}> ${escapeHtml(e.nom)}</label>`;
+        const pillsHtml = row.etabIds.map(id=>{
+          const e = etabs.find(x=>x.id===id);
+          if(!e) return "";
+          return `<button type="button" class="interdistrict-pill" data-interdistrict-pill data-act="${escapeAttr(act)}" data-etab="${escapeAttr(e.id)}" title="Cliquer pour déplacer vers l'autre colonne">✓ ${escapeHtml(e.nom)}</button>`;
         }).join("");
         return `
-          <div class="interdistrict-row" data-row-id="${row.id}">
+          <div class="interdistrict-row" data-row-index="${rIdx}">
             <div class="interdistrict-row-head">
-              <label class="hint" style="margin:0;">Lieu :</label>
               <select data-interdistrict-lieu data-act="${escapeAttr(act)}" data-row="${row.id}">${lieuOptions}</select>
-              ${entry.rows.length > 1 ? `<button type="button" class="icon-btn" data-interdistrict-del-row data-act="${escapeAttr(act)}" data-row="${row.id}" title="Supprimer cette ligne">🗑</button>` : ""}
             </div>
-            <div class="interdistrict-equipe">${equipeHtml}</div>
+            <div class="interdistrict-equipe">${pillsHtml}</div>
           </div>
         `;
       }).join("");
@@ -1390,10 +1418,7 @@
             <h4>${escapeHtml(act)}</h4>
             <div class="count">${etabs.length} collège${etabs.length>1?"s":""}</div>
           </div>
-          <div class="interdistrict-rows">
-            ${rowsHtml}
-            <button type="button" class="secondary interdistrict-add-row" data-interdistrict-add-row="${escapeAttr(act)}">+ Ajouter une ligne</button>
-          </div>
+          <div class="interdistrict-rows">${rowsHtml}</div>
         </div>
       `;
     }).join("") + `</div>`;
@@ -1404,28 +1429,15 @@
         if(row){ row.lieu = sel.value; saveState(); }
       });
     });
-    container.querySelectorAll("[data-interdistrict-equipe]").forEach(cb=>{
-      cb.addEventListener("change", ()=>{
-        const row = state.interdistrict[cb.dataset.act].rows.find(r=>r.id===cb.dataset.row);
-        if(!row) return;
-        const etabId = cb.dataset.etab;
-        if(cb.checked){ if(!row.etabIds.includes(etabId)) row.etabIds.push(etabId); }
-        else { row.etabIds = row.etabIds.filter(id=>id!==etabId); }
-        saveState();
-      });
-    });
-    container.querySelectorAll("[data-interdistrict-add-row]").forEach(btn=>{
+    container.querySelectorAll("[data-interdistrict-pill]").forEach(btn=>{
       btn.addEventListener("click", ()=>{
-        const act = btn.dataset.interdistrictAddRow;
-        state.interdistrict[act].rows.push({ id: uid(), lieu: "", etabIds: [] });
-        saveState();
-        renderInterdistrict();
-      });
-    });
-    container.querySelectorAll("[data-interdistrict-del-row]").forEach(btn=>{
-      btn.addEventListener("click", ()=>{
-        const act = btn.dataset.act, rowId = btn.dataset.row;
-        state.interdistrict[act].rows = state.interdistrict[act].rows.filter(r=>r.id!==rowId);
+        const entry = state.interdistrict[btn.dataset.act];
+        const etabId = btn.dataset.etab;
+        const fromIdx = entry.rows.findIndex(r=>r.etabIds.includes(etabId));
+        if(fromIdx === -1) return;
+        const toIdx = fromIdx === 0 ? 1 : 0;
+        entry.rows[fromIdx].etabIds = entry.rows[fromIdx].etabIds.filter(id=>id!==etabId);
+        entry.rows[toIdx].etabIds.push(etabId);
         saveState();
         renderInterdistrict();
       });
@@ -2247,13 +2259,22 @@ ${innerHtml}
 
   function exportActivitesExcel(){
     downloadXlsx("Activites_District_Villeurbanne.xlsx", [
-      buildActiviteTableSheet("pratiquee", "Pratiquées (loisir)"),
       buildActiviteTableSheet("competition", "Compétition"),
-      buildInterdistrictSheet()
+      buildInterdistrictSheet(),
+      buildActiviteTableSheet("pratiquee", "Pratiquées (loisir)")
     ]);
   }
 
   document.getElementById("btn-export-activites-excel").addEventListener("click", exportActivitesExcel);
+  document.getElementById("btn-export-competition-excel").addEventListener("click", ()=>{
+    downloadXlsx("Activites_competition.xlsx", [buildActiviteTableSheet("competition", "Compétition")]);
+  });
+  document.getElementById("btn-export-interdistrict-excel").addEventListener("click", ()=>{
+    downloadXlsx("Organisation_District_Villeurbanne.xlsx", [buildInterdistrictSheet()]);
+  });
+  document.getElementById("btn-export-pratiquees-excel").addEventListener("click", ()=>{
+    downloadXlsx("Activites_pratiquees.xlsx", [buildActiviteTableSheet("pratiquee", "Pratiquées (loisir)")]);
+  });
 
   // ---------- RENDER: CROSS DISTRICT ----------
   function renderCross(){
