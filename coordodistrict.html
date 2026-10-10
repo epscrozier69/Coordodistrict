@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>District de Villeurbanne - 2026-2027</title>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <style>
   #app-toast{
     position:fixed; bottom:22px; left:50%; transform:translateX(-50%) translateY(12px);
@@ -148,6 +149,13 @@
   #profs-container, #ag-container{
     display:flex; flex-direction:column; gap:10px;
   }
+  .ag-tabs{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+  .ag-tab-btn{
+    padding:7px 14px; border:1px solid var(--border); border-radius:20px; background:#fff; color:var(--text);
+    font-size:.82rem; font-weight:600; cursor:pointer;
+  }
+  .ag-tab-btn.active{ background:var(--c1); color:#fff; border-color:var(--c1); }
+  .ag-tab-btn.is-hidden{ opacity:.55; border-style:dashed; }
   .etab-block{ display:flex; align-items:stretch; background:#fff; border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; }
   .etab-block-head{
     display:flex; flex-direction:column; justify-content:space-between; flex:0 0 190px;
@@ -508,6 +516,8 @@
         <button id="btn-copy-emails-activite" class="secondary">✉️ Emails collègues par activité</button>
         <button id="btn-copy-emails-coordo-as" class="secondary">✉️ Copier les emails des coordos AS</button>
         <button id="btn-export-annuaire-pdf" class="secondary">📄 Export PDF (consultation)</button>
+        <button id="btn-export-annuaire-excel" class="secondary">📊 Export Excel (Annuaire)</button>
+        <button id="btn-compress-photos" class="secondary">🗜️ Alléger les photos</button>
       </div>
     </div>
   </section>
@@ -517,11 +527,16 @@
     <div class="panel-header">
       <h2>Assemblée Générale</h2>
       <div class="actions">
-        <select id="ag-select"></select>
         <button id="btn-ag-add" class="secondary">+ Nouvelle réunion</button>
-        <button id="btn-ag-delete" class="secondary">🗑️ Supprimer cette réunion</button>
+        <button id="btn-ag-toggle-hide" class="secondary">🙈 Masquer cette réunion</button>
+        <button id="btn-ag-delete" class="secondary">🗑️ Supprimer définitivement</button>
+        <button id="btn-ag-export-excel" class="secondary">📊 Export Excel</button>
+        <label style="display:flex; align-items:center; gap:6px; font-size:.82rem; font-weight:600; color:var(--text);">
+          <input type="checkbox" id="ag-show-hidden"> Afficher les réunions masquées
+        </label>
       </div>
     </div>
+    <div class="ag-tabs" id="ag-tabs"></div>
     <p class="hint" id="ag-recap"></p>
     <div id="ag-container"></div>
   </section>
@@ -867,6 +882,7 @@
     if(!parsed.stockRecompenses) parsed.stockRecompenses = defaultStockRecompenses();
     if(!parsed.remboursements) parsed.remboursements = [];
     if(!parsed.ags) parsed.ags = [];
+    parsed.ags.forEach(ag=>{ if(ag.hidden === undefined) ag.hidden = false; });
     return parsed;
   }
 
@@ -898,12 +914,42 @@
 
   let syncInFlight = false;
   let syncPending = false;
+  let autoCompressing = false;
+  function allProfsWithPhoto(){
+    const list = [];
+    state.etablissements.forEach(etab=>{
+      etab.profs.forEach(p=>{ if(p.photo) list.push(p); });
+    });
+    return list;
+  }
+  async function autoCompressPhotosAndRetry(){
+    const profsWithPhoto = allProfsWithPhoto();
+    if(!profsWithPhoto.length){
+      const msg = "Échec de synchronisation : données trop volumineuses, mais aucune photo à compresser pour gagner de la place.";
+      setSyncStatus(msg);
+      return;
+    }
+    setSyncStatus("Données trop volumineuses : compression automatique des photos en cours…");
+    for(const p of profsWithPhoto){ p.photo = await compressPhoto(p.photo, 96, 0.6); }
+    if(JSON.stringify(state).length > 45000){
+      for(const p of profsWithPhoto){ p.photo = await compressPhoto(p.photo, 64, 0.5); }
+    }
+    cacheStateLocally();
+    renderAll();
+    if(JSON.stringify(state).length > 45000){
+      const msg = "Échec de synchronisation : données encore trop volumineuses même après compression automatique des photos. Réduisez le nombre de photos.";
+      setSyncStatus(msg);
+      return;
+    }
+    pushRemoteState();
+  }
   function pushRemoteState(){
     if(!SYNC_URL) return;
     if(JSON.stringify(state).length > 45000){
-      const msg = "Échec de synchronisation : données trop volumineuses (probablement trop de photos ou des photos trop lourdes). Réduisez-en le nombre ou leur taille. Vos modifications restent enregistrées sur cet appareil mais ne seront pas envoyées tant que ce n'est pas résolu.";
-      setSyncStatus(msg);
-      alert(msg);
+      if(!autoCompressing){
+        autoCompressing = true;
+        autoCompressPhotosAndRetry().finally(()=>{ autoCompressing = false; });
+      }
       return;
     }
     if(syncInFlight){ syncPending = true; return; }
@@ -1959,6 +2005,76 @@ ${innerHtml}
     openPrintPreview(buildConsultationPrintHtml({includeAnnuaire:false, includeActivites:true}));
   });
 
+  // ---------- EXPORT EXCEL (.xlsx) ----------
+  async function downloadXlsx(filename, sheets){
+    if(typeof ExcelJS === "undefined"){
+      alert("La bibliothèque Excel n'a pas pu être chargée (vérifiez la connexion internet) : impossible d'exporter.");
+      return;
+    }
+    const wb = new ExcelJS.Workbook();
+    sheets.forEach(sheet=>{
+      const ws = wb.addWorksheet(String(sheet.name).slice(0,31));
+      ws.addRow(sheet.header);
+      const headerRow = ws.getRow(1);
+      headerRow.font = { bold:true, color:{ argb:"FFFFFFFF" } };
+      headerRow.fill = { type:"pattern", pattern:"solid", fgColor:{ argb:"FF4A6FA5" } };
+      headerRow.alignment = { vertical:"middle" };
+      sheet.rows.forEach(r=>ws.addRow(r));
+      ws.columns.forEach((col, i)=>{
+        const header = String(sheet.header[i]||"");
+        const maxLen = sheet.rows.reduce((m,r)=>Math.max(m, String(r[i]==null?"":r[i]).length), header.length);
+        col.width = Math.max(10, maxLen + 2);
+      });
+      ws.views = [{ state:"frozen", ySplit:1 }];
+    });
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 2000);
+  }
+
+  function exportAgExcel(){
+    const current = state.ags.find(a=>a.id===currentAgId);
+    if(!current){ alert("Aucune réunion sélectionnée."); return; }
+    const rows = [];
+    sortedEtabs().forEach(etab=>{
+      etab.profs.filter(p=>!p.virtual)
+        .sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}))
+        .forEach(prof=>{
+          rows.push([etab.nom, prof.nom, current.presences[prof.id] ? "Oui" : "Non"]);
+        });
+    });
+    downloadXlsx("AG_" + current.date + ".xlsx", [
+      { name: "Présence " + current.date, header: ["Établissement","Collègue","Présent"], rows }
+    ]);
+  }
+
+  function exportAnnuaireExcel(){
+    const etabRows = sortedEtabs().map(e=>[e.nom, e.adresse||"", formatPhone(e.telephone)||"", e.email||""]);
+    const profRows = [];
+    sortedEtabs().forEach(etab=>{
+      etab.profs.filter(p=>!p.virtual)
+        .sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}))
+        .forEach(prof=>{
+          const pratiquees = (prof.activitesPratiqueesDisplay && prof.activitesPratiqueesDisplay.length ? prof.activitesPratiqueesDisplay : (prof.activitesPratiquees||[])).join(", ");
+          const competition = (prof.activitesCompetitionDisplay && prof.activitesCompetitionDisplay.length ? prof.activitesCompetitionDisplay : (prof.activitesCompetition||[])).join(", ");
+          profRows.push([etab.nom, prof.nom, formatPhone(prof.telephone)||"", prof.email||"", prof.coordoAS?"Oui":"", prof.coordoEPS?"Oui":"", pratiquees, competition]);
+        });
+    });
+    downloadXlsx("Annuaire_District_Villeurbanne.xlsx", [
+      { name: "Établissements", header: ["Nom","Adresse","Téléphone","Email"], rows: etabRows },
+      { name: "Profs", header: ["Établissement","Nom","Téléphone","Email","Coordo AS","Coordo EPS","Activités pratiquées","Activités compétition"], rows: profRows }
+    ]);
+  }
+
+  document.getElementById("btn-export-annuaire-excel").addEventListener("click", exportAnnuaireExcel);
+
   // ---------- RENDER: CROSS DISTRICT ----------
   function renderCross(){
     const tbody = document.getElementById("tbody-cross");
@@ -1993,22 +2109,48 @@ ${innerHtml}
     document.getElementById("ag-recap").textContent = present + " présent" + (present>1?"s":"") + " sur " + total + " collègues.";
   }
 
-  function renderAg(){
-    const select = document.getElementById("ag-select");
-    const ags = state.ags.slice().sort((a,b)=> b.date.localeCompare(a.date));
-    const previousSelection = select.value;
-    select.innerHTML = ags.length
-      ? ags.map(ag=>`<option value="${escapeAttr(ag.id)}">${escapeHtml(ag.date)}</option>`).join("")
-      : `<option value="">Aucune réunion</option>`;
-    if(ags.some(ag=>ag.id===previousSelection)) select.value = previousSelection;
+  let currentAgId = null;
+  function visibleAgs(){
+    const showHidden = document.getElementById("ag-show-hidden").checked;
+    return state.ags.slice()
+      .filter(ag => showHidden || !ag.hidden)
+      .sort((a,b)=> b.date.localeCompare(a.date));
+  }
 
-    const current = state.ags.find(ag=>ag.id===select.value);
+  function renderAg(){
+    const ags = visibleAgs();
+    if(!ags.some(ag=>ag.id===currentAgId)){
+      currentAgId = ags.length ? ags[0].id : null;
+    }
+    const tabsEl = document.getElementById("ag-tabs");
+    tabsEl.innerHTML = ags.length
+      ? ags.map(ag=>`<button type="button" class="ag-tab-btn${ag.id===currentAgId ? " active" : ""}${ag.hidden ? " is-hidden" : ""}" data-ag-tab="${escapeAttr(ag.id)}">${escapeHtml(ag.date)}${ag.hidden ? " (masquée)" : ""}</button>`).join("")
+      : `<span class="hint">Aucune réunion.</span>`;
+    tabsEl.querySelectorAll("[data-ag-tab]").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        currentAgId = btn.dataset.agTab;
+        renderAg();
+      });
+    });
+
+    const current = state.ags.find(ag=>ag.id===currentAgId);
     const container = document.getElementById("ag-container");
     container.innerHTML = "";
+    const btnToggleHide = document.getElementById("btn-ag-toggle-hide");
+    const btnDelete = document.getElementById("btn-ag-delete");
+    const btnExport = document.getElementById("btn-ag-export-excel");
     if(!current){
       document.getElementById("ag-recap").textContent = "Aucune réunion enregistrée pour le moment.";
+      btnToggleHide.disabled = true;
+      btnDelete.disabled = true;
+      btnExport.disabled = true;
       return;
     }
+    btnToggleHide.disabled = false;
+    btnDelete.disabled = false;
+    btnExport.disabled = false;
+    btnToggleHide.textContent = current.hidden ? "👁️ Afficher cette réunion" : "🙈 Masquer cette réunion";
+
     container.innerHTML = sortedEtabs().map(etab=>{
       const color = etabColorVar(etab);
       const textColor = etabHeadTextColor(etab);
@@ -2045,32 +2187,62 @@ ${innerHtml}
     });
   }
 
-  document.getElementById("ag-select").addEventListener("change", renderAg);
+  document.getElementById("ag-show-hidden").addEventListener("change", renderAg);
   document.getElementById("btn-ag-add").addEventListener("click", ()=>{
     document.getElementById("ag-date").value = new Date().toISOString().slice(0,10);
     openModal("modal-overlay-ag");
   });
   document.getElementById("form-ag").addEventListener("submit", e=>{
     e.preventDefault();
-    const newAg = { id: uid(), date: document.getElementById("ag-date").value, presences: {} };
+    const newAg = { id: uid(), date: document.getElementById("ag-date").value, presences: {}, hidden: false };
     state.ags.push(newAg);
     saveState();
     e.target.reset();
     closeModal("modal-overlay-ag");
-    renderAg();
-    document.getElementById("ag-select").value = newAg.id;
+    currentAgId = newAg.id;
     renderAg();
   });
-  document.getElementById("btn-ag-delete").addEventListener("click", ()=>{
-    const select = document.getElementById("ag-select");
-    const id = select.value;
-    const ag = state.ags.find(a=>a.id===id);
-    if(!ag) return;
-    if(!confirm("Supprimer la réunion du " + ag.date + " et sa liste de présence ?")) return;
-    state.ags = state.ags.filter(a=>a.id!==id);
+  document.getElementById("btn-ag-toggle-hide").addEventListener("click", ()=>{
+    const current = state.ags.find(a=>a.id===currentAgId);
+    if(!current) return;
+    current.hidden = !current.hidden;
     saveState();
     renderAg();
   });
+  document.getElementById("btn-ag-delete").addEventListener("click", ()=>{
+    const current = state.ags.find(a=>a.id===currentAgId);
+    if(!current) return;
+    if(!confirm("Supprimer définitivement la réunion du " + current.date + " et sa liste de présence ? Cette action est irréversible.")) return;
+    state.ags = state.ags.filter(a=>a.id!==current.id);
+    currentAgId = null;
+    saveState();
+    renderAg();
+  });
+  document.getElementById("btn-ag-export-excel").addEventListener("click", ()=>{
+    exportAgExcel();
+  });
+
+  const btnCompressPhotos = document.getElementById("btn-compress-photos");
+  if(btnCompressPhotos){
+    btnCompressPhotos.addEventListener("click", async ()=>{
+      const profsWithPhoto = allProfsWithPhoto();
+      if(!profsWithPhoto.length){ alert("Aucune photo à alléger."); return; }
+      const beforeSize = JSON.stringify(state).length;
+      btnCompressPhotos.disabled = true;
+      const originalLabel = btnCompressPhotos.textContent;
+      btnCompressPhotos.textContent = "Compression en cours…";
+      for(const p of profsWithPhoto){
+        p.photo = await compressPhoto(p.photo, 96, 0.6);
+      }
+      const afterSize = JSON.stringify(state).length;
+      btnCompressPhotos.disabled = false;
+      btnCompressPhotos.textContent = originalLabel;
+      saveState();
+      renderAll();
+      alert(profsWithPhoto.length + " photo(s) allégée(s). Taille des données : "
+        + Math.round(beforeSize/1000) + " Ko → " + Math.round(afterSize/1000) + " Ko.");
+    });
+  }
 
   // ---------- INIT ----------
   function renderAll(){
