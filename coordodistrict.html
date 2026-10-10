@@ -132,14 +132,20 @@
 
   #table-cross thead th:nth-child(1){background:var(--c2);}
   #table-cross thead th:nth-child(2){background:var(--c6);}
-  #table-cross td.cross-check, #table-ag td.cross-check{ text-align:center; }
-  #table-cross input[type=checkbox], #table-ag input[type=checkbox]{ width:20px; height:20px; cursor:pointer; }
-  #table-ag thead th:nth-child(1){background:var(--c3);}
-  #table-ag thead th:nth-child(2){background:var(--c7);}
-  #table-ag thead th:nth-child(3){background:var(--c9);}
+  #table-cross td.cross-check{ text-align:center; }
+  #table-cross input[type=checkbox]{ width:20px; height:20px; cursor:pointer; }
+  .ag-prof-card{
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
+    flex:1 1 140px; min-width:120px; border:1px solid var(--border); border-radius:9px; padding:14px 8px;
+    background:#fbfcff; cursor:pointer; text-align:center;
+  }
+  .ag-prof-card:hover{ background:#eef1fa; }
+  .ag-prof-card.is-present{ background:#eaf6ee; border-color:#3f9a5c; }
+  .ag-prof-name{ font-weight:700; font-size:.88rem; }
+  .ag-prof-card input[type=checkbox]{ width:22px; height:22px; cursor:pointer; }
 
   /* Onglet profs */
-  #profs-container{
+  #profs-container, #ag-container{
     display:flex; flex-direction:column; gap:10px;
   }
   .etab-block{ display:flex; align-items:stretch; background:#fff; border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; }
@@ -517,18 +523,7 @@
       </div>
     </div>
     <p class="hint" id="ag-recap"></p>
-    <div class="table-wrap">
-      <table id="table-ag">
-        <thead>
-          <tr>
-            <th>Établissement</th>
-            <th>Collègue</th>
-            <th>Présent·e</th>
-          </tr>
-        </thead>
-        <tbody id="tbody-ag"></tbody>
-      </table>
-    </div>
+    <div id="ag-container"></div>
   </section>
 
 </main>
@@ -2008,29 +2003,42 @@ ${innerHtml}
     if(ags.some(ag=>ag.id===previousSelection)) select.value = previousSelection;
 
     const current = state.ags.find(ag=>ag.id===select.value);
-    const tbody = document.getElementById("tbody-ag");
-    tbody.innerHTML = "";
+    const container = document.getElementById("ag-container");
+    container.innerHTML = "";
     if(!current){
       document.getElementById("ag-recap").textContent = "Aucune réunion enregistrée pour le moment.";
       return;
     }
-    sortedEtabs().forEach(etab=>{
-      etab.profs.filter(p=>!p.virtual)
-        .sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}))
-        .forEach(prof=>{
-          const tr = document.createElement("tr");
-          tr.innerHTML = `
-            <td><span class="etab-dot" style="background:${etabColorVar(etab)}"></span>${escapeHtml(etab.nom)}</td>
-            <td>${escapeHtml(prof.nom)}</td>
-            <td class="cross-check"><input type="checkbox" data-ag-prof="${escapeAttr(prof.id)}" ${current.presences[prof.id] ? "checked" : ""}></td>
-          `;
-          tbody.appendChild(tr);
-        });
-    });
+    container.innerHTML = sortedEtabs().map(etab=>{
+      const color = etabColorVar(etab);
+      const textColor = etabHeadTextColor(etab);
+      const profs = etab.profs.filter(p=>!p.virtual)
+        .sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}));
+      if(!profs.length) return "";
+      const profsHtml = profs.map(prof=>{
+        const present = !!current.presences[prof.id];
+        return `
+          <label class="ag-prof-card${present ? " is-present" : ""}">
+            <span class="ag-prof-name">${escapeHtml(prof.nom)}</span>
+            <input type="checkbox" data-ag-prof="${escapeAttr(prof.id)}" ${present ? "checked" : ""}>
+          </label>
+        `;
+      }).join("");
+      return `
+        <div class="etab-block">
+          <div class="etab-block-head" style="background:${color}; color:${textColor};">
+            <div><h3>${escapeHtml(etab.nom)}</h3></div>
+          </div>
+          <div class="prof-grid">${profsHtml}</div>
+        </div>
+      `;
+    }).join("");
+
     recountAgRecap(current);
-    tbody.querySelectorAll("[data-ag-prof]").forEach(cb=>{
+    container.querySelectorAll("[data-ag-prof]").forEach(cb=>{
       cb.addEventListener("change", ()=>{
         current.presences[cb.dataset.agProf] = cb.checked;
+        cb.closest(".ag-prof-card").classList.toggle("is-present", cb.checked);
         saveState();
         recountAgRecap(current);
       });
