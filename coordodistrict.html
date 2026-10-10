@@ -132,8 +132,11 @@
 
   #table-cross thead th:nth-child(1){background:var(--c2);}
   #table-cross thead th:nth-child(2){background:var(--c6);}
-  #table-cross td.cross-check{ text-align:center; }
-  #table-cross input[type=checkbox]{ width:20px; height:20px; cursor:pointer; }
+  #table-cross td.cross-check, #table-ag td.cross-check{ text-align:center; }
+  #table-cross input[type=checkbox], #table-ag input[type=checkbox]{ width:20px; height:20px; cursor:pointer; }
+  #table-ag thead th:nth-child(1){background:var(--c3);}
+  #table-ag thead th:nth-child(2){background:var(--c7);}
+  #table-ag thead th:nth-child(3){background:var(--c9);}
 
   /* Onglet profs */
   #profs-container{
@@ -215,7 +218,7 @@
     background:#f7f9fd;
   }
 
-  #activite-filter{
+  #activite-filter, #ag-select{
     padding:9px 14px; border:1px solid var(--border); border-radius:9px; font-size:.85rem; font-weight:600;
     background:#fff; color:var(--text); cursor:pointer;
   }
@@ -303,6 +306,8 @@
     <button class="tab-btn" data-tab="recompenses">Gestion récompenses</button>
     <button class="tab-btn" data-tab="finances">Finances</button>
     <button class="tab-btn" data-tab="cross">Cross District</button>
+    <button class="tab-btn" data-tab="export">Export</button>
+    <button class="tab-btn" data-tab="ag">AG</button>
   </nav>
 </header>
 
@@ -312,14 +317,6 @@
   <section id="tab-profs" class="tab-panel active">
     <div class="panel-header">
       <h2>Coordonnées des établissements et des collègues EPS</h2>
-      <div class="actions">
-        <button id="btn-copy-phones" class="secondary">📱 Téléphones collègues par établissement</button>
-        <button id="btn-copy-phones-activite" class="secondary">📱 Téléphones collègues par activité</button>
-        <button id="btn-copy-emails" class="secondary">✉️ Emails collègues par établissement</button>
-        <button id="btn-copy-emails-activite" class="secondary">✉️ Emails collègues par activité</button>
-        <button id="btn-copy-emails-coordo-as" class="secondary">✉️ Copier les emails des coordos AS</button>
-        <button id="btn-export-annuaire-pdf" class="secondary">📄 Export PDF (consultation)</button>
-      </div>
     </div>
     <p class="hint" id="last-modified-info"></p>
     <p class="hint" id="sync-status-info"></p>
@@ -494,6 +491,46 @@
     </div>
   </section>
 
+  <!-- ONGLET EXPORT -->
+  <section id="tab-export" class="tab-panel">
+    <div class="panel-header">
+      <h2>Exports et listes de diffusion</h2>
+      <div class="actions">
+        <button id="btn-copy-phones" class="secondary">📱 Téléphones collègues par établissement</button>
+        <button id="btn-copy-phones-activite" class="secondary">📱 Téléphones collègues par activité</button>
+        <button id="btn-copy-emails" class="secondary">✉️ Emails collègues par établissement</button>
+        <button id="btn-copy-emails-activite" class="secondary">✉️ Emails collègues par activité</button>
+        <button id="btn-copy-emails-coordo-as" class="secondary">✉️ Copier les emails des coordos AS</button>
+        <button id="btn-export-annuaire-pdf" class="secondary">📄 Export PDF (consultation)</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ONGLET AG -->
+  <section id="tab-ag" class="tab-panel">
+    <div class="panel-header">
+      <h2>Assemblée Générale</h2>
+      <div class="actions">
+        <select id="ag-select"></select>
+        <button id="btn-ag-add" class="secondary">+ Nouvelle réunion</button>
+        <button id="btn-ag-delete" class="secondary">🗑️ Supprimer cette réunion</button>
+      </div>
+    </div>
+    <p class="hint" id="ag-recap"></p>
+    <div class="table-wrap">
+      <table id="table-ag">
+        <thead>
+          <tr>
+            <th>Établissement</th>
+            <th>Collègue</th>
+            <th>Présent·e</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-ag"></tbody>
+      </table>
+    </div>
+  </section>
+
 </main>
 
 <footer class="app-footer">District UNSS de Villeurbanne — 13 établissements — Données stockées localement dans ce navigateur</footer>
@@ -554,6 +591,20 @@
       <button type="button" class="secondary" data-close="modal-overlay-select-contact">Annuler</button>
       <button type="button" id="btn-select-contact-copy">Copier la sélection</button>
     </div>
+  </div>
+</div>
+
+<!-- MODAL AG -->
+<div class="modal-overlay hidden" id="modal-overlay-ag">
+  <div class="modal">
+    <h3>Ajouter une réunion (AG)</h3>
+    <form id="form-ag">
+      <div class="form-row"><label>Date de la réunion</label><input type="date" id="ag-date" required></div>
+      <div class="modal-footer">
+        <button type="button" class="secondary" data-close="modal-overlay-ag">Annuler</button>
+        <button type="submit">Ajouter</button>
+      </div>
+    </form>
   </div>
 </div>
 
@@ -820,6 +871,7 @@
     delete parsed.stockTickets;
     if(!parsed.stockRecompenses) parsed.stockRecompenses = defaultStockRecompenses();
     if(!parsed.remboursements) parsed.remboursements = [];
+    if(!parsed.ags) parsed.ags = [];
     return parsed;
   }
 
@@ -1933,6 +1985,85 @@ ${innerHtml}
     });
   }
 
+  // ---------- RENDER: AG (réunions + présence) ----------
+  function recountAgRecap(ag){
+    let present = 0, total = 0;
+    state.etablissements.forEach(etab=>{
+      etab.profs.forEach(p=>{
+        if(p.virtual) return;
+        total++;
+        if(ag.presences[p.id]) present++;
+      });
+    });
+    document.getElementById("ag-recap").textContent = present + " présent" + (present>1?"s":"") + " sur " + total + " collègues.";
+  }
+
+  function renderAg(){
+    const select = document.getElementById("ag-select");
+    const ags = state.ags.slice().sort((a,b)=> b.date.localeCompare(a.date));
+    const previousSelection = select.value;
+    select.innerHTML = ags.length
+      ? ags.map(ag=>`<option value="${escapeAttr(ag.id)}">${escapeHtml(ag.date)}</option>`).join("")
+      : `<option value="">Aucune réunion</option>`;
+    if(ags.some(ag=>ag.id===previousSelection)) select.value = previousSelection;
+
+    const current = state.ags.find(ag=>ag.id===select.value);
+    const tbody = document.getElementById("tbody-ag");
+    tbody.innerHTML = "";
+    if(!current){
+      document.getElementById("ag-recap").textContent = "Aucune réunion enregistrée pour le moment.";
+      return;
+    }
+    sortedEtabs().forEach(etab=>{
+      etab.profs.filter(p=>!p.virtual)
+        .sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}))
+        .forEach(prof=>{
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td><span class="etab-dot" style="background:${etabColorVar(etab)}"></span>${escapeHtml(etab.nom)}</td>
+            <td>${escapeHtml(prof.nom)}</td>
+            <td class="cross-check"><input type="checkbox" data-ag-prof="${escapeAttr(prof.id)}" ${current.presences[prof.id] ? "checked" : ""}></td>
+          `;
+          tbody.appendChild(tr);
+        });
+    });
+    recountAgRecap(current);
+    tbody.querySelectorAll("[data-ag-prof]").forEach(cb=>{
+      cb.addEventListener("change", ()=>{
+        current.presences[cb.dataset.agProf] = cb.checked;
+        saveState();
+        recountAgRecap(current);
+      });
+    });
+  }
+
+  document.getElementById("ag-select").addEventListener("change", renderAg);
+  document.getElementById("btn-ag-add").addEventListener("click", ()=>{
+    document.getElementById("ag-date").value = new Date().toISOString().slice(0,10);
+    openModal("modal-overlay-ag");
+  });
+  document.getElementById("form-ag").addEventListener("submit", e=>{
+    e.preventDefault();
+    const newAg = { id: uid(), date: document.getElementById("ag-date").value, presences: {} };
+    state.ags.push(newAg);
+    saveState();
+    e.target.reset();
+    closeModal("modal-overlay-ag");
+    renderAg();
+    document.getElementById("ag-select").value = newAg.id;
+    renderAg();
+  });
+  document.getElementById("btn-ag-delete").addEventListener("click", ()=>{
+    const select = document.getElementById("ag-select");
+    const id = select.value;
+    const ag = state.ags.find(a=>a.id===id);
+    if(!ag) return;
+    if(!confirm("Supprimer la réunion du " + ag.date + " et sa liste de présence ?")) return;
+    state.ags = state.ags.filter(a=>a.id!==id);
+    saveState();
+    renderAg();
+  });
+
   // ---------- INIT ----------
   function renderAll(){
     renderProfs();
@@ -1941,6 +2072,7 @@ ${innerHtml}
     renderRecompenses();
     renderFinances();
     renderCross();
+    renderAg();
   }
   renderAll();
 
@@ -1951,7 +2083,7 @@ ${innerHtml}
     const localTime = state.lastModified ? new Date(state.lastModified).getTime() : 0;
     const remoteTime = remote.lastModified ? new Date(remote.lastModified).getTime() : 0;
     if(remoteTime >= localTime){
-      state = remote;
+      state = migrateStocks(remote);
       cacheStateLocally();
       renderAll();
     } else {
@@ -1975,7 +2107,7 @@ ${innerHtml}
         const localTime = state.lastModified ? new Date(state.lastModified).getTime() : 0;
         const remoteTime = remote.lastModified ? new Date(remote.lastModified).getTime() : 0;
         if(remoteTime > localTime){
-          state = remote;
+          state = migrateStocks(remote);
           cacheStateLocally();
           renderAll();
         }
