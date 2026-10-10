@@ -156,6 +156,15 @@
   }
   .ag-tab-btn.active{ background:var(--c1); color:#fff; border-color:var(--c1); }
   .ag-tab-btn.is-hidden{ opacity:.55; border-style:dashed; }
+  .export-row{ margin-bottom:24px; }
+  .export-row-title{ font-size:.95rem; margin:0 0 10px; color:var(--text); }
+  .export-tiles{ display:flex; gap:12px; flex-wrap:wrap; }
+  .export-tile{
+    flex:1 1 230px; min-width:210px; padding:20px 18px; border:none; border-radius:var(--radius);
+    color:#fff; font-size:.92rem; font-weight:700; text-align:left; cursor:pointer;
+    box-shadow:var(--shadow); transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .export-tile:hover{ transform:translateY(-2px); box-shadow:0 6px 18px rgba(0,0,0,.2); }
   .etab-block{ display:flex; align-items:stretch; background:#fff; border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; }
   .etab-block-head{
     display:flex; flex-direction:column; justify-content:space-between; flex:0 0 190px;
@@ -509,15 +518,30 @@
   <section id="tab-export" class="tab-panel">
     <div class="panel-header">
       <h2>Exports et listes de diffusion</h2>
-      <div class="actions">
-        <button id="btn-copy-phones" class="secondary">📱 Téléphones collègues par établissement</button>
-        <button id="btn-copy-phones-activite" class="secondary">📱 Téléphones collègues par activité</button>
-        <button id="btn-copy-emails" class="secondary">✉️ Emails collègues par établissement</button>
-        <button id="btn-copy-emails-activite" class="secondary">✉️ Emails collègues par activité</button>
-        <button id="btn-copy-emails-coordo-as" class="secondary">✉️ Copier les emails des coordos AS</button>
-        <button id="btn-export-annuaire-pdf" class="secondary">📄 Export PDF (consultation)</button>
-        <button id="btn-export-annuaire-excel" class="secondary">📊 Export Excel (Annuaire)</button>
-        <button id="btn-compress-photos" class="secondary">🗜️ Alléger les photos</button>
+    </div>
+
+    <div class="export-row">
+      <h3 class="export-row-title">📱 Téléphones</h3>
+      <div class="export-tiles">
+        <button id="btn-copy-phones" class="export-tile" style="background:var(--c6)">📱 Téléphones par établissement</button>
+        <button id="btn-copy-phones-activite" class="export-tile" style="background:var(--c8)">📱 Téléphones par activité</button>
+      </div>
+    </div>
+
+    <div class="export-row">
+      <h3 class="export-row-title">✉️ Emails</h3>
+      <div class="export-tiles">
+        <button id="btn-copy-emails" class="export-tile" style="background:var(--c2)">✉️ Emails par établissement</button>
+        <button id="btn-copy-emails-activite" class="export-tile" style="background:var(--c9)">✉️ Emails par activité</button>
+        <button id="btn-copy-emails-coordo-as" class="export-tile" style="background:var(--c5)">✉️ Emails des coordos AS</button>
+      </div>
+    </div>
+
+    <div class="export-row">
+      <h3 class="export-row-title">📄 Exports de fichiers</h3>
+      <div class="export-tiles">
+        <button id="btn-export-annuaire-pdf" class="export-tile" style="background:var(--c1)">📄 Export PDF (consultation)</button>
+        <button id="btn-export-annuaire-excel" class="export-tile" style="background:var(--c10)">📊 Export Excel (Annuaire)</button>
       </div>
     </div>
   </section>
@@ -528,12 +552,12 @@
       <h2>Assemblée Générale</h2>
       <div class="actions">
         <button id="btn-ag-add" class="secondary">+ Nouvelle réunion</button>
-        <button id="btn-ag-toggle-hide" class="secondary">🙈 Masquer cette réunion</button>
         <button id="btn-ag-delete" class="secondary">🗑️ Supprimer définitivement</button>
         <button id="btn-ag-export-excel" class="secondary">📊 Export Excel</button>
         <label style="display:flex; align-items:center; gap:6px; font-size:.82rem; font-weight:600; color:var(--text);">
           <input type="checkbox" id="ag-show-hidden"> Afficher les réunions masquées
         </label>
+        <p class="hint" style="width:100%; margin:0;">Cliquez sur une date pour l'afficher ; recliquez sur la date affichée pour la masquer.</p>
       </div>
     </div>
     <div class="ag-tabs" id="ag-tabs"></div>
@@ -2019,7 +2043,15 @@ ${innerHtml}
       headerRow.font = { bold:true, color:{ argb:"FFFFFFFF" } };
       headerRow.fill = { type:"pattern", pattern:"solid", fgColor:{ argb:"FF4A6FA5" } };
       headerRow.alignment = { vertical:"middle" };
-      sheet.rows.forEach(r=>ws.addRow(r));
+      sheet.rows.forEach((r, rIdx)=>{
+        const excelRow = ws.addRow(r);
+        if(sheet.cellFill){
+          r.forEach((val, cIdx)=>{
+            const fill = sheet.cellFill(rIdx, cIdx, val);
+            if(fill) excelRow.getCell(cIdx+1).fill = { type:"pattern", pattern:"solid", fgColor:{ argb:fill } };
+          });
+        }
+      });
       ws.columns.forEach((col, i)=>{
         const header = String(sheet.header[i]||"");
         const maxLen = sheet.rows.reduce((m,r)=>Math.max(m, String(r[i]==null?"":r[i]).length), header.length);
@@ -2042,16 +2074,34 @@ ${innerHtml}
   function exportAgExcel(){
     const current = state.ags.find(a=>a.id===currentAgId);
     if(!current){ alert("Aucune réunion sélectionnée."); return; }
-    const rows = [];
-    sortedEtabs().forEach(etab=>{
-      etab.profs.filter(p=>!p.virtual)
-        .sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}))
-        .forEach(prof=>{
-          rows.push([etab.nom, prof.nom, current.presences[prof.id] ? "Oui" : "Non"]);
-        });
+    // Une ligne par établissement, un collègue par colonne (dans l'ordre
+    // alphabétique) — le fond de cellule indique la présence (vert = présent).
+    const etabs = sortedEtabs()
+      .map(etab=>({
+        etab,
+        profs: etab.profs.filter(p=>!p.virtual).sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}))
+      }))
+      .filter(e=>e.profs.length);
+    const maxProfs = etabs.reduce((m,e)=>Math.max(m, e.profs.length), 0);
+    const header = ["Établissement"];
+    for(let i=1;i<=maxProfs;i++) header.push("Collègue " + i);
+    const rows = etabs.map(e=>{
+      const row = [e.etab.nom];
+      e.profs.forEach(p=>row.push(p.nom));
+      return row;
     });
     downloadXlsx("AG_" + current.date + ".xlsx", [
-      { name: "Présence " + current.date, header: ["Établissement","Collègue","Présent"], rows }
+      {
+        name: "Présence " + current.date,
+        header,
+        rows,
+        cellFill: (rowIdx, colIdx)=>{
+          if(colIdx === 0) return null;
+          const prof = etabs[rowIdx].profs[colIdx-1];
+          if(!prof) return null;
+          return current.presences[prof.id] ? "FFDFF5E3" : "FFFBE1E1";
+        }
+      }
     ]);
   }
 
@@ -2124,11 +2174,26 @@ ${innerHtml}
     }
     const tabsEl = document.getElementById("ag-tabs");
     tabsEl.innerHTML = ags.length
-      ? ags.map(ag=>`<button type="button" class="ag-tab-btn${ag.id===currentAgId ? " active" : ""}${ag.hidden ? " is-hidden" : ""}" data-ag-tab="${escapeAttr(ag.id)}">${escapeHtml(ag.date)}${ag.hidden ? " (masquée)" : ""}</button>`).join("")
+      ? ags.map(ag=>`<button type="button" class="ag-tab-btn${ag.id===currentAgId ? " active" : ""}${ag.hidden ? " is-hidden" : ""}" data-ag-tab="${escapeAttr(ag.id)}">${escapeHtml(ag.date)}</button>`).join("")
       : `<span class="hint">Aucune réunion.</span>`;
     tabsEl.querySelectorAll("[data-ag-tab]").forEach(btn=>{
       btn.addEventListener("click", ()=>{
-        currentAgId = btn.dataset.agTab;
+        const ag = state.ags.find(a=>a.id===btn.dataset.agTab);
+        if(!ag) return;
+        if(ag.hidden){
+          // Une réunion masquée (visible ici seulement car "Afficher les
+          // réunions masquées" est coché) : cliquer dessus la fait réapparaître.
+          ag.hidden = false;
+          currentAgId = ag.id;
+          saveState();
+        } else if(ag.id === currentAgId){
+          // Recliquer sur la réunion déjà affichée la masque.
+          ag.hidden = true;
+          currentAgId = null;
+          saveState();
+        } else {
+          currentAgId = ag.id;
+        }
         renderAg();
       });
     });
@@ -2136,20 +2201,16 @@ ${innerHtml}
     const current = state.ags.find(ag=>ag.id===currentAgId);
     const container = document.getElementById("ag-container");
     container.innerHTML = "";
-    const btnToggleHide = document.getElementById("btn-ag-toggle-hide");
     const btnDelete = document.getElementById("btn-ag-delete");
     const btnExport = document.getElementById("btn-ag-export-excel");
     if(!current){
-      document.getElementById("ag-recap").textContent = "Aucune réunion enregistrée pour le moment.";
-      btnToggleHide.disabled = true;
+      document.getElementById("ag-recap").textContent = "Aucune réunion affichée pour le moment.";
       btnDelete.disabled = true;
       btnExport.disabled = true;
       return;
     }
-    btnToggleHide.disabled = false;
     btnDelete.disabled = false;
     btnExport.disabled = false;
-    btnToggleHide.textContent = current.hidden ? "👁️ Afficher cette réunion" : "🙈 Masquer cette réunion";
 
     container.innerHTML = sortedEtabs().map(etab=>{
       const color = etabColorVar(etab);
@@ -2221,28 +2282,6 @@ ${innerHtml}
   document.getElementById("btn-ag-export-excel").addEventListener("click", ()=>{
     exportAgExcel();
   });
-
-  const btnCompressPhotos = document.getElementById("btn-compress-photos");
-  if(btnCompressPhotos){
-    btnCompressPhotos.addEventListener("click", async ()=>{
-      const profsWithPhoto = allProfsWithPhoto();
-      if(!profsWithPhoto.length){ alert("Aucune photo à alléger."); return; }
-      const beforeSize = JSON.stringify(state).length;
-      btnCompressPhotos.disabled = true;
-      const originalLabel = btnCompressPhotos.textContent;
-      btnCompressPhotos.textContent = "Compression en cours…";
-      for(const p of profsWithPhoto){
-        p.photo = await compressPhoto(p.photo, 96, 0.6);
-      }
-      const afterSize = JSON.stringify(state).length;
-      btnCompressPhotos.disabled = false;
-      btnCompressPhotos.textContent = originalLabel;
-      saveState();
-      renderAll();
-      alert(profsWithPhoto.length + " photo(s) allégée(s). Taille des données : "
-        + Math.round(beforeSize/1000) + " Ko → " + Math.round(afterSize/1000) + " Ko.");
-    });
-  }
 
   // ---------- INIT ----------
   function renderAll(){
