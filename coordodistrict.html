@@ -2185,6 +2185,12 @@ ${innerHtml}
     const wb = new ExcelJS.Workbook();
     sheets.forEach(sheet=>{
       const ws = wb.addWorksheet(String(sheet.name).slice(0,31));
+      // Feuille à mise en page libre (ex: grille de blocs Interdistrict) :
+      // le sheet gère lui-même toutes ses cellules/fusions/couleurs.
+      if(sheet.build){
+        sheet.build(ws);
+        return;
+      }
       ws.addRow(sheet.header);
       const headerRow = ws.getRow(1);
       headerRow.eachCell((cell, colNumber)=>{
@@ -2300,45 +2306,71 @@ ${innerHtml}
     };
   }
 
+  // Reproduit exactement la grille de cartes affichée à l'écran : une carte
+  // par activité, avec 1 ou 2 colonnes selon son nombre de lieux actuel, et
+  // une ligne par établissement (pas de liste groupée dans une seule
+  // cellule) — même nombre de colonnes, même nombre de lignes, mêmes
+  // couleurs que l'onglet Activités.
   function buildInterdistrictSheet(){
-    // Une ligne par activité, avec autant de paires "Lieu N / Équipe N" que
-    // de colonnes affichées sur sa carte à l'écran — la cellule Activité
-    // reprend la même couleur que l'en-tête de la carte.
-    const activitesConcernees = ACTIVITES.filter(act => act !== "Autres" && competitionEtabs(act).length > 0);
-    let maxCols = 1;
-    activitesConcernees.forEach(act=>{
-      const entry = state.interdistrict[act];
-      if(entry && entry.rows && entry.rows.length > maxCols) maxCols = entry.rows.length;
-    });
-    const header = ["Activité"];
-    for(let i=1;i<=maxCols;i++) header.push("Lieu " + i, "Équipe " + i);
-    // Les colonnes Lieu/Équipe gardent un en-tête neutre (gris foncé) : la
-    // couleur d'identité de chaque activité est portée par la ligne entière
-    // (comme la carte colorée à l'écran), pas par ces en-têtes partagés.
-    const headerColors = [PALETTE_HEX.c1];
-    for(let i=1;i<=maxCols;i++) headerColors.push("5B6472", "5B6472");
-    const rows = [];
-    const rowColors = [];
-    activitesConcernees.forEach((act,i)=>{
-      const entry = state.interdistrict[act];
-      const row = [act];
-      (entry && entry.rows ? entry.rows : []).forEach(r=>{
-        const lieuEtab = r.lieu ? getEtab(r.lieu) : null;
-        const equipeNames = r.etabIds.map(id=>{ const e=getEtab(id); return e?e.nom:""; }).filter(Boolean).join(", ");
-        row.push(lieuEtab ? lieuEtab.nom : "", equipeNames);
-      });
-      while(row.length < header.length) row.push("");
-      rows.push(row);
-      rowColors.push(PALETTE_HEX[PALETTE[i % PALETTE.length]]);
-    });
     return {
-      name: "Interdistrict", header, rows, headerColors,
-      // Colonne Activité : couleur pleine + texte blanc (comme l'en-tête de
-      // carte). Reste de la ligne : teinte claire de la même couleur (comme
-      // le corps de carte), pour que toute la ligne reste identifiable d'un
-      // coup d'œil, fidèle à l'écran.
-      cellFill: (rowIdx, colIdx)=> colIdx === 0 ? ("FF" + rowColors[rowIdx]) : ("FF" + hexLighten(rowColors[rowIdx], 0.85)),
-      cellFont: (rowIdx, colIdx)=> colIdx === 0 ? { bold:true, color:{ argb:"FFFFFFFF" } } : { color:{ argb:"FF1F2430" } }
+      name: "Interdistrict",
+      build: (ws)=>{
+        const activitesConcernees = ACTIVITES.filter(act => act !== "Autres" && competitionEtabs(act).length > 0);
+        const blocksPerRow = 3;
+        const colGap = 1;
+        const rowGap = 1;
+        let col = 1, rowStart = 1, rowOfBlocksMaxHeight = 0, blocksInRow = 0;
+
+        activitesConcernees.forEach((act,i)=>{
+          const etabs = competitionEtabs(act);
+          const stored = state.interdistrict[act];
+          const entryRows = (stored && stored.rows && stored.rows.length) ? stored.rows : [{ lieu:"", etabIds: etabs.map(e=>e.id) }];
+          const nCols = Math.max(1, entryRows.length);
+          const maxEtabs = entryRows.reduce((m,r)=>Math.max(m, r.etabIds.length), 0);
+          const blockHeight = 2 + Math.max(1, maxEtabs);
+
+          if(blocksInRow >= blocksPerRow){
+            rowStart += rowOfBlocksMaxHeight + rowGap;
+            col = 1;
+            blocksInRow = 0;
+            rowOfBlocksMaxHeight = 0;
+          }
+
+          const color = PALETTE_HEX[PALETTE[i % PALETTE.length]];
+          const lightColor = hexLighten(color, 0.85);
+
+          if(nCols > 1) ws.mergeCells(rowStart, col, rowStart, col + nCols - 1);
+          const headerCell = ws.getCell(rowStart, col);
+          headerCell.value = act + " — " + etabs.length + " collège" + (etabs.length>1?"s":"");
+          headerCell.font = { bold:true, color:{ argb:"FFFFFFFF" } };
+          headerCell.fill = { type:"pattern", pattern:"solid", fgColor:{ argb:"FF"+color } };
+          headerCell.alignment = { vertical:"middle", wrapText:true };
+
+          entryRows.forEach((r,cIdx)=>{
+            const lieuEtab = r.lieu ? getEtab(r.lieu) : null;
+            const cell = ws.getCell(rowStart+1, col+cIdx);
+            cell.value = lieuEtab ? lieuEtab.nom : "— Choisir —";
+            cell.font = { bold:true, color:{ argb:"FF1F2430" } };
+            cell.fill = { type:"pattern", pattern:"solid", fgColor:{ argb:"FF"+lightColor } };
+            for(let r2=0; r2<maxEtabs; r2++){
+              const etabId = r.etabIds[r2];
+              const e = etabId ? getEtab(etabId) : null;
+              const etabCell = ws.getCell(rowStart+2+r2, col+cIdx);
+              if(e) etabCell.value = e.nom;
+              etabCell.font = { color:{ argb:"FF1F2430" } };
+            }
+          });
+
+          for(let c=0;c<nCols;c++){
+            const column = ws.getColumn(col+c);
+            column.width = Math.max(column.width||10, 24);
+          }
+
+          col += nCols + colGap;
+          blocksInRow++;
+          rowOfBlocksMaxHeight = Math.max(rowOfBlocksMaxHeight, blockHeight);
+        });
+      }
     };
   }
 
