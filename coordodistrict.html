@@ -137,10 +137,9 @@
   #table-cross input[type=checkbox]{ width:20px; height:20px; cursor:pointer; }
   .ag-prof-card{
     display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
-    flex:1 1 140px; min-width:120px; border:1px solid var(--border); border-radius:9px; padding:14px 8px;
+    flex:1 1 150px; min-width:130px; border:1px solid var(--border); border-radius:9px; padding:14px 8px;
     background:#fbfcff; cursor:pointer; text-align:center;
   }
-  .ag-prof-card:hover{ background:#eef1fa; }
   .ag-prof-card.is-present{ background:#eaf6ee; border-color:#3f9a5c; }
   .ag-prof-name{ font-weight:700; font-size:.88rem; }
   .ag-prof-card input[type=checkbox]{ width:22px; height:22px; cursor:pointer; }
@@ -166,6 +165,18 @@
   }
   .export-tile-icon{ font-size:1.8rem; }
   .export-tile:hover{ transform:translateY(-2px); box-shadow:0 6px 18px rgba(0,0,0,.2); }
+  .interdistrict-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:16px; margin-top:12px; }
+  .interdistrict-card{ border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; background:#fff; box-shadow:var(--shadow); }
+  .interdistrict-card-head{ padding:10px 12px; color:#fff; }
+  .interdistrict-card-head h4{ margin:0; font-size:1rem; }
+  .interdistrict-card-head .count{ font-size:.75rem; opacity:.9; margin-top:2px; }
+  .interdistrict-rows{ padding:10px 12px; display:flex; flex-direction:column; gap:10px; }
+  .interdistrict-row{ border:1px solid var(--border); border-radius:8px; padding:8px; }
+  .interdistrict-row-head{ display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+  .interdistrict-row-head select{ flex:1; padding:5px 8px; border:1px solid var(--border); border-radius:6px; font-size:.82rem; }
+  .interdistrict-equipe{ display:flex; flex-wrap:wrap; gap:4px; }
+  .interdistrict-equipe label{ display:flex; align-items:center; gap:3px; font-size:.76rem; background:#f3f5fa; border-radius:10px; padding:2px 7px; cursor:pointer; }
+  .interdistrict-add-row{ font-size:.78rem; padding:6px 10px; align-self:flex-start; }
   .etab-block{ display:flex; align-items:stretch; background:#fff; border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; }
   .etab-block-head{
     display:flex; flex-direction:column; justify-content:space-between; flex:0 0 190px;
@@ -353,6 +364,7 @@
       <h2>Activités pratiquées (loisir)</h2>
       <div class="actions">
         <button id="btn-export-activites-pdf" class="secondary">📄 Export PDF</button>
+        <button id="btn-export-activites-excel" class="secondary">📊 Export Excel</button>
       </div>
     </div>
     <div class="panel-header">
@@ -385,6 +397,12 @@
       </div>
     </div>
     <div id="activite-filter-result"></div>
+
+    <div class="panel-header" style="margin-top:22px;">
+      <h2>Organisation District Villeurbanne</h2>
+      <p class="hint">Pour chaque activité en compétition : choisissez le lieu, répartissez les établissements en plusieurs poules si besoin.</p>
+    </div>
+    <div id="interdistrict-container"></div>
   </section>
 
   <!-- ONGLET CARTES TCL -->
@@ -904,6 +922,7 @@
     if(!parsed.stockRecompenses) parsed.stockRecompenses = defaultStockRecompenses();
     if(!parsed.remboursements) parsed.remboursements = [];
     if(!parsed.ags) parsed.ags = [];
+    if(!parsed.interdistrict) parsed.interdistrict = {};
     return parsed;
   }
 
@@ -1330,6 +1349,87 @@
     renderActiviteTable("thead-activites-pratiquees-row", "tbody-activites-pratiquees", "pratiquee");
     renderActiviteTable("thead-activites-competition-row", "tbody-activites-competition", "competition");
     renderActiviteFilterResult();
+    renderInterdistrict();
+  }
+
+  // ---------- RENDER: INTERDISTRICT ----------
+  function renderInterdistrict(){
+    const container = document.getElementById("interdistrict-container");
+    const activitesConcernees = ACTIVITES.filter(act => act !== "Autres" && competitionEtabs(act).length > 0);
+    if(!activitesConcernees.length){
+      container.innerHTML = `<p class="hint">Aucune activité en compétition pour le moment.</p>`;
+      return;
+    }
+    container.innerHTML = `<div class="interdistrict-grid">` + activitesConcernees.map((act,i)=>{
+      const etabs = competitionEtabs(act);
+      const color = `var(--${PALETTE[i % PALETTE.length]})`;
+      if(!state.interdistrict[act] || !state.interdistrict[act].rows || !state.interdistrict[act].rows.length){
+        state.interdistrict[act] = { rows: [{ id: uid(), lieu: "", etabIds: etabs.map(e=>e.id) }] };
+      }
+      const entry = state.interdistrict[act];
+      const rowsHtml = entry.rows.map(row=>{
+        const lieuOptions = `<option value="">— Choisir —</option>` + sortedEtabs().map(e=>`<option value="${escapeAttr(e.id)}" ${row.lieu===e.id?"selected":""}>${escapeHtml(e.nom)}</option>`).join("");
+        const equipeHtml = etabs.map(e=>{
+          const checked = row.etabIds.includes(e.id);
+          return `<label><input type="checkbox" data-interdistrict-equipe data-act="${escapeAttr(act)}" data-row="${row.id}" data-etab="${e.id}" ${checked?"checked":""}> ${escapeHtml(e.nom)}</label>`;
+        }).join("");
+        return `
+          <div class="interdistrict-row" data-row-id="${row.id}">
+            <div class="interdistrict-row-head">
+              <label class="hint" style="margin:0;">Lieu :</label>
+              <select data-interdistrict-lieu data-act="${escapeAttr(act)}" data-row="${row.id}">${lieuOptions}</select>
+              ${entry.rows.length > 1 ? `<button type="button" class="icon-btn" data-interdistrict-del-row data-act="${escapeAttr(act)}" data-row="${row.id}" title="Supprimer cette ligne">🗑</button>` : ""}
+            </div>
+            <div class="interdistrict-equipe">${equipeHtml}</div>
+          </div>
+        `;
+      }).join("");
+      return `
+        <div class="interdistrict-card">
+          <div class="interdistrict-card-head" style="background:${color};">
+            <h4>${escapeHtml(act)}</h4>
+            <div class="count">${etabs.length} collège${etabs.length>1?"s":""}</div>
+          </div>
+          <div class="interdistrict-rows">
+            ${rowsHtml}
+            <button type="button" class="secondary interdistrict-add-row" data-interdistrict-add-row="${escapeAttr(act)}">+ Ajouter une ligne</button>
+          </div>
+        </div>
+      `;
+    }).join("") + `</div>`;
+
+    container.querySelectorAll("[data-interdistrict-lieu]").forEach(sel=>{
+      sel.addEventListener("change", ()=>{
+        const row = state.interdistrict[sel.dataset.act].rows.find(r=>r.id===sel.dataset.row);
+        if(row){ row.lieu = sel.value; saveState(); }
+      });
+    });
+    container.querySelectorAll("[data-interdistrict-equipe]").forEach(cb=>{
+      cb.addEventListener("change", ()=>{
+        const row = state.interdistrict[cb.dataset.act].rows.find(r=>r.id===cb.dataset.row);
+        if(!row) return;
+        const etabId = cb.dataset.etab;
+        if(cb.checked){ if(!row.etabIds.includes(etabId)) row.etabIds.push(etabId); }
+        else { row.etabIds = row.etabIds.filter(id=>id!==etabId); }
+        saveState();
+      });
+    });
+    container.querySelectorAll("[data-interdistrict-add-row]").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        const act = btn.dataset.interdistrictAddRow;
+        state.interdistrict[act].rows.push({ id: uid(), lieu: "", etabIds: [] });
+        saveState();
+        renderInterdistrict();
+      });
+    });
+    container.querySelectorAll("[data-interdistrict-del-row]").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        const act = btn.dataset.act, rowId = btn.dataset.row;
+        state.interdistrict[act].rows = state.interdistrict[act].rows.filter(r=>r.id!==rowId);
+        saveState();
+        renderInterdistrict();
+      });
+    });
   }
 
   function renderActiviteFilterResult(){
@@ -2121,6 +2221,39 @@ ${innerHtml}
   }
 
   document.getElementById("btn-export-annuaire-excel").addEventListener("click", exportAnnuaireExcel);
+
+  function buildActiviteTableSheet(dimension, sheetName){
+    const etabs = sortedEtabs();
+    const standardCols = ACTIVITES.filter(act=>act!=="Autres").map(act=>({label:act, key:act, isAutre:false}));
+    const autreCols = autresTextsFor(dimension).map(text=>({label:text, key:text, isAutre:true}));
+    const activesCols = standardCols.concat(autreCols).filter(col => etabs.some(etab => etabHasActiviteCol(etab, col, dimension)));
+    const header = ["Établissement"].concat(activesCols.map(c=>c.label));
+    const rows = etabs.map(etab=>[etab.nom].concat(activesCols.map(col=>etabHasActiviteCol(etab, col, dimension) ? "Oui" : "")));
+    return { name: sheetName, header, rows };
+  }
+
+  function buildInterdistrictSheet(){
+    const rows = [];
+    Object.keys(state.interdistrict).forEach(act=>{
+      (state.interdistrict[act].rows||[]).forEach(row=>{
+        const lieuEtab = row.lieu ? getEtab(row.lieu) : null;
+        const equipeNames = row.etabIds.map(id=>{ const e=getEtab(id); return e?e.nom:""; }).filter(Boolean).join(", ");
+        if(!equipeNames && !lieuEtab) return;
+        rows.push([act, lieuEtab?lieuEtab.nom:"", equipeNames]);
+      });
+    });
+    return { name: "Interdistrict", header: ["Activité","Lieu","Équipe"], rows };
+  }
+
+  function exportActivitesExcel(){
+    downloadXlsx("Activites_District_Villeurbanne.xlsx", [
+      buildActiviteTableSheet("pratiquee", "Pratiquées (loisir)"),
+      buildActiviteTableSheet("competition", "Compétition"),
+      buildInterdistrictSheet()
+    ]);
+  }
+
+  document.getElementById("btn-export-activites-excel").addEventListener("click", exportActivitesExcel);
 
   // ---------- RENDER: CROSS DISTRICT ----------
   function renderCross(){
