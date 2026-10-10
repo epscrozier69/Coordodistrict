@@ -155,7 +155,6 @@
     font-size:.82rem; font-weight:600; cursor:pointer;
   }
   .ag-tab-btn.active{ background:var(--c1); color:#fff; border-color:var(--c1); }
-  .ag-tab-btn.is-hidden{ opacity:.55; border-style:dashed; }
   .export-row{ margin-bottom:24px; }
   .export-row-title{ font-size:.95rem; margin:0 0 10px; color:var(--text); }
   .export-tiles{ display:flex; gap:14px; flex-wrap:wrap; }
@@ -556,10 +555,7 @@
         <button id="btn-ag-add" class="secondary">+ Nouvelle réunion</button>
         <button id="btn-ag-delete" class="secondary">🗑️ Supprimer définitivement</button>
         <button id="btn-ag-export-excel" class="secondary">📊 Export Excel</button>
-        <label style="display:flex; align-items:center; gap:6px; font-size:.82rem; font-weight:600; color:var(--text);">
-          <input type="checkbox" id="ag-show-hidden"> Afficher les réunions masquées
-        </label>
-        <p class="hint" style="width:100%; margin:0;">Cliquez sur une date pour l'afficher ; recliquez sur la date affichée pour la masquer.</p>
+        <p class="hint" style="width:100%; margin:0;">Cliquez sur une date pour déployer ou masquer sa liste de présence.</p>
       </div>
     </div>
     <div class="ag-tabs" id="ag-tabs"></div>
@@ -908,7 +904,6 @@
     if(!parsed.stockRecompenses) parsed.stockRecompenses = defaultStockRecompenses();
     if(!parsed.remboursements) parsed.remboursements = [];
     if(!parsed.ags) parsed.ags = [];
-    parsed.ags.forEach(ag=>{ if(ag.hidden === undefined) ag.hidden = false; });
     return parsed;
   }
 
@@ -2161,41 +2156,25 @@ ${innerHtml}
     document.getElementById("ag-recap").textContent = present + " présent" + (present>1?"s":"") + " sur " + total + " collègues.";
   }
 
+  // currentAgId : simple état d'affichage local (pas sauvegardé) — la
+  // réunion dont la liste de présence est actuellement déployée, ou null si
+  // aucune n'est déployée. Toutes les réunions créées restent en permanence
+  // visibles comme onglets ; cliquer sur un onglet déploie ses données,
+  // recliquer dessus les masque.
   let currentAgId = null;
-  function visibleAgs(){
-    const showHidden = document.getElementById("ag-show-hidden").checked;
-    return state.ags.slice()
-      .filter(ag => showHidden || !ag.hidden)
-      .sort((a,b)=> b.date.localeCompare(a.date));
+  function sortedAgs(){
+    return state.ags.slice().sort((a,b)=> b.date.localeCompare(a.date));
   }
 
   function renderAg(){
-    const ags = visibleAgs();
-    if(!ags.some(ag=>ag.id===currentAgId)){
-      currentAgId = ags.length ? ags[0].id : null;
-    }
+    const ags = sortedAgs();
     const tabsEl = document.getElementById("ag-tabs");
     tabsEl.innerHTML = ags.length
-      ? ags.map(ag=>`<button type="button" class="ag-tab-btn${ag.id===currentAgId ? " active" : ""}${ag.hidden ? " is-hidden" : ""}" data-ag-tab="${escapeAttr(ag.id)}">${escapeHtml(ag.date)}</button>`).join("")
+      ? ags.map(ag=>`<button type="button" class="ag-tab-btn${ag.id===currentAgId ? " active" : ""}" data-ag-tab="${escapeAttr(ag.id)}">${escapeHtml(ag.date)}</button>`).join("")
       : `<span class="hint">Aucune réunion.</span>`;
     tabsEl.querySelectorAll("[data-ag-tab]").forEach(btn=>{
       btn.addEventListener("click", ()=>{
-        const ag = state.ags.find(a=>a.id===btn.dataset.agTab);
-        if(!ag) return;
-        if(ag.hidden){
-          // Une réunion masquée (visible ici seulement car "Afficher les
-          // réunions masquées" est coché) : cliquer dessus la fait réapparaître.
-          ag.hidden = false;
-          currentAgId = ag.id;
-          saveState();
-        } else if(ag.id === currentAgId){
-          // Recliquer sur la réunion déjà affichée la masque.
-          ag.hidden = true;
-          currentAgId = null;
-          saveState();
-        } else {
-          currentAgId = ag.id;
-        }
+        currentAgId = (btn.dataset.agTab === currentAgId) ? null : btn.dataset.agTab;
         renderAg();
       });
     });
@@ -2250,14 +2229,13 @@ ${innerHtml}
     });
   }
 
-  document.getElementById("ag-show-hidden").addEventListener("change", renderAg);
   document.getElementById("btn-ag-add").addEventListener("click", ()=>{
     document.getElementById("ag-date").value = new Date().toISOString().slice(0,10);
     openModal("modal-overlay-ag");
   });
   document.getElementById("form-ag").addEventListener("submit", e=>{
     e.preventDefault();
-    const newAg = { id: uid(), date: document.getElementById("ag-date").value, presences: {}, hidden: false };
+    const newAg = { id: uid(), date: document.getElementById("ag-date").value, presences: {} };
     state.ags.push(newAg);
     saveState();
     e.target.reset();
