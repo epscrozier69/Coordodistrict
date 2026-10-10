@@ -766,6 +766,15 @@
     c6:"2E8FA3", c7:"6C63FF", c8:"D98C3B", c9:"A64AC9", c10:"4A90D9",
     c11:"D9527A", c12:"8E6FC9", c13:"C9435C", c14:"3D6FE0", c15:"B0559B"
   };
+  // Éclaircit une couleur hex (0 = inchangée, 1 = blanc pur) pour obtenir un
+  // fond de "carte" clair assorti à la couleur pleine de son en-tête, afin
+  // que l'export Excel reproduise la même identité colorée par activité que
+  // les cartes affichées à l'écran.
+  function hexLighten(hex, amount){
+    const r = parseInt(hex.substr(0,2),16), g = parseInt(hex.substr(2,2),16), b = parseInt(hex.substr(4,2),16);
+    const mix = v => Math.round(v + (255-v)*amount).toString(16).padStart(2,"0").toUpperCase();
+    return mix(r) + mix(g) + mix(b);
+  }
 
   function sortedEtabs(){
     return state.etablissements.slice().sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}));
@@ -2303,8 +2312,11 @@ ${innerHtml}
     });
     const header = ["Activité"];
     for(let i=1;i<=maxCols;i++) header.push("Lieu " + i, "Équipe " + i);
+    // Les colonnes Lieu/Équipe gardent un en-tête neutre (gris foncé) : la
+    // couleur d'identité de chaque activité est portée par la ligne entière
+    // (comme la carte colorée à l'écran), pas par ces en-têtes partagés.
     const headerColors = [PALETTE_HEX.c1];
-    for(let i=1;i<=maxCols;i++) headerColors.push(PALETTE_HEX.c7, PALETTE_HEX.c7);
+    for(let i=1;i<=maxCols;i++) headerColors.push("5B6472", "5B6472");
     const rows = [];
     const rowColors = [];
     activitesConcernees.forEach((act,i)=>{
@@ -2321,8 +2333,12 @@ ${innerHtml}
     });
     return {
       name: "Interdistrict", header, rows, headerColors,
-      cellFill: (rowIdx, colIdx)=> colIdx === 0 ? ("FF" + rowColors[rowIdx]) : null,
-      cellFont: (rowIdx, colIdx)=> colIdx === 0 ? { bold:true, color:{ argb:"FFFFFFFF" } } : null
+      // Colonne Activité : couleur pleine + texte blanc (comme l'en-tête de
+      // carte). Reste de la ligne : teinte claire de la même couleur (comme
+      // le corps de carte), pour que toute la ligne reste identifiable d'un
+      // coup d'œil, fidèle à l'écran.
+      cellFill: (rowIdx, colIdx)=> colIdx === 0 ? ("FF" + rowColors[rowIdx]) : ("FF" + hexLighten(rowColors[rowIdx], 0.85)),
+      cellFont: (rowIdx, colIdx)=> colIdx === 0 ? { bold:true, color:{ argb:"FFFFFFFF" } } : { color:{ argb:"FF1F2430" } }
     };
   }
 
