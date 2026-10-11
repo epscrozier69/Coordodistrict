@@ -433,6 +433,8 @@
       <p class="hint">1 carte = 10 tickets</p>
       <div class="actions">
         <button id="btn-recharge-cartes" class="secondary">🔋 Recharger le stock</button>
+        <button id="btn-cartes-export-pdf" class="secondary">📄 Export PDF</button>
+        <button id="btn-cartes-export-excel" class="secondary">📊 Export Excel</button>
       </div>
     </div>
     <div class="recap-cards" id="cartes-recap"></div>
@@ -460,6 +462,8 @@
       <p class="hint">Stock initial : 80 ors, 103 argents, 60 bronzes, 3 coupes</p>
       <div class="actions">
         <button id="btn-recharge-recompenses" class="secondary">🔋 Recharger le stock</button>
+        <button id="btn-recompenses-export-pdf" class="secondary">📄 Export PDF</button>
+        <button id="btn-recompenses-export-excel" class="secondary">📊 Export Excel</button>
       </div>
     </div>
     <div class="recap-cards" id="recompenses-recap"></div>
@@ -2360,19 +2364,25 @@ ${innerHtml}
     openPrintPreview(buildAgPrintHtml(current));
   });
 
-  function buildFinancesPrintHtml(){
-    // Clone direct de la table affichée à l'écran : mêmes colonnes, mêmes
-    // lignes (déjà triées), mêmes couleurs d'en-tête (CSS copié par
-    // buildPrintDocument). La colonne Actions (bouton supprimer) n'a pas sa
-    // place dans un document imprimé, elle est retirée de la copie.
-    const tableClone = document.getElementById("table-finances").cloneNode(true);
+  // Clone direct d'une table affichée à l'écran : mêmes colonnes, mêmes
+  // lignes (déjà triées), mêmes couleurs d'en-tête (CSS copié par
+  // buildPrintDocument). La colonne Actions (boutons supprimer/ajouter) n'a
+  // pas sa place dans un document imprimé, elle est retirée de la copie.
+  function buildTablePrintHtml(tableId, title){
+    const tableClone = document.getElementById(tableId).cloneNode(true);
     tableClone.querySelectorAll("thead th:last-child, tbody td:last-child").forEach(el=>el.remove());
     const body = `<div class="table-wrap">${tableClone.outerHTML}</div>`;
-    return buildPrintDocument("District de Villeurbanne — Finances", body);
+    return buildPrintDocument(title, body);
   }
 
   document.getElementById("btn-finances-export-pdf").addEventListener("click", ()=>{
-    openPrintPreview(buildFinancesPrintHtml());
+    openPrintPreview(buildTablePrintHtml("table-finances", "District de Villeurbanne — Finances"));
+  });
+  document.getElementById("btn-cartes-export-pdf").addEventListener("click", ()=>{
+    openPrintPreview(buildTablePrintHtml("table-cartes", "District de Villeurbanne — Cartes TCL"));
+  });
+  document.getElementById("btn-recompenses-export-pdf").addEventListener("click", ()=>{
+    openPrintPreview(buildTablePrintHtml("table-recompenses", "District de Villeurbanne — Récompenses"));
   });
 
   document.getElementById("btn-export-annuaire-pdf").addEventListener("click", ()=>{
@@ -2415,6 +2425,9 @@ ${innerHtml}
       sheet.rows.forEach((r, rIdx)=>{
         const excelRow = ws.addRow(r);
         r.forEach((val, cIdx)=>{
+          if(sheet.wrapColumns && sheet.wrapColumns.includes(cIdx)){
+            excelRow.getCell(cIdx+1).alignment = { wrapText:true, vertical:"top" };
+          }
           if(sheet.cellFill){
             const fill = sheet.cellFill(rIdx, cIdx, val);
             if(fill) excelRow.getCell(cIdx+1).fill = { type:"pattern", pattern:"solid", fgColor:{ argb:fill } };
@@ -2427,8 +2440,13 @@ ${innerHtml}
       });
       ws.columns.forEach((col, i)=>{
         const header = String(sheet.header[i]||"");
-        const maxLen = sheet.rows.reduce((m,r)=>Math.max(m, String(r[i]==null?"":r[i]).length), header.length);
-        col.width = Math.max(10, maxLen + 2);
+        const isWrap = sheet.wrapColumns && sheet.wrapColumns.includes(i);
+        const maxLen = sheet.rows.reduce((m,r)=>{
+          const str = String(r[i]==null?"":r[i]);
+          const lineLen = isWrap ? Math.max(0, ...str.split("\n").map(l=>l.length)) : str.length;
+          return Math.max(m, lineLen);
+        }, header.length);
+        col.width = isWrap ? Math.min(Math.max(20, maxLen + 2), 50) : Math.max(10, maxLen + 2);
       });
       ws.views = [{ state:"frozen", ySplit:1 }];
     });
@@ -2503,6 +2521,64 @@ ${innerHtml}
   }
 
   document.getElementById("btn-finances-export-excel").addEventListener("click", exportFinancesExcel);
+
+  function exportCartesExcel(){
+    // Mêmes colonnes et couleurs d'en-tête que le tableau affiché à l'écran
+    // (table-cartes), hors colonne Actions.
+    const rows = sortedEtabs().map(etab=>{
+      const demandes = etab.cartesDemandes.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(c=>{
+        const prof = c.profId ? getProf(etab, c.profId) : null;
+        return formatDateFR(c.date) + " — " + c.nombre + " cartes" + (prof ? " ("+prof.nom+")" : "");
+      }).join("\n");
+      const distributions = etab.cartes.slice().sort((a,b)=>b.date.localeCompare(a.date))
+        .map(c=>formatDateFR(c.date) + " — " + c.nombre + " cartes").join("\n");
+      return [etab.nom, totalCartesFor(etab), demandes, distributions];
+    });
+    downloadXlsx("Cartes_TCL_District_Villeurbanne.xlsx", [
+      {
+        name: "Cartes TCL",
+        header: ["Établissement","Total cartes distribuées","Historique des demandes","Historique des distributions"],
+        rows,
+        headerColors: [PALETTE_HEX.c1, PALETTE_HEX.c4, PALETTE_HEX.c9, PALETTE_HEX.c11],
+        wrapColumns: [2,3]
+      }
+    ]);
+  }
+
+  document.getElementById("btn-cartes-export-excel").addEventListener("click", exportCartesExcel);
+
+  function exportRecompensesExcel(){
+    // Mêmes colonnes et couleurs d'en-tête que le tableau affiché à l'écran
+    // (table-recompenses), hors colonne Actions.
+    const rows = sortedEtabs().map(etab=>{
+      const demandes = etab.recompensesDemandes.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(r=>{
+        const prof = r.profId ? getProf(etab, r.profId) : null;
+        return formatDateFR(r.date) + " — Or:"+(r.or||0)+" Argent:"+(r.argent||0)+" Bronze:"+(r.bronze||0)+" Coupes:"+(r.coupes||0) + (prof ? " ("+prof.nom+")" : "");
+      }).join("\n");
+      const distributions = etab.recompenses.slice().sort((a,b)=>b.date.localeCompare(a.date))
+        .map(r=>formatDateFR(r.date) + " — Or:"+(r.or||0)+" Argent:"+(r.argent||0)+" Bronze:"+(r.bronze||0)+" Coupes:"+(r.coupes||0)).join("\n");
+      return [
+        etab.nom,
+        totalRecompensesFor(etab,"or"),
+        totalRecompensesFor(etab,"argent"),
+        totalRecompensesFor(etab,"bronze"),
+        totalRecompensesFor(etab,"coupes"),
+        demandes,
+        distributions
+      ];
+    });
+    downloadXlsx("Recompenses_District_Villeurbanne.xlsx", [
+      {
+        name: "Récompenses",
+        header: ["Établissement","Or distribués","Argent distribués","Bronze distribués","Coupes distribuées","Historique des demandes","Historique des distributions"],
+        rows,
+        headerColors: [PALETTE_HEX.c1, PALETTE_HEX.c4, PALETTE_HEX.c8, PALETTE_HEX.c5, PALETTE_HEX.c9, PALETTE_HEX.c15, PALETTE_HEX.c11],
+        wrapColumns: [5,6]
+      }
+    ]);
+  }
+
+  document.getElementById("btn-recompenses-export-excel").addEventListener("click", exportRecompensesExcel);
 
   function exportAnnuaireExcel(){
     const etabRows = sortedEtabs().map(e=>[e.nom, e.adresse||"", formatPhone(e.telephone)||"", e.email||""]);
