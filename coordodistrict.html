@@ -116,8 +116,9 @@
   #table-recompenses thead th:nth-child(3){background:var(--c8);}
   #table-recompenses thead th:nth-child(4){background:var(--c5);}
   #table-recompenses thead th:nth-child(5){background:var(--c9);}
-  #table-recompenses thead th:nth-child(6){background:var(--c11);}
-  #table-recompenses thead th:nth-child(7){background:var(--c13);}
+  #table-recompenses thead th:nth-child(6){background:var(--c15);}
+  #table-recompenses thead th:nth-child(7){background:var(--c11);}
+  #table-recompenses thead th:nth-child(8){background:var(--c13);}
   #table-recompenses td:nth-child(2), #table-recompenses td:nth-child(3),
   #table-recompenses td:nth-child(4), #table-recompenses td:nth-child(5){ text-align:center; }
 
@@ -472,6 +473,7 @@
             <th>Argent distribués</th>
             <th>Bronze distribués</th>
             <th>Coupes distribuées</th>
+            <th>Historique des demandes</th>
             <th>Historique des distributions</th>
             <th>Actions</th>
           </tr>
@@ -485,6 +487,10 @@
   <section id="tab-finances" class="tab-panel">
     <div class="panel-header">
       <h2>Finances — Remboursements des collègues</h2>
+      <div class="actions">
+        <button id="btn-finances-export-pdf" class="secondary">📄 Export PDF</button>
+        <button id="btn-finances-export-excel" class="secondary">📊 Export Excel</button>
+      </div>
     </div>
     <div class="table-wrap" style="margin-bottom:16px;">
       <table>
@@ -593,6 +599,7 @@
         <button id="btn-ag-add" class="secondary">+ Nouvelle réunion</button>
         <button id="btn-ag-delete" class="secondary">🗑️ Supprimer définitivement</button>
         <button id="btn-ag-export-excel" class="secondary">📊 Export Excel</button>
+        <button id="btn-ag-export-pdf" class="secondary">📄 Export PDF</button>
         <p class="hint" style="width:100%; margin:0;">Cliquez sur une date pour déployer ou masquer sa liste de présence.</p>
       </div>
     </div>
@@ -723,6 +730,25 @@
       <div class="form-row"><label>Coupes</label><input type="number" id="recompense-coupes" min="0" value="0"></div>
       <div class="modal-footer">
         <button type="button" class="secondary" data-close="modal-overlay-recompense">Annuler</button>
+        <button type="submit">Ajouter</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL DEMANDE DE RECOMPENSES -->
+<div class="modal-overlay hidden" id="modal-overlay-demande-recompense">
+  <div class="modal">
+    <h3>Ajouter une demande de récompenses</h3>
+    <form id="form-demande-recompense">
+      <input type="hidden" id="demande-recompense-etab-id">
+      <div class="form-row"><label>Date de la demande</label><input type="date" id="demande-recompense-date" required></div>
+      <div class="form-row"><label>Or</label><input type="number" id="demande-recompense-or" min="0" value="0"></div>
+      <div class="form-row"><label>Argent</label><input type="number" id="demande-recompense-argent" min="0" value="0"></div>
+      <div class="form-row"><label>Bronze</label><input type="number" id="demande-recompense-bronze" min="0" value="0"></div>
+      <div class="form-row"><label>Coupes</label><input type="number" id="demande-recompense-coupes" min="0" value="0"></div>
+      <div class="modal-footer">
+        <button type="button" class="secondary" data-close="modal-overlay-demande-recompense">Annuler</button>
         <button type="submit">Ajouter</button>
       </div>
     </form>
@@ -959,6 +985,7 @@
       delete etab.tickets;
       if(!etab.cartesDemandes) etab.cartesDemandes = [];
       if(!etab.recompenses) etab.recompenses = [];
+      if(!etab.recompensesDemandes) etab.recompensesDemandes = [];
     });
     return etablissements;
   }
@@ -1111,7 +1138,7 @@
     return migrateStocks({
       etablissements: migrateEtablissements(DEFAULT_ETABS.map(e => ({
         id: uid(), nom:e.nom, adresse:e.adresse, telephone:e.telephone, email:e.email, lienPartage:"",
-        profs: e.profs, cartes: [], cartesDemandes: [], recompenses: []
+        profs: e.profs, cartes: [], cartesDemandes: [], recompenses: [], recompensesDemandes: []
       })))
     });
   }
@@ -1134,7 +1161,9 @@
   function getAllProfs(){
     const list = [];
     sortedEtabs().forEach(etab=>{
-      etab.profs.filter(p=>!p.virtual).forEach(prof=>list.push({ prof, etab }));
+      etab.profs.filter(p=>!p.virtual)
+        .sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}))
+        .forEach(prof=>list.push({ prof, etab }));
     });
     return list;
   }
@@ -1747,6 +1776,9 @@
     tbody.innerHTML = "";
     sortedEtabs().forEach(etab=>{
       const tr = document.createElement("tr");
+      const historiqueDemandes = etab.recompensesDemandes.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(r=>
+        `<div>${formatDateFR(r.date)} — Or:${r.or||0} Argent:${r.argent||0} Bronze:${r.bronze||0} Coupes:${r.coupes||0} <button class="icon-btn" data-del-demande-recompense="${r.id}" data-etab-demande-recompense="${etab.id}" title="Supprimer">🗑</button></div>`
+      ).join("");
       const historique = etab.recompenses.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(r=>
         `<div>${formatDateFR(r.date)} — Or:${r.or||0} Argent:${r.argent||0} Bronze:${r.bronze||0} Coupes:${r.coupes||0} <button class="icon-btn" data-del-recompense="${r.id}" data-etab-recompense="${etab.id}" title="Supprimer">🗑</button></div>`
       ).join("");
@@ -1756,8 +1788,12 @@
         <td>${totalRecompensesFor(etab,"argent")||""}</td>
         <td>${totalRecompensesFor(etab,"bronze")||""}</td>
         <td>${totalRecompensesFor(etab,"coupes")||""}</td>
+        <td>${historiqueDemandes||"—"}</td>
         <td>${historique||"—"}</td>
-        <td><button class="small" data-add-recompense="${etab.id}">+ Distribution</button></td>
+        <td>
+          <button class="small" data-add-demande-recompense="${etab.id}">+ Demande</button>
+          <button class="small" data-add-recompense="${etab.id}">+ Distribution</button>
+        </td>
       `;
       tbody.appendChild(tr);
     });
@@ -1769,6 +1805,16 @@
       btn.addEventListener("click", ()=>{
         const etab = getEtab(btn.dataset.etabRecompense);
         etab.recompenses = etab.recompenses.filter(r=>r.id!==btn.dataset.delRecompense);
+        saveState(); renderAll();
+      });
+    });
+    tbody.querySelectorAll("[data-add-demande-recompense]").forEach(btn=>{
+      btn.addEventListener("click", ()=>openDemandeRecompenseModal(btn.dataset.addDemandeRecompense));
+    });
+    tbody.querySelectorAll("[data-del-demande-recompense]").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        const etab = getEtab(btn.dataset.etabDemandeRecompense);
+        etab.recompensesDemandes = etab.recompensesDemandes.filter(r=>r.id!==btn.dataset.delDemandeRecompense);
         saveState(); renderAll();
       });
     });
@@ -1802,6 +1848,37 @@
     etab.recompenses.push(entry);
     saveState();
     closeModal("modal-overlay-recompense");
+    renderAll();
+  });
+
+  function openDemandeRecompenseModal(etabId){
+    document.getElementById("demande-recompense-etab-id").value = etabId;
+    document.getElementById("demande-recompense-date").value = new Date().toISOString().slice(0,10);
+    document.getElementById("demande-recompense-or").value = 0;
+    document.getElementById("demande-recompense-argent").value = 0;
+    document.getElementById("demande-recompense-bronze").value = 0;
+    document.getElementById("demande-recompense-coupes").value = 0;
+    openModal("modal-overlay-demande-recompense");
+  }
+
+  document.getElementById("form-demande-recompense").addEventListener("submit", e=>{
+    e.preventDefault();
+    const etab = getEtab(document.getElementById("demande-recompense-etab-id").value);
+    const entry = {
+      id: uid(),
+      date: document.getElementById("demande-recompense-date").value,
+      or: Number(document.getElementById("demande-recompense-or").value)||0,
+      argent: Number(document.getElementById("demande-recompense-argent").value)||0,
+      bronze: Number(document.getElementById("demande-recompense-bronze").value)||0,
+      coupes: Number(document.getElementById("demande-recompense-coupes").value)||0
+    };
+    if(!entry.or && !entry.argent && !entry.bronze && !entry.coupes){
+      alert("Indiquez au moins une quantité supérieure à 0.");
+      return;
+    }
+    etab.recompensesDemandes.push(entry);
+    saveState();
+    closeModal("modal-overlay-demande-recompense");
     renderAll();
   });
 
@@ -2247,6 +2324,38 @@ ${innerHtml}
     return buildPrintDocument(title, body);
   }
 
+  function buildAgPrintHtml(current){
+    // On clone le conteneur affiché à l'écran pour garantir un rendu PDF
+    // identique à la grille de cartes visible (mêmes couleurs, mêmes badges,
+    // même case cochée/décochée), sans dupliquer la logique d'affichage.
+    const containerClone = document.getElementById("ag-container").cloneNode(true);
+    containerClone.querySelectorAll("input[type=checkbox]").forEach(cb=>{ cb.disabled = true; });
+    const recap = document.getElementById("ag-recap").textContent;
+    const body = `<p class="hint" style="text-align:center; margin:0 0 16px;">${escapeHtml(recap)}</p>${containerClone.outerHTML}`;
+    return buildPrintDocument("District de Villeurbanne — AG du " + formatDateFR(current.date), body);
+  }
+
+  document.getElementById("btn-ag-export-pdf").addEventListener("click", ()=>{
+    const current = state.ags.find(a=>a.id===currentAgId);
+    if(!current){ alert("Aucune réunion sélectionnée."); return; }
+    openPrintPreview(buildAgPrintHtml(current));
+  });
+
+  function buildFinancesPrintHtml(){
+    // Clone direct de la table affichée à l'écran : mêmes colonnes, mêmes
+    // lignes (déjà triées), mêmes couleurs d'en-tête (CSS copié par
+    // buildPrintDocument). La colonne Actions (bouton supprimer) n'a pas sa
+    // place dans un document imprimé, elle est retirée de la copie.
+    const tableClone = document.getElementById("table-finances").cloneNode(true);
+    tableClone.querySelectorAll("thead th:last-child, tbody td:last-child").forEach(el=>el.remove());
+    const body = `<div class="table-wrap">${tableClone.outerHTML}</div>`;
+    return buildPrintDocument("District de Villeurbanne — Finances", body);
+  }
+
+  document.getElementById("btn-finances-export-pdf").addEventListener("click", ()=>{
+    openPrintPreview(buildFinancesPrintHtml());
+  });
+
   document.getElementById("btn-export-annuaire-pdf").addEventListener("click", ()=>{
     openModal("modal-overlay-export-pdf");
   });
@@ -2349,6 +2458,32 @@ ${innerHtml}
       }
     ]);
   }
+
+  function exportFinancesExcel(){
+    // Mêmes colonnes et couleurs d'en-tête que le tableau affiché à l'écran
+    // (table-finances), hors colonne Actions (bouton supprimer).
+    const rows = state.remboursements.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(r=>{
+      const etab = getEtab(r.etabId);
+      const prof = etab ? getProf(etab, r.profId) : null;
+      return [
+        formatDateFR(r.date),
+        prof ? prof.nom : "—",
+        etab ? etab.nom : "—",
+        Number(r.montant||0).toFixed(2) + " €",
+        r.motif || ""
+      ];
+    });
+    downloadXlsx("Finances_District_Villeurbanne.xlsx", [
+      {
+        name: "Finances",
+        header: ["Date","Collègue","Établissement","Montant","Motif"],
+        rows,
+        headerColors: [PALETTE_HEX.c1, PALETTE_HEX.c2, PALETTE_HEX.c4, PALETTE_HEX.c5, PALETTE_HEX.c9]
+      }
+    ]);
+  }
+
+  document.getElementById("btn-finances-export-excel").addEventListener("click", exportFinancesExcel);
 
   function exportAnnuaireExcel(){
     const etabRows = sortedEtabs().map(e=>[e.nom, e.adresse||"", formatPhone(e.telephone)||"", e.email||""]);
@@ -2540,14 +2675,17 @@ ${innerHtml}
     container.innerHTML = "";
     const btnDelete = document.getElementById("btn-ag-delete");
     const btnExport = document.getElementById("btn-ag-export-excel");
+    const btnExportPdf = document.getElementById("btn-ag-export-pdf");
     if(!current){
       document.getElementById("ag-recap").textContent = "Aucune réunion affichée pour le moment.";
       btnDelete.disabled = true;
       btnExport.disabled = true;
+      btnExportPdf.disabled = true;
       return;
     }
     btnDelete.disabled = false;
     btnExport.disabled = false;
+    btnExportPdf.disabled = false;
 
     container.innerHTML = sortedEtabs().map(etab=>{
       const color = etabColorVar(etab);
@@ -2639,6 +2777,7 @@ ${innerHtml}
     const localTime = state.lastModified ? new Date(state.lastModified).getTime() : 0;
     const remoteTime = remote.lastModified ? new Date(remote.lastModified).getTime() : 0;
     if(remoteTime >= localTime){
+      migrateEtablissements(remote.etablissements);
       state = migrateStocks(remote);
       cacheStateLocally();
       renderAll();
@@ -2663,6 +2802,7 @@ ${innerHtml}
         const localTime = state.lastModified ? new Date(state.lastModified).getTime() : 0;
         const remoteTime = remote.lastModified ? new Date(remote.lastModified).getTime() : 0;
         if(remoteTime > localTime){
+          migrateEtablissements(remote.etablissements);
           state = migrateStocks(remote);
           cacheStateLocally();
           renderAll();
