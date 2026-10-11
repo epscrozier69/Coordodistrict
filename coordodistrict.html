@@ -106,10 +106,9 @@
 
   #table-cartes thead th:nth-child(1){background:var(--c1);}
   #table-cartes thead th:nth-child(2){background:var(--c4);}
-  #table-cartes thead th:nth-child(3){background:var(--c7);}
-  #table-cartes thead th:nth-child(4){background:var(--c9);}
-  #table-cartes thead th:nth-child(5){background:var(--c11);}
-  #table-cartes thead th:nth-child(6){background:var(--c13);}
+  #table-cartes thead th:nth-child(3){background:var(--c9);}
+  #table-cartes thead th:nth-child(4){background:var(--c11);}
+  #table-cartes thead th:nth-child(5){background:var(--c13);}
 
   #table-recompenses thead th:nth-child(1){background:var(--c1);}
   #table-recompenses thead th:nth-child(2){background:var(--c4);}
@@ -131,6 +130,9 @@
 
   .recharge-history{ font-size:.78rem; color:var(--muted); margin-bottom:14px; }
   .recharge-history .entry{ display:inline-flex; align-items:center; gap:4px; background:#fff; border:1px solid var(--border); border-radius:8px; padding:3px 8px; margin:0 6px 6px 0; }
+  .histo-entry{ display:flex; align-items:center; justify-content:space-between; gap:6px; border-radius:7px; padding:3px 8px; margin:0 0 4px; font-size:.85rem; }
+  .histo-entry.demande{ background:#fdf0da; }
+  .histo-entry.distribution{ background:#dcf2e3; }
 
   #table-cross thead th:nth-child(1){background:var(--c2);}
   #table-cross thead th:nth-child(2){background:var(--c6);}
@@ -442,7 +444,6 @@
           <tr>
             <th>Établissement</th>
             <th>Total cartes distribuées</th>
-            <th>Dernière date</th>
             <th>Historique des demandes</th>
             <th>Historique des distributions</th>
             <th>Actions</th>
@@ -1169,15 +1170,6 @@
   }
 
   function totalCartesFor(etab){ return etab.cartes.reduce((s,t)=>s+Number(t.nombre||0),0); }
-  function lastCarteDateFor(etab){
-    if(!etab.cartes.length) return "";
-    return etab.cartes.slice().sort((a,b)=>b.date.localeCompare(a.date))[0].date;
-  }
-  function totalCartesDemandeesFor(etab){ return etab.cartesDemandes.reduce((s,t)=>s+Number(t.nombre||0),0); }
-  function lastDemandeDateFor(etab){
-    if(!etab.cartesDemandes.length) return "";
-    return etab.cartesDemandes.slice().sort((a,b)=>b.date.localeCompare(a.date))[0].date;
-  }
   function stockTotal(stock){ return stock.initial + stock.recharges.reduce((s,r)=>s+Number(r.quantite||0),0); }
 
   function totalRecompensesFor(etab, type){
@@ -1627,13 +1619,12 @@
     sortedEtabs().forEach(etab=>{
       const tr = document.createElement("tr");
       const historiqueDemandes = etab.cartesDemandes.slice().sort((a,b)=>b.date.localeCompare(a.date))
-        .map(c=>`<div>${formatDateFR(c.date)} — ${c.nombre} cartes <button class="icon-btn" data-del-demande-carte="${c.id}" data-etab-demande-carte="${etab.id}" title="Supprimer">🗑</button></div>`).join("");
+        .map(c=>`<div class="histo-entry demande">${formatDateFR(c.date)} — ${c.nombre} cartes <button class="icon-btn" data-del-demande-carte="${c.id}" data-etab-demande-carte="${etab.id}" title="Supprimer">🗑</button></div>`).join("");
       const historique = etab.cartes.slice().sort((a,b)=>b.date.localeCompare(a.date))
-        .map(c=>`<div>${formatDateFR(c.date)} — ${c.nombre} cartes <button class="icon-btn" data-del-carte="${c.id}" data-etab-carte="${etab.id}" title="Supprimer">🗑</button></div>`).join("");
+        .map(c=>`<div class="histo-entry distribution">${formatDateFR(c.date)} — ${c.nombre} cartes <button class="icon-btn" data-del-carte="${c.id}" data-etab-carte="${etab.id}" title="Supprimer">🗑</button></div>`).join("");
       tr.innerHTML = `
         <td><span class="etab-dot" style="background:${etabColorVar(etab)}"></span><strong>${escapeHtml(etab.nom)}</strong></td>
         <td>${totalCartesFor(etab)}</td>
-        <td>${formatDateFR(lastCarteDateFor(etab))||"—"}</td>
         <td>${historiqueDemandes||"—"}</td>
         <td>${historique||"—"}</td>
         <td>
@@ -1687,9 +1678,11 @@
   });
 
   function openCarteModal(etabId){
+    const etab = getEtab(etabId);
+    const derniereDemande = etab.cartesDemandes.slice().sort((a,b)=>b.date.localeCompare(a.date))[0];
     document.getElementById("carte-etab-id").value = etabId;
     document.getElementById("carte-date").value = new Date().toISOString().slice(0,10);
-    document.getElementById("carte-nombre").value = "";
+    document.getElementById("carte-nombre").value = derniereDemande ? derniereDemande.nombre : "";
     openModal("modal-overlay-carte");
   }
 
@@ -1821,12 +1814,14 @@
   }
 
   function openRecompenseModal(etabId){
+    const etab = getEtab(etabId);
+    const derniereDemande = etab.recompensesDemandes.slice().sort((a,b)=>b.date.localeCompare(a.date))[0];
     document.getElementById("recompense-etab-id").value = etabId;
     document.getElementById("recompense-date").value = new Date().toISOString().slice(0,10);
-    document.getElementById("recompense-or").value = 0;
-    document.getElementById("recompense-argent").value = 0;
-    document.getElementById("recompense-bronze").value = 0;
-    document.getElementById("recompense-coupes").value = 0;
+    document.getElementById("recompense-or").value = derniereDemande ? (derniereDemande.or||0) : 0;
+    document.getElementById("recompense-argent").value = derniereDemande ? (derniereDemande.argent||0) : 0;
+    document.getElementById("recompense-bronze").value = derniereDemande ? (derniereDemande.bronze||0) : 0;
+    document.getElementById("recompense-coupes").value = derniereDemande ? (derniereDemande.coupes||0) : 0;
     openModal("modal-overlay-recompense");
   }
 
