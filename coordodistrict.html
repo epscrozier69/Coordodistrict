@@ -1059,8 +1059,9 @@
   async function autoCompressPhotosAndRetry(){
     const profsWithPhoto = allProfsWithPhoto();
     if(!profsWithPhoto.length){
-      const msg = "Échec de synchronisation : données trop volumineuses, mais aucune photo à compresser pour gagner de la place.";
+      const msg = "Échec de synchronisation : données trop volumineuses (" + JSON.stringify(state).length + " caractères, limite 45000), mais aucune photo à compresser pour gagner de la place. Utilisez « Alléger les photos » dans l'onglet Export, ou signalez-le pour qu'une autre donnée soit allégée.";
       setSyncStatus(msg);
+      alert(msg);
       return;
     }
     setSyncStatus("Données trop volumineuses : compression automatique des photos en cours…");
@@ -1071,8 +1072,9 @@
     cacheStateLocally();
     renderAll();
     if(JSON.stringify(state).length > 45000){
-      const msg = "Échec de synchronisation : données encore trop volumineuses même après compression automatique des photos. Réduisez le nombre de photos.";
+      const msg = "Échec de synchronisation : données encore trop volumineuses (" + JSON.stringify(state).length + " caractères, limite 45000) même après compression automatique des photos. Réduisez le nombre de photos.";
       setSyncStatus(msg);
+      alert(msg);
       return;
     }
     pushRemoteState();
@@ -1095,7 +1097,11 @@
       body: JSON.stringify({ token: SYNC_TOKEN, ts: Date.now(), data: state })
     }).then(r=>r.json()).then(json=>{
         if(json && json.ok) setSyncStatus("Synchronisé à " + new Date().toLocaleTimeString("fr-FR", {hour:"2-digit", minute:"2-digit"}));
-        else setSyncStatus("Échec de la synchronisation : " + (json && json.error ? json.error : "réponse inattendue"));
+        else {
+          const msg = "Échec de la synchronisation : " + (json && json.error ? json.error : "réponse inattendue");
+          setSyncStatus(msg);
+          alert(msg);
+        }
       })
       .catch(()=>{ setSyncStatus("Hors ligne : modifications conservées localement, seront envoyées plus tard."); })
       .finally(()=>{
