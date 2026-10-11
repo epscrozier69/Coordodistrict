@@ -142,6 +142,8 @@
   }
   .ag-prof-card.is-present{ background:#eaf6ee; border-color:#3f9a5c; }
   .ag-prof-name{ font-weight:700; font-size:.88rem; }
+  .ag-prof-badges{ display:flex; flex-wrap:wrap; gap:3px; justify-content:center; }
+  .ag-prof-meta{ font-size:.72rem; color:var(--muted); line-height:1.3; }
   .ag-prof-card input[type=checkbox]{ width:22px; height:22px; cursor:pointer; }
 
   /* Onglet profs */
@@ -440,6 +442,7 @@
             <th>Établissement</th>
             <th>Total cartes distribuées</th>
             <th>Dernière date</th>
+            <th>Historique des demandes</th>
             <th>Historique des distributions</th>
             <th>Actions</th>
           </tr>
@@ -691,6 +694,22 @@
   </div>
 </div>
 
+<!-- MODAL DEMANDE DE CARTES -->
+<div class="modal-overlay hidden" id="modal-overlay-demande-carte">
+  <div class="modal">
+    <h3>Ajouter une demande de cartes</h3>
+    <form id="form-demande-carte">
+      <input type="hidden" id="demande-carte-etab-id">
+      <div class="form-row"><label>Date de la demande</label><input type="date" id="demande-carte-date" required></div>
+      <div class="form-row"><label>Nombre de cartes demandées</label><input type="number" id="demande-carte-nombre" min="1" required></div>
+      <div class="modal-footer">
+        <button type="button" class="secondary" data-close="modal-overlay-demande-carte">Annuler</button>
+        <button type="submit">Ajouter</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- MODAL RECOMPENSE -->
 <div class="modal-overlay hidden" id="modal-overlay-recompense">
   <div class="modal">
@@ -793,6 +812,17 @@
   }
 
   function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+
+  // Affiche une date stockée au format ISO (YYYY-MM-DD) en jour/mois/année.
+  // Les <input type="date"> restent en ISO (imposé par le navigateur) ; seul
+  // l'affichage change.
+  function formatDateFR(iso){
+    if(!iso) return "";
+    const parts = iso.split("-");
+    if(parts.length !== 3) return iso;
+    const [y,m,d] = parts;
+    return d + "/" + m + "/" + y;
+  }
 
   function P(nom, telephone, email, pratiquees, competition, opts){
     opts = opts || {};
@@ -927,6 +957,7 @@
       });
       if(!etab.cartes) etab.cartes = etab.tickets || [];
       delete etab.tickets;
+      if(!etab.cartesDemandes) etab.cartesDemandes = [];
       if(!etab.recompenses) etab.recompenses = [];
     });
     return etablissements;
@@ -1080,7 +1111,7 @@
     return migrateStocks({
       etablissements: migrateEtablissements(DEFAULT_ETABS.map(e => ({
         id: uid(), nom:e.nom, adresse:e.adresse, telephone:e.telephone, email:e.email, lienPartage:"",
-        profs: e.profs, cartes: [], recompenses: []
+        profs: e.profs, cartes: [], cartesDemandes: [], recompenses: []
       })))
     });
   }
@@ -1112,6 +1143,11 @@
   function lastCarteDateFor(etab){
     if(!etab.cartes.length) return "";
     return etab.cartes.slice().sort((a,b)=>b.date.localeCompare(a.date))[0].date;
+  }
+  function totalCartesDemandeesFor(etab){ return etab.cartesDemandes.reduce((s,t)=>s+Number(t.nombre||0),0); }
+  function lastDemandeDateFor(etab){
+    if(!etab.cartesDemandes.length) return "";
+    return etab.cartesDemandes.slice().sort((a,b)=>b.date.localeCompare(a.date))[0].date;
   }
   function stockTotal(stock){ return stock.initial + stock.recharges.reduce((s,r)=>s+Number(r.quantite||0),0); }
 
@@ -1176,6 +1212,19 @@
   }
 
   // ---------- RENDER: PROFS ----------
+  function profActivitesSummary(prof){
+    const tagLabel = (a, i, displayArr, precision) => {
+      if(displayArr && displayArr[i]) return displayArr[i];
+      if(a==="Autres" && precision) return precision;
+      return a;
+    };
+    const all = [
+      ...(prof.activitesPratiquees||[]).map((a,i)=>tagLabel(a, i, prof.activitesPratiqueesDisplay, prof.autrePratiqueePrecision)),
+      ...(prof.activitesCompetition||[]).map((a,i)=>tagLabel(a, i, prof.activitesCompetitionDisplay, prof.autreCompetitionPrecision))
+    ];
+    return all.join(", ");
+  }
+
   function profCardHtml(prof, etab, opts){
     opts = opts || {};
     const avatar = prof.photo
@@ -1532,7 +1581,7 @@
     const histoDiv = document.getElementById("cartes-recharges-historique");
     if(stock.recharges.length){
       histoDiv.innerHTML = '<div class="recharge-history">Recharges : ' + stock.recharges.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(r=>
-        `<span class="entry">${r.date} : +${r.quantite} <button class="icon-btn" data-del-recharge-cartes="${r.id}" title="Supprimer">🗑</button></span>`
+        `<span class="entry">${formatDateFR(r.date)} : +${r.quantite} <button class="icon-btn" data-del-recharge-cartes="${r.id}" title="Supprimer">🗑</button></span>`
       ).join("") + '</div>';
     } else {
       histoDiv.innerHTML = "";
@@ -1548,14 +1597,20 @@
     tbody.innerHTML = "";
     sortedEtabs().forEach(etab=>{
       const tr = document.createElement("tr");
+      const historiqueDemandes = etab.cartesDemandes.slice().sort((a,b)=>b.date.localeCompare(a.date))
+        .map(c=>`<div>${formatDateFR(c.date)} — ${c.nombre} cartes <button class="icon-btn" data-del-demande-carte="${c.id}" data-etab-demande-carte="${etab.id}" title="Supprimer">🗑</button></div>`).join("");
       const historique = etab.cartes.slice().sort((a,b)=>b.date.localeCompare(a.date))
-        .map(c=>`<div>${c.date} — ${c.nombre} cartes <button class="icon-btn" data-del-carte="${c.id}" data-etab-carte="${etab.id}" title="Supprimer">🗑</button></div>`).join("");
+        .map(c=>`<div>${formatDateFR(c.date)} — ${c.nombre} cartes <button class="icon-btn" data-del-carte="${c.id}" data-etab-carte="${etab.id}" title="Supprimer">🗑</button></div>`).join("");
       tr.innerHTML = `
         <td><span class="etab-dot" style="background:${etabColorVar(etab)}"></span><strong>${escapeHtml(etab.nom)}</strong></td>
         <td>${totalCartesFor(etab)}</td>
-        <td>${lastCarteDateFor(etab)||"—"}</td>
+        <td>${formatDateFR(lastCarteDateFor(etab))||"—"}</td>
+        <td>${historiqueDemandes||"—"}</td>
         <td>${historique||"—"}</td>
-        <td><button class="small" data-add-carte="${etab.id}">+ Distribution</button></td>
+        <td>
+          <button class="small" data-add-demande-carte="${etab.id}">+ Demande</button>
+          <button class="small" data-add-carte="${etab.id}">+ Distribution</button>
+        </td>
       `;
       tbody.appendChild(tr);
     });
@@ -1570,7 +1625,37 @@
         saveState(); renderAll();
       });
     });
+    tbody.querySelectorAll("[data-add-demande-carte]").forEach(btn=>{
+      btn.addEventListener("click", ()=>openDemandeCarteModal(btn.dataset.addDemandeCarte));
+    });
+    tbody.querySelectorAll("[data-del-demande-carte]").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        const etab = getEtab(btn.dataset.etabDemandeCarte);
+        etab.cartesDemandes = etab.cartesDemandes.filter(c=>c.id!==btn.dataset.delDemandeCarte);
+        saveState(); renderAll();
+      });
+    });
   }
+
+  function openDemandeCarteModal(etabId){
+    document.getElementById("demande-carte-etab-id").value = etabId;
+    document.getElementById("demande-carte-date").value = new Date().toISOString().slice(0,10);
+    document.getElementById("demande-carte-nombre").value = "";
+    openModal("modal-overlay-demande-carte");
+  }
+
+  document.getElementById("form-demande-carte").addEventListener("submit", e=>{
+    e.preventDefault();
+    const etab = getEtab(document.getElementById("demande-carte-etab-id").value);
+    etab.cartesDemandes.push({
+      id: uid(),
+      date: document.getElementById("demande-carte-date").value,
+      nombre: Number(document.getElementById("demande-carte-nombre").value)
+    });
+    saveState();
+    closeModal("modal-overlay-demande-carte");
+    renderAll();
+  });
 
   function openCarteModal(etabId){
     document.getElementById("carte-etab-id").value = etabId;
@@ -1645,7 +1730,7 @@
     const histoDiv = document.getElementById("recompenses-recharges-historique");
     if(allRecharges.length){
       histoDiv.innerHTML = '<div class="recharge-history">Recharges : ' + allRecharges.sort((a,b)=>b.date.localeCompare(a.date)).map(r=>
-        `<span class="entry">${r.date} : +${r.quantite} ${r.label} <button class="icon-btn" data-del-recharge-recompense="${r.id}" data-recharge-type="${r.type}" title="Supprimer">🗑</button></span>`
+        `<span class="entry">${formatDateFR(r.date)} : +${r.quantite} ${r.label} <button class="icon-btn" data-del-recharge-recompense="${r.id}" data-recharge-type="${r.type}" title="Supprimer">🗑</button></span>`
       ).join("") + '</div>';
     } else {
       histoDiv.innerHTML = "";
@@ -1663,7 +1748,7 @@
     sortedEtabs().forEach(etab=>{
       const tr = document.createElement("tr");
       const historique = etab.recompenses.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(r=>
-        `<div>${r.date} — Or:${r.or||0} Argent:${r.argent||0} Bronze:${r.bronze||0} Coupes:${r.coupes||0} <button class="icon-btn" data-del-recompense="${r.id}" data-etab-recompense="${etab.id}" title="Supprimer">🗑</button></div>`
+        `<div>${formatDateFR(r.date)} — Or:${r.or||0} Argent:${r.argent||0} Bronze:${r.bronze||0} Coupes:${r.coupes||0} <button class="icon-btn" data-del-recompense="${r.id}" data-etab-recompense="${etab.id}" title="Supprimer">🗑</button></div>`
       ).join("");
       tr.innerHTML = `
         <td><span class="etab-dot" style="background:${etabColorVar(etab)}"></span><strong>${escapeHtml(etab.nom)}</strong></td>
@@ -1741,7 +1826,7 @@
       const prof = etab ? getProf(etab, r.profId) : null;
       const tr = document.createElement("tr");
       tr.innerHTML = `
-        <td>${r.date}</td>
+        <td>${formatDateFR(r.date)}</td>
         <td>${escapeHtml(prof ? prof.nom : "—")}</td>
         <td>${escapeHtml(etab ? etab.nom : "—")}</td>
         <td>${Number(r.montant||0).toFixed(2)} €</td>
@@ -2441,7 +2526,7 @@ ${innerHtml}
     const ags = sortedAgs();
     const tabsEl = document.getElementById("ag-tabs");
     tabsEl.innerHTML = ags.length
-      ? ags.map(ag=>`<button type="button" class="ag-tab-btn${ag.id===currentAgId ? " active" : ""}" data-ag-tab="${escapeAttr(ag.id)}">${escapeHtml(ag.date)}</button>`).join("")
+      ? ags.map(ag=>`<button type="button" class="ag-tab-btn${ag.id===currentAgId ? " active" : ""}" data-ag-tab="${escapeAttr(ag.id)}">${escapeHtml(formatDateFR(ag.date))}</button>`).join("")
       : `<span class="hint">Aucune réunion.</span>`;
     tabsEl.querySelectorAll("[data-ag-tab]").forEach(btn=>{
       btn.addEventListener("click", ()=>{
@@ -2472,9 +2557,17 @@ ${innerHtml}
       if(!profs.length) return "";
       const profsHtml = profs.map(prof=>{
         const present = !!current.presences[prof.id];
+        const activites = profActivitesSummary(prof);
+        const badges = (prof.coordoAS || prof.coordoEPS) ? `
+            <div class="ag-prof-badges">
+              ${prof.coordoAS ? '<span class="badge as">★ AS</span>' : ""}
+              ${prof.coordoEPS ? '<span class="badge">★ EPS</span>' : ""}
+            </div>` : "";
         return `
           <label class="ag-prof-card${present ? " is-present" : ""}">
             <span class="ag-prof-name">${escapeHtml(prof.nom)}</span>
+            ${badges}
+            ${activites ? `<span class="ag-prof-meta">${escapeHtml(activites)}</span>` : ""}
             <input type="checkbox" data-ag-prof="${escapeAttr(prof.id)}" ${present ? "checked" : ""}>
           </label>
         `;
@@ -2517,7 +2610,7 @@ ${innerHtml}
   document.getElementById("btn-ag-delete").addEventListener("click", ()=>{
     const current = state.ags.find(a=>a.id===currentAgId);
     if(!current) return;
-    if(!confirm("Supprimer définitivement la réunion du " + current.date + " et sa liste de présence ? Cette action est irréversible.")) return;
+    if(!confirm("Supprimer définitivement la réunion du " + formatDateFR(current.date) + " et sa liste de présence ? Cette action est irréversible.")) return;
     state.ags = state.ags.filter(a=>a.id!==current.id);
     currentAgId = null;
     saveState();
