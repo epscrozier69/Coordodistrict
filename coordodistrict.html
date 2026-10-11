@@ -322,8 +322,6 @@
     display:flex; align-items:center; justify-content:center; flex-shrink:0;
   }
 
-  footer.app-footer{ text-align:center; color:var(--muted); font-size:.78rem; padding:26px 10px; }
-
   @media (max-width:720px){
     .topbar-inner h1{ font-size:1.15rem; }
     nav.tabs{ gap:6px; }
@@ -360,6 +358,7 @@
   <section id="tab-profs" class="tab-panel active">
     <div class="panel-header">
       <h2>Coordonnées des établissements et des collègues EPS</h2>
+      <p class="hint" id="profs-count-info" style="margin:0;"></p>
     </div>
     <p class="hint" id="last-modified-info"></p>
     <p class="hint" id="sync-status-info"></p>
@@ -611,7 +610,6 @@
 
 </main>
 
-<footer class="app-footer">District UNSS de Villeurbanne — 13 établissements — Données stockées localement dans ce navigateur</footer>
 
 <!-- MODAL EXPORT PDF -->
 <div class="modal-overlay hidden" id="modal-overlay-export-pdf">
@@ -708,6 +706,7 @@
     <h3>Ajouter une demande de cartes</h3>
     <form id="form-demande-carte">
       <input type="hidden" id="demande-carte-etab-id">
+      <div class="form-row"><label>Collègue demandeur</label><select id="demande-carte-prof"></select></div>
       <div class="form-row"><label>Date de la demande</label><input type="date" id="demande-carte-date" required></div>
       <div class="form-row"><label>Nombre de cartes demandées</label><input type="number" id="demande-carte-nombre" min="1" required></div>
       <div class="modal-footer">
@@ -743,6 +742,7 @@
     <h3>Ajouter une demande de récompenses</h3>
     <form id="form-demande-recompense">
       <input type="hidden" id="demande-recompense-etab-id">
+      <div class="form-row"><label>Collègue demandeur</label><select id="demande-recompense-prof"></select></div>
       <div class="form-row"><label>Date de la demande</label><input type="date" id="demande-recompense-date" required></div>
       <div class="form-row"><label>Or</label><input type="number" id="demande-recompense-or" min="0" value="0"></div>
       <div class="form-row"><label>Argent</label><input type="number" id="demande-recompense-argent" min="0" value="0"></div>
@@ -1341,6 +1341,10 @@
 
   function renderProfs(){
     renderLastModifiedInfo();
+    const nbEtabs = state.etablissements.length;
+    const nbProfs = state.etablissements.reduce((s,e)=>s+e.profs.filter(p=>!p.virtual).length, 0);
+    document.getElementById("profs-count-info").textContent =
+      nbEtabs + " établissement" + (nbEtabs>1?"s":"") + " — " + nbProfs + " collègue" + (nbProfs>1?"s":"");
     const container = document.getElementById("profs-container");
     container.innerHTML = sortedEtabs().map(etab=>etabBlockHtml(etab, {editable:true})).join("");
 
@@ -1619,7 +1623,10 @@
     sortedEtabs().forEach(etab=>{
       const tr = document.createElement("tr");
       const historiqueDemandes = etab.cartesDemandes.slice().sort((a,b)=>b.date.localeCompare(a.date))
-        .map(c=>`<div class="histo-entry demande">${formatDateFR(c.date)} — ${c.nombre} cartes <button class="icon-btn" data-del-demande-carte="${c.id}" data-etab-demande-carte="${etab.id}" title="Supprimer">🗑</button></div>`).join("");
+        .map(c=>{
+          const prof = c.profId ? getProf(etab, c.profId) : null;
+          return `<div class="histo-entry demande">${formatDateFR(c.date)} — ${c.nombre} cartes${prof ? " ("+escapeHtml(prof.nom)+")" : ""} <button class="icon-btn" data-del-demande-carte="${c.id}" data-etab-demande-carte="${etab.id}" title="Supprimer">🗑</button></div>`;
+        }).join("");
       const historique = etab.cartes.slice().sort((a,b)=>b.date.localeCompare(a.date))
         .map(c=>`<div class="histo-entry distribution">${formatDateFR(c.date)} — ${c.nombre} cartes <button class="icon-btn" data-del-carte="${c.id}" data-etab-carte="${etab.id}" title="Supprimer">🗑</button></div>`).join("");
       tr.innerHTML = `
@@ -1657,7 +1664,18 @@
     });
   }
 
+  // Remplit un <select> avec les collègues (non virtuels) d'un établissement,
+  // triés par ordre alphabétique, précédés d'une option "non précisé".
+  function populateProfSelect(selectEl, etab){
+    const profs = etab.profs.filter(p=>!p.virtual)
+      .sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}));
+    selectEl.innerHTML = '<option value="">— Non précisé —</option>' +
+      profs.map(p=>`<option value="${escapeAttr(p.id)}">${escapeHtml(p.nom)}</option>`).join("");
+  }
+
   function openDemandeCarteModal(etabId){
+    const etab = getEtab(etabId);
+    populateProfSelect(document.getElementById("demande-carte-prof"), etab);
     document.getElementById("demande-carte-etab-id").value = etabId;
     document.getElementById("demande-carte-date").value = new Date().toISOString().slice(0,10);
     document.getElementById("demande-carte-nombre").value = "";
@@ -1669,6 +1687,7 @@
     const etab = getEtab(document.getElementById("demande-carte-etab-id").value);
     etab.cartesDemandes.push({
       id: uid(),
+      profId: document.getElementById("demande-carte-prof").value || "",
       date: document.getElementById("demande-carte-date").value,
       nombre: Number(document.getElementById("demande-carte-nombre").value)
     });
@@ -1769,8 +1788,10 @@
     tbody.innerHTML = "";
     sortedEtabs().forEach(etab=>{
       const tr = document.createElement("tr");
-      const historiqueDemandes = etab.recompensesDemandes.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(r=>
-        `<div>${formatDateFR(r.date)} — Or:${r.or||0} Argent:${r.argent||0} Bronze:${r.bronze||0} Coupes:${r.coupes||0} <button class="icon-btn" data-del-demande-recompense="${r.id}" data-etab-demande-recompense="${etab.id}" title="Supprimer">🗑</button></div>`
+      const historiqueDemandes = etab.recompensesDemandes.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(r=>{
+        const prof = r.profId ? getProf(etab, r.profId) : null;
+        return `<div>${formatDateFR(r.date)} — Or:${r.or||0} Argent:${r.argent||0} Bronze:${r.bronze||0} Coupes:${r.coupes||0}${prof ? " ("+escapeHtml(prof.nom)+")" : ""} <button class="icon-btn" data-del-demande-recompense="${r.id}" data-etab-demande-recompense="${etab.id}" title="Supprimer">🗑</button></div>`;
+      }
       ).join("");
       const historique = etab.recompenses.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(r=>
         `<div>${formatDateFR(r.date)} — Or:${r.or||0} Argent:${r.argent||0} Bronze:${r.bronze||0} Coupes:${r.coupes||0} <button class="icon-btn" data-del-recompense="${r.id}" data-etab-recompense="${etab.id}" title="Supprimer">🗑</button></div>`
@@ -1847,6 +1868,8 @@
   });
 
   function openDemandeRecompenseModal(etabId){
+    const etab = getEtab(etabId);
+    populateProfSelect(document.getElementById("demande-recompense-prof"), etab);
     document.getElementById("demande-recompense-etab-id").value = etabId;
     document.getElementById("demande-recompense-date").value = new Date().toISOString().slice(0,10);
     document.getElementById("demande-recompense-or").value = 0;
@@ -1861,6 +1884,7 @@
     const etab = getEtab(document.getElementById("demande-recompense-etab-id").value);
     const entry = {
       id: uid(),
+      profId: document.getElementById("demande-recompense-prof").value || "",
       date: document.getElementById("demande-recompense-date").value,
       or: Number(document.getElementById("demande-recompense-or").value)||0,
       argent: Number(document.getElementById("demande-recompense-argent").value)||0,
