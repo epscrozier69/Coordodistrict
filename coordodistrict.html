@@ -2461,10 +2461,22 @@ ${innerHtml}
     const includeActivites = opts.includeActivites !== false;
     let body = "";
     if(includeAnnuaire){
-      // Hauteur fixe par établissement pour que 4 blocs tiennent par page A4
-      // (voir .etab-block{page-break-inside:avoid} dans buildPrintDocument).
-      const etabsHtml = sortedEtabs().map(etab=>etabBlockHtml(etab, {editable:false, fixedRows:2, blockHeightMm:62})).join("");
+      const etabsHtml = sortedEtabs().map(etab=>etabBlockHtml(etab, {editable:false, fixedRows:2})).join("");
       body += `<div id="profs-container">${etabsHtml}</div>`;
+      // Hauteur identique pour chaque établissement : on ne peut pas fixer une
+      // hauteur à l'avance sans risquer de couper des collègues (vu avec une
+      // valeur fixe en mm — certaines fiches disparaissaient). On mesure donc,
+      // une fois la page chargée, la hauteur naturelle du bloc le plus grand,
+      // puis on aligne tous les autres dessus (jamais de recadrage, jamais de
+      // perte de données — seuls les blocs plus courts sont étirés).
+      body += `<script>
+        (function(){
+          var blocks = document.querySelectorAll("#profs-container .etab-block");
+          var max = 0;
+          blocks.forEach(function(b){ max = Math.max(max, b.getBoundingClientRect().height); });
+          blocks.forEach(function(b){ b.style.height = max + "px"; });
+        })();
+      <\/script>`;
     }
     if(includeActivites){
       const pratTable = document.getElementById("table-activites-pratiquees").cloneNode(true);
