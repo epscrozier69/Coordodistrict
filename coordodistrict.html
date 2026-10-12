@@ -1084,11 +1084,48 @@
       body: JSON.stringify({ token: SYNC_TOKEN, action: "deletePhoto", fileId })
     }).catch(()=>{});
   }
-  function migratePhotosToDrive(){
-    const toMigrate = [];
+  function collectBase64Photos(){
+    const list = [];
     state.etablissements.forEach(etab=>{
-      etab.profs.forEach(p=>{ if(p.photo && p.photo.indexOf("data:")===0) toMigrate.push(p); });
+      etab.profs.forEach(p=>{ if(p.photo && p.photo.indexOf("data:")===0) list.push(p); });
     });
+    return list;
+  }
+  let autoMigratingPhotos = false;
+  // Convertit silencieusement toute photo encore stockée en base64 (ancien
+  // format, ou provenant d'un appareil pas encore mis à jour) vers Drive.
+  // Appelée automatiquement au lancement et lors du rafraîchissement
+  // périodique, pour que la limite des 45000 caractères ne soit jamais un
+  // problème à gérer manuellement.
+  function autoMigratePhotosIfNeeded(){
+    if(autoMigratingPhotos) return Promise.resolve(0);
+    const toMigrate = collectBase64Photos();
+    if(!toMigrate.length) return Promise.resolve(0);
+    autoMigratingPhotos = true;
+    setSyncStatus("Migration automatique de " + toMigrate.length + " photo(s) vers Drive en cours…");
+    let i = 0;
+    return new Promise(resolve=>{
+      function next(){
+        if(i >= toMigrate.length){
+          autoMigratingPhotos = false;
+          cacheStateLocally();
+          renderProfs();
+          pushRemoteState();
+          resolve(toMigrate.length);
+          return;
+        }
+        const p = toMigrate[i];
+        uploadPhotoToDrive(p.photo, p.id).then(res=>{
+          if(res && res.ok){ p.photo = res.url; p.photoFileId = res.fileId; }
+          i++;
+          next();
+        }).catch(()=>{ i++; next(); });
+      }
+      next();
+    });
+  }
+  function migratePhotosToDrive(){
+    const toMigrate = collectBase64Photos();
     if(!toMigrate.length){
       alert("Aucune photo à migrer : toutes les photos sont déjà stockées sur Drive.");
       return;
@@ -2956,6 +2993,7 @@ ${innerHtml}
       setSyncStatus("Des modifications locales non encore synchronisées ont été détectées : nouvel envoi en cours…");
       pushRemoteState();
     }
+    autoMigratePhotosIfNeeded();
   });
 
   // Rafraîchissement automatique en arrière-plan : relit le Google Sheet
@@ -2976,6 +3014,7 @@ ${innerHtml}
           cacheStateLocally();
           renderAll();
         }
+        autoMigratePhotosIfNeeded();
       });
     }, 60000);
   }
