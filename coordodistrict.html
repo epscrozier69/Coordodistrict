@@ -1406,10 +1406,20 @@
     }
     const metaLines = metaParts.length ? metaParts.join("") : "<div>Coordonnées non renseignées</div>";
     const lien = etab.lienPartage ? `<a href="${escapeAttr(etab.lienPartage)}" target="_blank" rel="noopener" style="color:${textColor};">📎 Fichiers</a>` : "";
-    const profsHtml = etab.profs.filter(prof=>!prof.virtual)
+    const nonVirtualProfs = etab.profs.filter(prof=>!prof.virtual);
+    const profsHtml = nonVirtualProfs
       .sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}))
       .map(prof=>profCardHtml(prof, etab, opts))
       .join("");
+    // Export PDF uniquement : quel que soit le nombre de collègues, on force
+    // la grille à tenir sur exactement opts.fixedRows lignes (le nombre de
+    // colonnes s'adapte en conséquence), au lieu du flex-wrap habituel à
+    // l'écran qui dépend de la largeur disponible.
+    let gridStyle = "";
+    if(opts.fixedRows){
+      const cols = Math.max(1, Math.ceil(nonVirtualProfs.length / opts.fixedRows));
+      gridStyle = ` style="display:grid; grid-template-columns:repeat(${cols}, 1fr);"`;
+    }
     return `
       <div class="etab-block">
         <div class="etab-block-head" style="background:${color}; color:${textColor};">
@@ -1418,7 +1428,7 @@
             <div class="etab-head-meta">${metaLines}${lien ? `<div>${lien}</div>` : ""}</div>
           </div>
         </div>
-        <div class="prof-grid">${profsHtml}</div>
+        <div class="prof-grid"${gridStyle}>${profsHtml}</div>
       </div>
     `;
   }
@@ -2410,6 +2420,7 @@ ${styleTag}
   .activites-page thead th{ white-space:normal !important; }
   .prof-card .card-info{ flex: 1 1 auto; min-width: 0; }
   .prof-card h4, .prof-card p, .badge{ white-space: normal; word-break: break-word; }
+  .prof-grid[style*="grid"] .prof-card{ min-width: 0; }
   .etab-block-head h3{ font-size:1.4rem; }
   .etab-head-meta{ font-size:.85rem; }
   @page{ size: A4 portrait; margin:10mm; }
@@ -2445,7 +2456,7 @@ ${innerHtml}
     const includeActivites = opts.includeActivites !== false;
     let body = "";
     if(includeAnnuaire){
-      const etabsHtml = sortedEtabs().map(etab=>etabBlockHtml(etab, {editable:false})).join("");
+      const etabsHtml = sortedEtabs().map(etab=>etabBlockHtml(etab, {editable:false, fixedRows:2})).join("");
       body += `<div id="profs-container">${etabsHtml}</div>`;
     }
     if(includeActivites){
