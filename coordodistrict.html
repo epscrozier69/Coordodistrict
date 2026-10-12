@@ -63,6 +63,11 @@
   }
   .panel-header h2{ margin:0; font-size:1.1rem; }
   .hint{ color:var(--muted); font-size:.85rem; margin:0; }
+  .profs-meta-row{
+    display:flex; align-items:flex-start; justify-content:space-between;
+    flex-wrap:wrap; gap:10px; margin-bottom:10px;
+  }
+  .profs-meta-right{ text-align:right; }
 
   .actions{ display:flex; gap:8px; flex-wrap:wrap; }
   button, .btn-file{
@@ -219,6 +224,8 @@
     font-size:.72rem; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,.25); line-height:1;
   }
   .prof-card .photo-upload-btn:hover{ background:#eef1fa; }
+  .prof-card .photo-remove-btn{ right:auto; left:-3px; bottom:-3px; border-color:#d9534f; color:#d9534f; }
+  .prof-card .photo-remove-btn:hover{ background:#fdeeee; }
   .prof-card h4{ margin:0 0 2px; font-size:.9rem; }
   .prof-card .prof-name-row{
     display:flex; align-items:center; gap:6px; flex-wrap:wrap;
@@ -358,10 +365,17 @@
   <section id="tab-profs" class="tab-panel active">
     <div class="panel-header">
       <h2>Coordonnées des établissements et des collègues EPS</h2>
-      <p class="hint" id="profs-count-info" style="margin:0;"></p>
+      <div class="actions">
+        <button id="btn-migrate-photos" class="secondary">☁️ Migrer les photos vers Drive</button>
+      </div>
     </div>
-    <p class="hint" id="last-modified-info"></p>
-    <p class="hint" id="sync-status-info"></p>
+    <div class="profs-meta-row">
+      <p class="hint" id="profs-count-info" style="margin:0;"></p>
+      <div class="profs-meta-right">
+        <p class="hint" id="last-modified-info" style="margin:0;"></p>
+        <p class="hint" id="sync-status-info" style="margin:0;"></p>
+      </div>
+    </div>
     <div id="profs-container"></div>
   </section>
 
@@ -985,6 +999,7 @@
       (etab.profs||[]).forEach(prof=>{
         migrateAutresPrecision(prof.activitesPratiquees, "autrePratiqueePrecision", prof);
         migrateAutresPrecision(prof.activitesCompetition, "autreCompetitionPrecision", prof);
+        if(!prof.photoFileId) prof.photoFileId = "";
       });
       if(!etab.cartes) etab.cartes = etab.tickets || [];
       delete etab.tickets;
@@ -1048,44 +1063,61 @@
 
   let syncInFlight = false;
   let syncPending = false;
-  let autoCompressing = false;
-  function allProfsWithPhoto(){
-    const list = [];
+
+  // Les photos ne sont plus stockées en base64 dans l'état synchronisé (ce
+  // qui faisait vite dépasser la limite de 45000 caractères d'une cellule
+  // Google Sheets) : elles sont envoyées séparément vers Google Drive via
+  // l'action "uploadPhoto" de l'Apps Script, qui renvoie une simple URL
+  // (courte) stockée dans prof.photo. Voir uploadPhotoToDrive/deletePhotoFromDrive.
+  function uploadPhotoToDrive(dataUrl, profId){
+    return fetch(SYNC_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ token: SYNC_TOKEN, action: "uploadPhoto", profId, dataUrl })
+    }).then(r=>r.json());
+  }
+  function deletePhotoFromDrive(fileId){
+    if(!fileId || !SYNC_URL) return;
+    fetch(SYNC_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ token: SYNC_TOKEN, action: "deletePhoto", fileId })
+    }).catch(()=>{});
+  }
+  function migratePhotosToDrive(){
+    const toMigrate = [];
     state.etablissements.forEach(etab=>{
-      etab.profs.forEach(p=>{ if(p.photo) list.push(p); });
+      etab.profs.forEach(p=>{ if(p.photo && p.photo.indexOf("data:")===0) toMigrate.push(p); });
     });
-    return list;
-  }
-  async function autoCompressPhotosAndRetry(){
-    const profsWithPhoto = allProfsWithPhoto();
-    if(!profsWithPhoto.length){
-      const msg = "Échec de synchronisation : données trop volumineuses (" + JSON.stringify(state).length + " caractères, limite 45000), mais aucune photo à compresser pour gagner de la place. Utilisez « Alléger les photos » dans l'onglet Export, ou signalez-le pour qu'une autre donnée soit allégée.";
-      setSyncStatus(msg);
-      alert(msg);
+    if(!toMigrate.length){
+      alert("Aucune photo à migrer : toutes les photos sont déjà stockées sur Drive.");
       return;
     }
-    setSyncStatus("Données trop volumineuses : compression automatique des photos en cours…");
-    for(const p of profsWithPhoto){ p.photo = await compressPhoto(p.photo, 96, 0.6); }
-    if(JSON.stringify(state).length > 45000){
-      for(const p of profsWithPhoto){ p.photo = await compressPhoto(p.photo, 64, 0.5); }
+    setSyncStatus("Migration de " + toMigrate.length + " photo(s) vers Drive en cours…");
+    let i = 0;
+    function next(){
+      if(i >= toMigrate.length){
+        saveState();
+        renderProfs();
+        alert("Migration terminée : " + toMigrate.length + " photo(s) déplacée(s) vers Drive.");
+        return;
+      }
+      const p = toMigrate[i];
+      uploadPhotoToDrive(p.photo, p.id).then(res=>{
+        if(res && res.ok){ p.photo = res.url; p.photoFileId = res.fileId; }
+        i++;
+        next();
+      }).catch(()=>{ i++; next(); });
     }
-    cacheStateLocally();
-    renderAll();
-    if(JSON.stringify(state).length > 45000){
-      const msg = "Échec de synchronisation : données encore trop volumineuses (" + JSON.stringify(state).length + " caractères, limite 45000) même après compression automatique des photos. Réduisez le nombre de photos.";
-      setSyncStatus(msg);
-      alert(msg);
-      return;
-    }
-    pushRemoteState();
+    next();
   }
+  document.getElementById("btn-migrate-photos").addEventListener("click", migratePhotosToDrive);
   function pushRemoteState(){
     if(!SYNC_URL) return;
     if(JSON.stringify(state).length > 45000){
-      if(!autoCompressing){
-        autoCompressing = true;
-        autoCompressPhotosAndRetry().finally(()=>{ autoCompressing = false; });
-      }
+      const msg = "Échec de synchronisation : données trop volumineuses (" + JSON.stringify(state).length + " caractères, limite 45000).";
+      setSyncStatus(msg);
+      alert(msg);
       return;
     }
     if(syncInFlight){ syncPending = true; return; }
@@ -1269,6 +1301,10 @@
         📷
         <input type="file" accept="image/*" data-photo-input="${escapeAttr(prof.id)}" data-photo-etab="${escapeAttr(etab.id)}" style="display:none">
       </label>` : "";
+    const removePhotoBtn = (opts.editable && prof.photo) ? `
+      <button type="button" class="photo-upload-btn photo-remove-btn" title="Supprimer la photo" data-remove-photo="${escapeAttr(prof.id)}" data-remove-photo-etab="${escapeAttr(etab.id)}">
+        🗑
+      </button>` : "";
     const emailHtml = prof.email
       ? (opts.editable
           ? `<p class="email-copy" title="Cliquer pour copier l'email" data-copy-email="${escapeAttr(prof.email)}">${escapeHtml(prof.email)}</p>`
@@ -1295,6 +1331,7 @@
           <div class="card-photo">
             ${avatar}
             ${uploadBtn}
+            ${removePhotoBtn}
           </div>
           <div class="card-info">
             <h4 class="prof-name-row"><span>${escapeHtml(nomMain)}</span>${nomNote ? `<span class="prof-name-note">${escapeHtml(nomNote)}</span>` : ""}</h4>
@@ -1382,13 +1419,44 @@
         if(!prof) return;
         const reader = new FileReader();
         reader.onload = ()=>{
-          compressPhoto(reader.result, 96, 0.6).then(compressed=>{
-            prof.photo = compressed;
-            saveState();
-            renderProfs();
+          compressPhoto(reader.result, 480, 0.8).then(compressed=>{
+            const oldFileId = prof.photoFileId;
+            setSyncStatus("Envoi de la photo…");
+            uploadPhotoToDrive(compressed, prof.id).then(res=>{
+              if(!res || !res.ok){
+                const msg = "Échec de l'envoi de la photo : " + (res && res.error ? res.error : "réponse inattendue");
+                setSyncStatus(msg);
+                alert(msg);
+                return;
+              }
+              prof.photo = res.url;
+              prof.photoFileId = res.fileId;
+              saveState();
+              renderProfs();
+              if(oldFileId) deletePhotoFromDrive(oldFileId);
+            }).catch(()=>{
+              const msg = "Échec de l'envoi de la photo : hors ligne ou erreur réseau.";
+              setSyncStatus(msg);
+              alert(msg);
+            });
           });
         };
         reader.readAsDataURL(file);
+      });
+    });
+    container.querySelectorAll("[data-remove-photo]").forEach(btn=>{
+      btn.addEventListener("click", e=>{
+        e.stopPropagation();
+        const etab = getEtab(btn.dataset.removePhotoEtab);
+        const prof = etab && getProf(etab, btn.dataset.removePhoto);
+        if(!prof) return;
+        if(!confirm("Supprimer la photo de " + prof.nom + " ?")) return;
+        const oldFileId = prof.photoFileId;
+        prof.photo = "";
+        prof.photoFileId = "";
+        saveState();
+        renderProfs();
+        if(oldFileId) deletePhotoFromDrive(oldFileId);
       });
     });
   }
