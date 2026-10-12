@@ -1362,8 +1362,9 @@
       ${(prof.activitesPratiquees||[]).map((a,i)=>`<span class="tag">${escapeHtml(tagLabel(a, i, prof.activitesPratiqueesDisplay, prof.autrePratiqueePrecision))}</span>`).join("")}
       ${(prof.activitesCompetition||[]).map((a,i)=>`<span class="tag comp">${escapeHtml(tagLabel(a, i, prof.activitesCompetitionDisplay, prof.autreCompetitionPrecision))}</span>`).join("")}
     `;
+    const cardStyle = opts.cardFlexBasisPct ? ` style="flex:1 1 ${opts.cardFlexBasisPct}%; min-width:0;"` : "";
     return `
-      <div class="prof-card${prof.coordoAS ? " is-as" : ""}${prof.coordoEPS ? " is-eps" : ""}">
+      <div class="prof-card${prof.coordoAS ? " is-as" : ""}${prof.coordoEPS ? " is-eps" : ""}"${cardStyle}>
         <div class="card-top">
           <div class="card-photo">
             ${avatar}
@@ -1407,28 +1408,32 @@
     const metaLines = metaParts.length ? metaParts.join("") : "<div>Coordonnées non renseignées</div>";
     const lien = etab.lienPartage ? `<a href="${escapeAttr(etab.lienPartage)}" target="_blank" rel="noopener" style="color:${textColor};">📎 Fichiers</a>` : "";
     const nonVirtualProfs = etab.profs.filter(prof=>!prof.virtual);
-    const profsHtml = nonVirtualProfs
-      .sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}))
-      .map(prof=>profCardHtml(prof, etab, opts))
-      .join("");
     // Export PDF uniquement : quel que soit le nombre de collègues, on force
     // la grille à tenir sur exactement opts.fixedRows lignes (le nombre de
-    // colonnes s'adapte en conséquence), au lieu du flex-wrap habituel à
-    // l'écran qui dépend de la largeur disponible.
-    let gridStyle = "";
-    if(opts.fixedRows){
-      const cols = Math.max(1, Math.ceil(nonVirtualProfs.length / opts.fixedRows));
-      gridStyle = ` style="display:grid; grid-template-columns:repeat(${cols}, 1fr);"`;
-    }
+    // colonnes s'adapte en conséquence). On reste en flex (et non en grid) :
+    // avec flex-grow, les cartes d'une dernière ligne incomplète s'étirent
+    // pour combler l'espace au lieu de laisser des cellules vides.
+    const cardOpts = opts.fixedRows
+      ? { ...opts, cardFlexBasisPct: 100 / Math.max(1, Math.ceil(nonVirtualProfs.length / opts.fixedRows)) }
+      : opts;
+    const profsHtml = nonVirtualProfs
+      .sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}))
+      .map(prof=>profCardHtml(prof, etab, cardOpts))
+      .join("");
+    // opts.blockHeightMm (export PDF) : hauteur fixe identique pour chaque
+    // établissement, afin qu'un nombre constant de blocs tienne par page
+    // (align-items:stretch sur .etab-block répercute cette hauteur sur la
+    // grille de cartes, qui se répartit elle-même sur ses 2 lignes).
+    const blockStyle = opts.blockHeightMm ? ` style="height:${opts.blockHeightMm}mm;"` : "";
     return `
-      <div class="etab-block">
+      <div class="etab-block"${blockStyle}>
         <div class="etab-block-head" style="background:${color}; color:${textColor};">
           <div>
             <h3>${escapeHtml(etab.nom)}</h3>
             <div class="etab-head-meta">${metaLines}${lien ? `<div>${lien}</div>` : ""}</div>
           </div>
         </div>
-        <div class="prof-grid"${gridStyle}>${profsHtml}</div>
+        <div class="prof-grid${opts.fixedRows ? " prof-grid-fixed" : ""}">${profsHtml}</div>
       </div>
     `;
   }
@@ -2420,7 +2425,7 @@ ${styleTag}
   .activites-page thead th{ white-space:normal !important; }
   .prof-card .card-info{ flex: 1 1 auto; min-width: 0; }
   .prof-card h4, .prof-card p, .badge{ white-space: normal; word-break: break-word; }
-  .prof-grid[style*="grid"] .prof-card{ min-width: 0; }
+  .prof-grid-fixed .prof-card{ overflow: hidden; }
   .etab-block-head h3{ font-size:1.4rem; }
   .etab-head-meta{ font-size:.85rem; }
   @page{ size: A4 portrait; margin:10mm; }
@@ -2456,7 +2461,9 @@ ${innerHtml}
     const includeActivites = opts.includeActivites !== false;
     let body = "";
     if(includeAnnuaire){
-      const etabsHtml = sortedEtabs().map(etab=>etabBlockHtml(etab, {editable:false, fixedRows:2})).join("");
+      // Hauteur fixe par établissement pour que 4 blocs tiennent par page A4
+      // (voir .etab-block{page-break-inside:avoid} dans buildPrintDocument).
+      const etabsHtml = sortedEtabs().map(etab=>etabBlockHtml(etab, {editable:false, fixedRows:2, blockHeightMm:62})).join("");
       body += `<div id="profs-container">${etabsHtml}</div>`;
     }
     if(includeActivites){
