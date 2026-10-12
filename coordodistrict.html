@@ -1362,9 +1362,8 @@
       ${(prof.activitesPratiquees||[]).map((a,i)=>`<span class="tag">${escapeHtml(tagLabel(a, i, prof.activitesPratiqueesDisplay, prof.autrePratiqueePrecision))}</span>`).join("")}
       ${(prof.activitesCompetition||[]).map((a,i)=>`<span class="tag comp">${escapeHtml(tagLabel(a, i, prof.activitesCompetitionDisplay, prof.autreCompetitionPrecision))}</span>`).join("")}
     `;
-    const cardStyle = opts.cardFlexBasisPct ? ` style="flex:1 1 ${opts.cardFlexBasisPct}%; min-width:0;"` : "";
     return `
-      <div class="prof-card${prof.coordoAS ? " is-as" : ""}${prof.coordoEPS ? " is-eps" : ""}"${cardStyle}>
+      <div class="prof-card${prof.coordoAS ? " is-as" : ""}${prof.coordoEPS ? " is-eps" : ""}">
         <div class="card-top">
           <div class="card-photo">
             ${avatar}
@@ -1407,23 +1406,37 @@
     }
     const metaLines = metaParts.length ? metaParts.join("") : "<div>Coordonnées non renseignées</div>";
     const lien = etab.lienPartage ? `<a href="${escapeAttr(etab.lienPartage)}" target="_blank" rel="noopener" style="color:${textColor};">📎 Fichiers</a>` : "";
-    const nonVirtualProfs = etab.profs.filter(prof=>!prof.virtual);
-    // Export PDF uniquement : quel que soit le nombre de collègues, on force
-    // la grille à tenir sur exactement opts.fixedRows lignes (le nombre de
-    // colonnes s'adapte en conséquence). On reste en flex (et non en grid) :
-    // avec flex-grow, les cartes d'une dernière ligne incomplète s'étirent
-    // pour combler l'espace au lieu de laisser des cellules vides.
-    const cardOpts = opts.fixedRows
-      ? { ...opts, cardFlexBasisPct: 100 / Math.max(1, Math.ceil(nonVirtualProfs.length / opts.fixedRows)) }
-      : opts;
-    const profsHtml = nonVirtualProfs
-      .sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}))
-      .map(prof=>profCardHtml(prof, etab, cardOpts))
-      .join("");
+    const nonVirtualProfs = etab.profs.filter(prof=>!prof.virtual)
+      .sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}));
+    let profsHtml, profGridClass = "prof-grid";
+    if(opts.fixedRows){
+      // Export PDF uniquement : quel que soit le nombre de collègues, on
+      // répartit sur exactement opts.fixedRows lignes. Chaque ligne a son
+      // propre nombre de colonnes, égal à son nombre de cartes : il n'y a
+      // donc jamais de case vide (contrairement à une grille à colonnes
+      // fixes partagée par toutes les lignes).
+      const rows = opts.fixedRows;
+      const base = Math.floor(nonVirtualProfs.length / rows);
+      const extra = nonVirtualProfs.length % rows;
+      let idx = 0;
+      const rowHtmls = [];
+      for(let r=0; r<rows; r++){
+        const size = base + (r < extra ? 1 : 0);
+        if(!size) continue;
+        const rowProfs = nonVirtualProfs.slice(idx, idx+size);
+        idx += size;
+        const cardsHtml = rowProfs.map(prof=>profCardHtml(prof, etab, opts)).join("");
+        rowHtmls.push(`<div class="prof-grid-row" style="display:grid; grid-template-columns:repeat(${size}, 1fr); gap:8px; flex:1;">${cardsHtml}</div>`);
+      }
+      profsHtml = rowHtmls.join("");
+      profGridClass = "prof-grid prof-grid-fixed";
+    } else {
+      profsHtml = nonVirtualProfs.map(prof=>profCardHtml(prof, etab, opts)).join("");
+    }
     // opts.blockHeightMm (export PDF) : hauteur fixe identique pour chaque
     // établissement, afin qu'un nombre constant de blocs tienne par page
     // (align-items:stretch sur .etab-block répercute cette hauteur sur la
-    // grille de cartes, qui se répartit elle-même sur ses 2 lignes).
+    // grille de cartes, qui se répartit elle-même sur ses lignes).
     const blockStyle = opts.blockHeightMm ? ` style="height:${opts.blockHeightMm}mm;"` : "";
     return `
       <div class="etab-block"${blockStyle}>
@@ -1433,7 +1446,7 @@
             <div class="etab-head-meta">${metaLines}${lien ? `<div>${lien}</div>` : ""}</div>
           </div>
         </div>
-        <div class="prof-grid${opts.fixedRows ? " prof-grid-fixed" : ""}">${profsHtml}</div>
+        <div class="${profGridClass}"${opts.fixedRows ? ` style="display:flex; flex-direction:column; flex-wrap:nowrap; gap:8px;"` : ""}>${profsHtml}</div>
       </div>
     `;
   }
