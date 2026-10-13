@@ -191,7 +191,7 @@
   }
   .interdistrict-pill:hover{ opacity:.85; }
   .interdistrict-pill-wrap{ display:flex; align-items:center; gap:3px; }
-  .interdistrict-pill.is-manual{ background:#a1590b; }
+  .interdistrict-pill.is-external{ background:#a1590b; }
   .interdistrict-pill-remove{ flex:0 0 auto; }
   .etab-block{ display:flex; align-items:stretch; background:#fff; border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; }
   .etab-block-head{
@@ -411,6 +411,7 @@
     <div class="panel-header" style="margin-top:22px;">
       <h2>Organisation District Villeurbanne</h2>
       <div class="actions">
+        <button id="btn-add-external-etab" class="secondary">➕ Ajouter un établissement</button>
         <button id="btn-export-interdistrict-excel" class="secondary">📊 Exporter ce tableau</button>
       </div>
     </div>
@@ -649,6 +650,26 @@
     <div class="modal-footer">
       <button type="button" class="secondary" data-close="modal-overlay-export-pdf">Annuler</button>
       <button type="button" id="btn-export-pdf-generate">Générer le PDF</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL AJOUT ETABLISSEMENT HORS DISTRICT (Organisation District Villeurbanne) -->
+<div class="modal-overlay hidden" id="modal-overlay-add-external-etab">
+  <div class="modal">
+    <h3>Ajouter un établissement</h3>
+    <p class="hint">Pour un établissement d'un autre district (absent de votre annuaire), à intégrer ponctuellement dans l'organisation d'une activité.</p>
+    <div class="form-row">
+      <label for="external-etab-nom">Nom de l'établissement</label>
+      <input type="text" id="external-etab-nom" placeholder="Ex: Collège Jean Moulin">
+    </div>
+    <div class="form-row">
+      <label for="external-etab-activite">Activité où l'intégrer</label>
+      <select id="external-etab-activite"></select>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="secondary" data-close="modal-overlay-add-external-etab">Annuler</button>
+      <button type="button" id="btn-add-external-etab-confirm">Ajouter</button>
     </div>
   </div>
 </div>
@@ -1610,18 +1631,18 @@
   function ensureInterdistrictRows(act, etabs){
     let entry = state.interdistrict[act];
     if(!entry || !entry.rows || !entry.rows.length){
-      entry = { rows: [{ id: uid(), lieu: "", etabIds: etabs.map(e=>e.id) }], manualEtabIds: (entry && entry.manualEtabIds) || [] };
+      entry = { rows: [{ id: uid(), lieu: "", etabIds: etabs.map(e=>e.id) }], externalEtabs: (entry && entry.externalEtabs) || [] };
       state.interdistrict[act] = entry;
       return entry;
     }
-    if(!entry.manualEtabIds) entry.manualEtabIds = [];
+    if(!entry.externalEtabs) entry.externalEtabs = [];
     // Resynchronise avec la liste actuelle des établissements pratiquant
     // cette activité en compétition (qui peut avoir changé suite à une
-    // modification de l'Annuaire), plus les établissements ajoutés
-    // manuellement à titre exceptionnel (entry.manualEtabIds, voir le
-    // sélecteur "+ Ajouter un établissement") : retire ceux qui ne sont
-    // plus concernés, ajoute les nouveaux (sur le 1er lieu, à déplacer
-    // manuellement si besoin), sans toucher à la répartition déjà faite.
+    // modification de l'Annuaire), plus les établissements hors district
+    // ajoutés ponctuellement (entry.externalEtabs, voir le bouton "Ajouter
+    // un établissement") : retire ceux qui ne sont plus concernés, ajoute
+    // les nouveaux (sur le 1er lieu, à déplacer manuellement si besoin),
+    // sans toucher à la répartition déjà faite.
     const etabIdSet = new Set(etabs.map(e=>e.id));
     entry.rows.forEach(row=>{ row.etabIds = row.etabIds.filter(id=>etabIdSet.has(id)); });
     const alreadyPlaced = new Set(entry.rows.flatMap(r=>r.etabIds));
@@ -1632,17 +1653,17 @@
 
   function renderInterdistrict(){
     const container = document.getElementById("interdistrict-container");
-    const hasManual = act => (state.interdistrict[act] && state.interdistrict[act].manualEtabIds && state.interdistrict[act].manualEtabIds.length) > 0;
-    const activitesConcernees = ACTIVITES.filter(act => act !== "Autres" && (competitionEtabs(act).length > 0 || hasManual(act)));
+    const hasExternal = act => (state.interdistrict[act] && state.interdistrict[act].externalEtabs && state.interdistrict[act].externalEtabs.length) > 0;
+    const activitesConcernees = ACTIVITES.filter(act => act !== "Autres" && (competitionEtabs(act).length > 0 || hasExternal(act)));
     if(!activitesConcernees.length){
       container.innerHTML = `<p class="hint">Aucune activité en compétition pour le moment.</p>`;
       return;
     }
     container.innerHTML = `<div class="interdistrict-grid">` + activitesConcernees.map((act,i)=>{
       const autoEtabs = competitionEtabs(act);
-      const manualIds = (state.interdistrict[act] && state.interdistrict[act].manualEtabIds) || [];
-      const manualEtabs = manualIds.map(id=>getEtab(id)).filter(Boolean).filter(e=>!autoEtabs.some(a=>a.id===e.id));
-      const etabs = [...autoEtabs, ...manualEtabs].sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}));
+      const externalEtabs = (state.interdistrict[act] && state.interdistrict[act].externalEtabs) || [];
+      const externalIds = externalEtabs.map(e=>e.id);
+      const etabs = [...autoEtabs, ...externalEtabs].sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}));
       const color = `var(--${PALETTE[i % PALETTE.length]})`;
       const entry = ensureInterdistrictRows(act, etabs);
       const rowsHtml = entry.rows.map((row,rIdx)=>{
@@ -1650,10 +1671,10 @@
         const pillsHtml = row.etabIds.map(id=>{
           const e = etabs.find(x=>x.id===id);
           if(!e) return "";
-          const isManual = manualIds.includes(e.id);
-          const removeBtn = isManual ? `<button type="button" class="icon-btn interdistrict-pill-remove" data-interdistrict-remove-manual data-act="${escapeAttr(act)}" data-etab="${escapeAttr(e.id)}" title="Retirer cet établissement (ajout exceptionnel)">✕</button>` : "";
+          const isExternal = externalIds.includes(e.id);
+          const removeBtn = isExternal ? `<button type="button" class="icon-btn interdistrict-pill-remove" data-interdistrict-remove-external data-act="${escapeAttr(act)}" data-etab="${escapeAttr(e.id)}" title="Retirer cet établissement hors district">✕</button>` : "";
           return `<span class="interdistrict-pill-wrap">
-            <button type="button" class="interdistrict-pill${isManual?" is-manual":""}" data-interdistrict-pill data-act="${escapeAttr(act)}" data-etab="${escapeAttr(e.id)}" title="${isManual?"Ajout exceptionnel — cliquer pour déplacer vers le lieu suivant":"Cliquer pour déplacer vers le lieu suivant"}">✓ ${escapeHtml(e.nom)}${isManual?" ⚠":""}</button>${removeBtn}
+            <button type="button" class="interdistrict-pill${isExternal?" is-external":""}" data-interdistrict-pill data-act="${escapeAttr(act)}" data-etab="${escapeAttr(e.id)}" title="${isExternal?"Établissement hors district — cliquer pour déplacer vers le lieu suivant":"Cliquer pour déplacer vers le lieu suivant"}">✓ ${escapeHtml(e.nom)}${isExternal?" 🌐":""}</button>${removeBtn}
           </span>`;
         }).join("");
         return `
@@ -1666,7 +1687,6 @@
           </div>
         `;
       }).join("");
-      const addManualOptions = sortedEtabs().filter(e=>!etabs.some(x=>x.id===e.id));
       return `
         <div class="interdistrict-card">
           <div class="interdistrict-card-head" style="background:${color};">
@@ -1674,12 +1694,8 @@
             <div class="count">${etabs.length} collège${etabs.length>1?"s":""}</div>
           </div>
           <div class="interdistrict-rows">${rowsHtml}</div>
-          <div style="padding:0 12px 12px; display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+          <div style="padding:0 12px 12px;">
             <button type="button" class="secondary interdistrict-add-row" data-interdistrict-add-row="${escapeAttr(act)}">+ Ajouter un lieu</button>
-            ${addManualOptions.length ? `<select data-interdistrict-add-manual data-act="${escapeAttr(act)}" title="Ajouter un établissement ne pratiquant pas officiellement cette activité en compétition (cas exceptionnel)">
-              <option value="">+ Ajouter un établissement (exceptionnel)…</option>
-              ${addManualOptions.map(e=>`<option value="${escapeAttr(e.id)}">${escapeHtml(e.nom)}</option>`).join("")}
-            </select>` : ""}
           </div>
         </div>
       `;
@@ -1727,35 +1743,47 @@
         renderInterdistrict();
       });
     });
-    container.querySelectorAll("[data-interdistrict-add-manual]").forEach(sel=>{
-      sel.addEventListener("change", ()=>{
-        const etabId = sel.value;
-        if(!etabId) return;
-        const act = sel.dataset.act;
-        if(!state.interdistrict[act] || !state.interdistrict[act].rows || !state.interdistrict[act].rows.length){
-          state.interdistrict[act] = { rows: [{ id: uid(), lieu: "", etabIds: [] }], manualEtabIds: [] };
-        }
-        const entry = state.interdistrict[act];
-        if(!entry.manualEtabIds) entry.manualEtabIds = [];
-        if(!entry.manualEtabIds.includes(etabId)) entry.manualEtabIds.push(etabId);
-        if(!entry.rows.some(r=>r.etabIds.includes(etabId))) entry.rows[0].etabIds.push(etabId);
-        saveState();
-        renderInterdistrict();
-      });
-    });
-    container.querySelectorAll("[data-interdistrict-remove-manual]").forEach(btn=>{
+    container.querySelectorAll("[data-interdistrict-remove-external]").forEach(btn=>{
       btn.addEventListener("click", e=>{
         e.stopPropagation();
         const act = btn.dataset.act, etabId = btn.dataset.etab;
         const entry = state.interdistrict[act];
         if(!entry) return;
-        entry.manualEtabIds = (entry.manualEtabIds||[]).filter(id=>id!==etabId);
+        entry.externalEtabs = (entry.externalEtabs||[]).filter(x=>x.id!==etabId);
         entry.rows.forEach(r=>{ r.etabIds = r.etabIds.filter(id=>id!==etabId); });
         saveState();
         renderInterdistrict();
       });
     });
   }
+
+  // Bouton unique (en-tête de section) pour ajouter un établissement hors
+  // district à une activité : pas de liste déroulante d'établissements
+  // (il n'existe pas dans l'annuaire), juste son nom en texte libre et
+  // l'activité en compétition où l'intégrer.
+  document.getElementById("btn-add-external-etab").addEventListener("click", ()=>{
+    const select = document.getElementById("external-etab-activite");
+    select.innerHTML = ACTIVITES.filter(a=>a!=="Autres").map(a=>`<option value="${escapeAttr(a)}">${escapeHtml(a)}</option>`).join("");
+    document.getElementById("external-etab-nom").value = "";
+    openModal("modal-overlay-add-external-etab");
+  });
+  document.getElementById("btn-add-external-etab-confirm").addEventListener("click", ()=>{
+    const nom = document.getElementById("external-etab-nom").value.trim();
+    const act = document.getElementById("external-etab-activite").value;
+    if(!nom){ alert("Indiquez le nom de l'établissement."); return; }
+    if(!act){ alert("Choisissez l'activité où l'intégrer."); return; }
+    if(!state.interdistrict[act] || !state.interdistrict[act].rows || !state.interdistrict[act].rows.length){
+      state.interdistrict[act] = { rows: [{ id: uid(), lieu: "", etabIds: [] }], externalEtabs: [] };
+    }
+    const entry = state.interdistrict[act];
+    if(!entry.externalEtabs) entry.externalEtabs = [];
+    const newEtab = { id: uid(), nom };
+    entry.externalEtabs.push(newEtab);
+    entry.rows[0].etabIds.push(newEtab.id);
+    saveState();
+    renderInterdistrict();
+    closeModal("modal-overlay-add-external-etab");
+  });
 
   function renderActiviteFilterResult(){
     const select = document.getElementById("activite-filter");
