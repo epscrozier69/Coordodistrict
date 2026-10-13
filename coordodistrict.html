@@ -1426,7 +1426,7 @@
         const rowProfs = nonVirtualProfs.slice(idx, idx+size);
         idx += size;
         const cardsHtml = rowProfs.map(prof=>profCardHtml(prof, etab, opts)).join("");
-        rowHtmls.push(`<div class="prof-grid-row" style="display:grid; grid-template-columns:repeat(${size}, 1fr); gap:8px; flex:1;">${cardsHtml}</div>`);
+        rowHtmls.push(`<div class="prof-grid-row" style="display:grid; grid-template-columns:repeat(${size}, 1fr); gap:4px; flex:1; min-height:0;">${cardsHtml}</div>`);
       }
       profsHtml = rowHtmls.join("");
       profGridClass = "prof-grid prof-grid-fixed";
@@ -1446,7 +1446,7 @@
             <div class="etab-head-meta">${metaLines}${lien ? `<div>${lien}</div>` : ""}</div>
           </div>
         </div>
-        <div class="${profGridClass}"${opts.fixedRows ? ` style="display:flex; flex-direction:column; flex-wrap:nowrap; gap:8px;"` : ""}>${profsHtml}</div>
+        <div class="${profGridClass}"${opts.fixedRows ? ` style="display:flex; flex-direction:column; flex-wrap:nowrap; gap:4px; padding:4px;"` : ""}>${profsHtml}</div>
       </div>
     `;
   }
@@ -2438,7 +2438,19 @@ ${styleTag}
   .activites-page thead th{ white-space:normal !important; }
   .prof-card .card-info{ flex: 1 1 auto; min-width: 0; }
   .prof-card h4, .prof-card p, .badge{ white-space: normal; word-break: break-word; }
-  .prof-grid-fixed .prof-card{ overflow: hidden; }
+  /* Export annuaire à hauteur de ligne fixe : vignette compacte (police,
+     avatar, marges réduits) pour que 2 lignes de collègues, même avec
+     badge(s) Coordo, tiennent confortablement dans la hauteur allouée. */
+  .prof-grid-fixed .prof-card{ overflow: hidden; padding: 3px; gap: 2px; }
+  .prof-grid-fixed .card-top{ gap: 5px; }
+  .prof-grid-fixed .avatar{ width: 32px; height: 32px; font-size: .68rem; }
+  .prof-grid-fixed h4{ font-size: .66rem; margin: 0; line-height: 1.15; }
+  .prof-grid-fixed .prof-name-note{ font-size: .58rem; }
+  .prof-grid-fixed .badges{ gap: 2px; margin-bottom: 1px; }
+  .prof-grid-fixed .badge{ font-size: .54rem; padding: 1px 5px; gap: 2px; margin-right: 2px; }
+  .prof-grid-fixed p{ font-size: .58rem; line-height: 1.2; margin: 0; }
+  .prof-grid-fixed .tags{ margin-top: 1px; }
+  .prof-grid-fixed .tag{ font-size: .54rem; padding: 1px 5px; margin: 1px 2px 0 0; }
   .etab-block-head h3{ font-size:1.4rem; }
   .etab-head-meta{ font-size:.85rem; }
   @page{ size: A4 portrait; margin:10mm; }
