@@ -1609,7 +1609,18 @@
     if(!entry || !entry.rows || !entry.rows.length){
       entry = { rows: [{ id: uid(), lieu: "", etabIds: etabs.map(e=>e.id) }] };
       state.interdistrict[act] = entry;
+      return entry;
     }
+    // Resynchronise avec la liste actuelle des établissements pratiquant
+    // cette activité en compétition (qui peut avoir changé suite à une
+    // modification de l'Annuaire) : retire ceux qui ne la pratiquent plus,
+    // ajoute ceux qui s'y sont mis entretemps (sur le 1er lieu, à déplacer
+    // manuellement si besoin), sans toucher à la répartition déjà faite.
+    const etabIdSet = new Set(etabs.map(e=>e.id));
+    entry.rows.forEach(row=>{ row.etabIds = row.etabIds.filter(id=>etabIdSet.has(id)); });
+    const alreadyPlaced = new Set(entry.rows.flatMap(r=>r.etabIds));
+    const newcomers = etabs.filter(e=>!alreadyPlaced.has(e.id)).map(e=>e.id);
+    if(newcomers.length) entry.rows[0].etabIds.push(...newcomers);
     return entry;
   }
 
