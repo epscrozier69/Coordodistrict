@@ -396,6 +396,7 @@
     <div class="panel-header" style="margin-top:10px;">
       <h2>Activités engagées en compétition</h2>
       <div class="actions">
+        <button id="btn-export-competition-pdf" class="secondary">📄 Export PDF</button>
         <button id="btn-export-competition-excel" class="secondary">📊 Exporter ce tableau</button>
       </div>
     </div>
@@ -411,7 +412,9 @@
     <div class="panel-header" style="margin-top:22px;">
       <h2>Organisation District Villeurbanne</h2>
       <div class="actions">
+        <button id="btn-add-lieu" class="secondary">➕ Ajouter un lieu</button>
         <button id="btn-add-external-etab" class="secondary">➕ Ajouter un établissement</button>
+        <button id="btn-export-interdistrict-pdf" class="secondary">📄 Export PDF</button>
         <button id="btn-export-interdistrict-excel" class="secondary">📊 Exporter ce tableau</button>
       </div>
     </div>
@@ -422,6 +425,7 @@
     <div class="panel-header" style="margin-top:22px;">
       <h2>Activités pratiquées (loisir)</h2>
       <div class="actions">
+        <button id="btn-export-pratiquees-pdf" class="secondary">📄 Export PDF</button>
         <button id="btn-export-pratiquees-excel" class="secondary">📊 Exporter ce tableau</button>
       </div>
     </div>
@@ -670,6 +674,32 @@
     <div class="modal-footer">
       <button type="button" class="secondary" data-close="modal-overlay-add-external-etab">Annuler</button>
       <button type="button" id="btn-add-external-etab-confirm">Ajouter</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL AJOUT LIEU (Organisation District Villeurbanne) -->
+<div class="modal-overlay hidden" id="modal-overlay-add-lieu">
+  <div class="modal">
+    <h3>Ajouter un lieu</h3>
+    <div class="form-row">
+      <label for="add-lieu-activite">Activité concernée</label>
+      <select id="add-lieu-activite"></select>
+    </div>
+    <div class="form-row">
+      <label for="add-lieu-etab">Lieu</label>
+      <select id="add-lieu-etab">
+        <option value="">— Choisir —</option>
+        <option value="__manuel__">+ Autre lieu (saisie manuelle)…</option>
+      </select>
+    </div>
+    <div class="form-row hidden" id="add-lieu-manuel-row">
+      <label for="add-lieu-manuel">Nom du lieu</label>
+      <input type="text" id="add-lieu-manuel" placeholder="Ex: Gymnase municipal">
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="secondary" data-close="modal-overlay-add-lieu">Annuler</button>
+      <button type="button" id="btn-add-lieu-confirm">Ajouter</button>
     </div>
   </div>
 </div>
@@ -1673,6 +1703,7 @@
       const entry = ensureInterdistrictRows(act, etabs);
       const rowsHtml = entry.rows.map((row,rIdx)=>{
         const lieuOptions = `<option value="">— Choisir —</option>` + sortedEtabs().map(e=>`<option value="${escapeAttr(e.id)}" ${row.lieu===e.id?"selected":""}>${escapeHtml(e.nom)}</option>`).join("");
+        const lieuManuelHtml = (row.lieuManuel && !row.lieu) ? `<span class="hint" style="margin-left:6px;">📍 ${escapeHtml(row.lieuManuel)}</span>` : "";
         const pillsHtml = row.etabIds.map(id=>{
           const e = etabs.find(x=>x.id===id);
           if(!e) return "";
@@ -1686,6 +1717,7 @@
           <div class="interdistrict-row" data-row-index="${rIdx}">
             <div class="interdistrict-row-head">
               <select data-interdistrict-lieu data-act="${escapeAttr(act)}" data-row="${row.id}">${lieuOptions}</select>
+              ${lieuManuelHtml}
               ${entry.rows.length > 1 ? `<button type="button" class="icon-btn" data-interdistrict-del-row data-act="${escapeAttr(act)}" data-row="${row.id}" title="Supprimer ce lieu (répartit ses établissements sur le 1er lieu)">🗑</button>` : ""}
             </div>
             <div class="interdistrict-equipe">${pillsHtml}</div>
@@ -1699,9 +1731,6 @@
             <div class="count">${etabs.length} collège${etabs.length>1?"s":""}</div>
           </div>
           <div class="interdistrict-rows">${rowsHtml}</div>
-          <div style="padding:0 12px 12px;">
-            <button type="button" class="secondary interdistrict-add-row" data-interdistrict-add-row="${escapeAttr(act)}">+ Ajouter un lieu</button>
-          </div>
         </div>
       `;
     }).join("") + `</div>`;
@@ -1709,7 +1738,7 @@
     container.querySelectorAll("[data-interdistrict-lieu]").forEach(sel=>{
       sel.addEventListener("change", ()=>{
         const row = state.interdistrict[sel.dataset.act].rows.find(r=>r.id===sel.dataset.row);
-        if(row){ row.lieu = sel.value; saveState(); }
+        if(row){ row.lieu = sel.value; row.lieuManuel = ""; saveState(); renderInterdistrict(); }
       });
     });
     container.querySelectorAll("[data-interdistrict-pill]").forEach(btn=>{
@@ -1722,14 +1751,6 @@
         if(toIdx === fromIdx) return;
         entry.rows[fromIdx].etabIds = entry.rows[fromIdx].etabIds.filter(id=>id!==etabId);
         entry.rows[toIdx].etabIds.push(etabId);
-        saveState();
-        renderInterdistrict();
-      });
-    });
-    container.querySelectorAll("[data-interdistrict-add-row]").forEach(btn=>{
-      btn.addEventListener("click", ()=>{
-        const act = btn.dataset.interdistrictAddRow;
-        state.interdistrict[act].rows.push({ id: uid(), lieu: "", etabIds: [] });
         saveState();
         renderInterdistrict();
       });
@@ -1789,6 +1810,44 @@
     saveState();
     renderInterdistrict();
     closeModal("modal-overlay-add-external-etab");
+  });
+
+  // Bouton unique (en-tête de section) pour ajouter un lieu à une activité :
+  // choix de l'activité, et pour le lieu soit un établissement existant
+  // (liste déroulante), soit une saisie manuelle (gymnase, salle externe...).
+  document.getElementById("btn-add-lieu").addEventListener("click", ()=>{
+    const actSelect = document.getElementById("add-lieu-activite");
+    const activiteOptions = [...ACTIVITES.filter(a=>a!=="Autres"), ...autresTextsFor("competition")];
+    actSelect.innerHTML = activiteOptions.map(a=>`<option value="${escapeAttr(a)}">${escapeHtml(a)}</option>`).join("");
+    const etabSelect = document.getElementById("add-lieu-etab");
+    etabSelect.innerHTML = `<option value="">— Choisir —</option>`
+      + sortedEtabs().map(e=>`<option value="${escapeAttr(e.id)}">${escapeHtml(e.nom)}</option>`).join("")
+      + `<option value="__manuel__">+ Autre lieu (saisie manuelle)…</option>`;
+    document.getElementById("add-lieu-manuel-row").classList.add("hidden");
+    document.getElementById("add-lieu-manuel").value = "";
+    openModal("modal-overlay-add-lieu");
+  });
+  document.getElementById("add-lieu-etab").addEventListener("change", function(){
+    document.getElementById("add-lieu-manuel-row").classList.toggle("hidden", this.value !== "__manuel__");
+  });
+  document.getElementById("btn-add-lieu-confirm").addEventListener("click", ()=>{
+    const act = document.getElementById("add-lieu-activite").value;
+    const etabVal = document.getElementById("add-lieu-etab").value;
+    const manuel = document.getElementById("add-lieu-manuel").value.trim();
+    if(!act){ alert("Choisissez l'activité concernée."); return; }
+    if(!etabVal){ alert("Choisissez un lieu."); return; }
+    if(etabVal === "__manuel__" && !manuel){ alert("Indiquez le nom du lieu."); return; }
+    if(!state.interdistrict[act] || !state.interdistrict[act].rows || !state.interdistrict[act].rows.length){
+      state.interdistrict[act] = { rows: [], externalEtabs: [] };
+    }
+    const entry = state.interdistrict[act];
+    const newRow = etabVal === "__manuel__"
+      ? { id: uid(), lieu: "", lieuManuel: manuel, etabIds: [] }
+      : { id: uid(), lieu: etabVal, lieuManuel: "", etabIds: [] };
+    entry.rows.push(newRow);
+    saveState();
+    renderInterdistrict();
+    closeModal("modal-overlay-add-lieu");
   });
 
   function renderActiviteFilterResult(){
@@ -2606,6 +2665,67 @@ ${innerHtml}
     return buildPrintDocument(title, body);
   }
 
+  // Export PDF d'une seule table Activités (pratiquées ou compétition) :
+  // clone direct de la table affichée à l'écran, donc mêmes lignes/colonnes
+  // (contrairement à buildTablePrintHtml, on ne retire pas la dernière
+  // colonne : ces tables n'ont pas de colonne Actions).
+  function buildActiviteTablePrintHtml(tableId, heading, title){
+    const tableClone = document.getElementById(tableId).cloneNode(true);
+    const body = `<div class="activites-page"><h2 class="section-title">${escapeHtml(heading)}</h2><div class="table-wrap">${tableClone.outerHTML}</div></div>`;
+    return buildPrintDocument(title, body);
+  }
+
+  // Export PDF d'Organisation District Villeurbanne : même pagination que
+  // l'export Excel (buildInterdistrictSheet) — 5 activités par ligne — au
+  // lieu du flux responsive de la grille affichée à l'écran, pour avoir le
+  // même nombre de lignes/colonnes d'un export à l'autre.
+  function buildInterdistrictPrintHtml(){
+    const allActKeys = [...ACTIVITES.filter(act => act !== "Autres"), ...autresTextsFor("competition")];
+    const activitesConcernees = allActKeys.filter(act => {
+      const ext = state.interdistrict[act] && state.interdistrict[act].externalEtabs;
+      return competitionEtabsAny(act).length > 0 || (ext && ext.length > 0);
+    });
+    const cardsHtml = activitesConcernees.map((act,i)=>{
+      const autoEtabs = competitionEtabsAny(act);
+      const externalEtabs = (state.interdistrict[act] && state.interdistrict[act].externalEtabs) || [];
+      const etabs = [...autoEtabs, ...externalEtabs].sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}));
+      const color = `var(--${PALETTE[i % PALETTE.length]})`;
+      const entry = state.interdistrict[act];
+      const rows = (entry && entry.rows && entry.rows.length) ? entry.rows : [{ lieu:"", etabIds: etabs.map(e=>e.id) }];
+      const rowsHtml = rows.map(row=>{
+        const lieuEtab = row.lieu ? getEtab(row.lieu) : null;
+        const lieuLabel = lieuEtab ? lieuEtab.nom : (row.lieuManuel || "— Choisir —");
+        const names = row.etabIds.map(id=>{
+          const e = etabs.find(x=>x.id===id);
+          return e ? `<div>${escapeHtml(e.nom)}</div>` : "";
+        }).join("") || "<div>—</div>";
+        return `<div class="interdistrict-print-row">
+          <div class="interdistrict-print-lieu">${escapeHtml(lieuLabel)}</div>
+          <div class="interdistrict-print-etabs">${names}</div>
+        </div>`;
+      }).join("");
+      return `
+        <div class="interdistrict-card">
+          <div class="interdistrict-card-head" style="background:${color};">
+            <h4>${escapeHtml(act)}</h4>
+            <div class="count">${etabs.length} collège${etabs.length>1?"s":""}</div>
+          </div>
+          <div class="interdistrict-print-rows">${rowsHtml}</div>
+        </div>
+      `;
+    }).join("");
+    const body = `<div class="interdistrict-grid interdistrict-print-grid">${cardsHtml}</div>`;
+    return buildPrintDocument("District de Villeurbanne — Organisation District Villeurbanne", body, `
+      .interdistrict-print-grid{ display:grid; grid-template-columns:repeat(5, 1fr); gap:8px; }
+      .interdistrict-print-rows{ padding:8px 10px; display:flex; flex-direction:column; gap:6px; }
+      .interdistrict-print-row{ border:1px solid var(--border); border-radius:6px; overflow:hidden; }
+      .interdistrict-print-lieu{ background:#eef1fa; font-weight:700; font-size:.64rem; padding:3px 6px; }
+      .interdistrict-print-etabs{ padding:3px 6px; font-size:.6rem; }
+      .interdistrict-card{ page-break-inside:avoid; font-size:.7rem; }
+      .interdistrict-card-head h4{ font-size:.78rem; }
+    `);
+  }
+
   function buildAgPrintHtml(current){
     // On clone le conteneur affiché à l'écran pour garantir un rendu PDF
     // identique à la grille de cartes visible (mêmes couleurs, mêmes badges,
@@ -2642,6 +2762,15 @@ ${innerHtml}
   });
   document.getElementById("btn-recompenses-export-pdf").addEventListener("click", ()=>{
     openPrintPreview(buildTablePrintHtml("table-recompenses", "District de Villeurbanne — Récompenses"));
+  });
+  document.getElementById("btn-export-pratiquees-pdf").addEventListener("click", ()=>{
+    openPrintPreview(buildActiviteTablePrintHtml("table-activites-pratiquees", "Activités pratiquées (loisir)", "District de Villeurbanne — Activités pratiquées"));
+  });
+  document.getElementById("btn-export-competition-pdf").addEventListener("click", ()=>{
+    openPrintPreview(buildActiviteTablePrintHtml("table-activites-competition", "Activités engagées en compétition", "District de Villeurbanne — Activités en compétition"));
+  });
+  document.getElementById("btn-export-interdistrict-pdf").addEventListener("click", ()=>{
+    openPrintPreview(buildInterdistrictPrintHtml());
   });
 
   document.getElementById("btn-export-annuaire-pdf").addEventListener("click", ()=>{
@@ -2889,14 +3018,23 @@ ${innerHtml}
     return {
       name: "Interdistrict",
       build: (ws)=>{
-        const activitesConcernees = ACTIVITES.filter(act => act !== "Autres" && competitionEtabs(act).length > 0);
+        // Mêmes activités (y compris "Autres" saisies librement, type
+        // "Gymnastique Acro Aérienne") et mêmes établissements (y compris
+        // ceux hors district ajoutés ponctuellement) que l'écran et l'export
+        // PDF — voir renderInterdistrict / buildInterdistrictPrintHtml.
+        const allActKeys = [...ACTIVITES.filter(act => act !== "Autres"), ...autresTextsFor("competition")];
+        const activitesConcernees = allActKeys.filter(act => {
+          const ext = state.interdistrict[act] && state.interdistrict[act].externalEtabs;
+          return competitionEtabsAny(act).length > 0 || (ext && ext.length > 0);
+        });
         const blocksPerRow = 5;
         const colGap = 1;
         const rowGap = 1;
         let col = 1, rowStart = 1, rowOfBlocksMaxHeight = 0, blocksInRow = 0;
 
         activitesConcernees.forEach((act,i)=>{
-          const etabs = competitionEtabs(act);
+          const externalEtabs = (state.interdistrict[act] && state.interdistrict[act].externalEtabs) || [];
+          const etabs = [...competitionEtabsAny(act), ...externalEtabs].sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}));
           const stored = state.interdistrict[act];
           const entryRows = (stored && stored.rows && stored.rows.length) ? stored.rows : [{ lieu:"", etabIds: etabs.map(e=>e.id) }];
           const nCols = Math.max(1, entryRows.length);
@@ -2923,12 +3061,12 @@ ${innerHtml}
           entryRows.forEach((r,cIdx)=>{
             const lieuEtab = r.lieu ? getEtab(r.lieu) : null;
             const cell = ws.getCell(rowStart+1, col+cIdx);
-            cell.value = lieuEtab ? lieuEtab.nom : "— Choisir —";
+            cell.value = lieuEtab ? lieuEtab.nom : (r.lieuManuel || "— Choisir —");
             cell.font = { bold:true, color:{ argb:"FF1F2430" } };
             cell.fill = { type:"pattern", pattern:"solid", fgColor:{ argb:"FF"+lightColor } };
             for(let r2=0; r2<maxEtabs; r2++){
               const etabId = r.etabIds[r2];
-              const e = etabId ? getEtab(etabId) : null;
+              const e = etabId ? etabs.find(x=>x.id===etabId) : null;
               const etabCell = ws.getCell(rowStart+2+r2, col+cIdx);
               if(e) etabCell.value = e.nom;
               etabCell.font = { color:{ argb:"FF1F2430" } };
