@@ -1654,13 +1654,18 @@
   function renderInterdistrict(){
     const container = document.getElementById("interdistrict-container");
     const hasExternal = act => (state.interdistrict[act] && state.interdistrict[act].externalEtabs && state.interdistrict[act].externalEtabs.length) > 0;
-    const activitesConcernees = ACTIVITES.filter(act => act !== "Autres" && (competitionEtabs(act).length > 0 || hasExternal(act)));
+    // Activités standard + activités "Autres" saisies librement (ex:
+    // "Gymnastique Acro Aérienne"), comme dans le tableau Activités en
+    // compétition : sans ça, une activité non cataloguée n'apparaissait
+    // jamais ici même si des collègues la pratiquent en compétition.
+    const allActKeys = [...ACTIVITES.filter(act => act !== "Autres"), ...autresTextsFor("competition")];
+    const activitesConcernees = allActKeys.filter(act => competitionEtabsAny(act).length > 0 || hasExternal(act));
     if(!activitesConcernees.length){
       container.innerHTML = `<p class="hint">Aucune activité en compétition pour le moment.</p>`;
       return;
     }
     container.innerHTML = `<div class="interdistrict-grid">` + activitesConcernees.map((act,i)=>{
-      const autoEtabs = competitionEtabs(act);
+      const autoEtabs = competitionEtabsAny(act);
       const externalEtabs = (state.interdistrict[act] && state.interdistrict[act].externalEtabs) || [];
       const externalIds = externalEtabs.map(e=>e.id);
       const etabs = [...autoEtabs, ...externalEtabs].sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}));
@@ -1763,7 +1768,8 @@
   // l'activité en compétition où l'intégrer.
   document.getElementById("btn-add-external-etab").addEventListener("click", ()=>{
     const select = document.getElementById("external-etab-activite");
-    select.innerHTML = ACTIVITES.filter(a=>a!=="Autres").map(a=>`<option value="${escapeAttr(a)}">${escapeHtml(a)}</option>`).join("");
+    const activiteOptions = [...ACTIVITES.filter(a=>a!=="Autres"), ...autresTextsFor("competition")];
+    select.innerHTML = activiteOptions.map(a=>`<option value="${escapeAttr(a)}">${escapeHtml(a)}</option>`).join("");
     document.getElementById("external-etab-nom").value = "";
     openModal("modal-overlay-add-external-etab");
   });
@@ -1816,6 +1822,16 @@
   }
   function competitionEtabs(activite){
     return sortedEtabs().filter(etab=>competesFlag(etab, activite));
+  }
+  // Comme competitionEtabs, mais accepte aussi une activité "Autres" saisie
+  // librement (ex: "Gymnastique Acro Aérienne") non reconnue comme activité
+  // standard — utilisé par Organisation District Villeurbanne pour que ces
+  // activités non cataloguées y apparaissent comme les autres (déjà le cas
+  // dans le tableau récapitulatif Activités en compétition).
+  function competitionEtabsAny(key){
+    if(ACTIVITES.includes(key) && key !== "Autres") return competitionEtabs(key);
+    return sortedEtabs().filter(etab=>etab.profs.some(p=>
+      (p.activitesCompetition||[]).includes("Autres") && p.autreCompetitionPrecision === key));
   }
 
   // ---------- RENDER: CARTES TCL ----------
