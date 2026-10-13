@@ -190,6 +190,9 @@
     background:var(--c1); border:none; border-radius:14px; padding:4px 10px; cursor:pointer; text-align:left;
   }
   .interdistrict-pill:hover{ opacity:.85; }
+  .interdistrict-pill-wrap{ display:flex; align-items:center; gap:3px; }
+  .interdistrict-pill.is-manual{ background:#a1590b; }
+  .interdistrict-pill-remove{ flex:0 0 auto; }
   .etab-block{ display:flex; align-items:stretch; background:#fff; border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; }
   .etab-block-head{
     display:flex; flex-direction:column; justify-content:space-between; flex:0 0 190px;
@@ -1426,7 +1429,7 @@
         const rowProfs = nonVirtualProfs.slice(idx, idx+size);
         idx += size;
         const cardsHtml = rowProfs.map(prof=>profCardHtml(prof, etab, opts)).join("");
-        rowHtmls.push(`<div class="prof-grid-row" style="display:grid; grid-template-columns:repeat(${size}, 1fr); gap:4px; flex:1; min-height:0;">${cardsHtml}</div>`);
+        rowHtmls.push(`<div class="prof-grid-row" style="display:grid; grid-template-columns:repeat(${size}, 1fr); gap:6px; flex:1; min-height:0;">${cardsHtml}</div>`);
       }
       profsHtml = rowHtmls.join("");
       profGridClass = "prof-grid prof-grid-fixed";
@@ -1446,7 +1449,7 @@
             <div class="etab-head-meta">${metaLines}${lien ? `<div>${lien}</div>` : ""}</div>
           </div>
         </div>
-        <div class="${profGridClass}"${opts.fixedRows ? ` style="display:flex; flex-direction:column; flex-wrap:nowrap; gap:4px; padding:4px;"` : ""}>${profsHtml}</div>
+        <div class="${profGridClass}"${opts.fixedRows ? ` style="display:flex; flex-direction:column; flex-wrap:nowrap; gap:6px; padding:5px;"` : ""}>${profsHtml}</div>
       </div>
     `;
   }
@@ -1607,14 +1610,17 @@
   function ensureInterdistrictRows(act, etabs){
     let entry = state.interdistrict[act];
     if(!entry || !entry.rows || !entry.rows.length){
-      entry = { rows: [{ id: uid(), lieu: "", etabIds: etabs.map(e=>e.id) }] };
+      entry = { rows: [{ id: uid(), lieu: "", etabIds: etabs.map(e=>e.id) }], manualEtabIds: (entry && entry.manualEtabIds) || [] };
       state.interdistrict[act] = entry;
       return entry;
     }
+    if(!entry.manualEtabIds) entry.manualEtabIds = [];
     // Resynchronise avec la liste actuelle des établissements pratiquant
     // cette activité en compétition (qui peut avoir changé suite à une
-    // modification de l'Annuaire) : retire ceux qui ne la pratiquent plus,
-    // ajoute ceux qui s'y sont mis entretemps (sur le 1er lieu, à déplacer
+    // modification de l'Annuaire), plus les établissements ajoutés
+    // manuellement à titre exceptionnel (entry.manualEtabIds, voir le
+    // sélecteur "+ Ajouter un établissement") : retire ceux qui ne sont
+    // plus concernés, ajoute les nouveaux (sur le 1er lieu, à déplacer
     // manuellement si besoin), sans toucher à la répartition déjà faite.
     const etabIdSet = new Set(etabs.map(e=>e.id));
     entry.rows.forEach(row=>{ row.etabIds = row.etabIds.filter(id=>etabIdSet.has(id)); });
@@ -1626,13 +1632,17 @@
 
   function renderInterdistrict(){
     const container = document.getElementById("interdistrict-container");
-    const activitesConcernees = ACTIVITES.filter(act => act !== "Autres" && competitionEtabs(act).length > 0);
+    const hasManual = act => (state.interdistrict[act] && state.interdistrict[act].manualEtabIds && state.interdistrict[act].manualEtabIds.length) > 0;
+    const activitesConcernees = ACTIVITES.filter(act => act !== "Autres" && (competitionEtabs(act).length > 0 || hasManual(act)));
     if(!activitesConcernees.length){
       container.innerHTML = `<p class="hint">Aucune activité en compétition pour le moment.</p>`;
       return;
     }
     container.innerHTML = `<div class="interdistrict-grid">` + activitesConcernees.map((act,i)=>{
-      const etabs = competitionEtabs(act);
+      const autoEtabs = competitionEtabs(act);
+      const manualIds = (state.interdistrict[act] && state.interdistrict[act].manualEtabIds) || [];
+      const manualEtabs = manualIds.map(id=>getEtab(id)).filter(Boolean).filter(e=>!autoEtabs.some(a=>a.id===e.id));
+      const etabs = [...autoEtabs, ...manualEtabs].sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}));
       const color = `var(--${PALETTE[i % PALETTE.length]})`;
       const entry = ensureInterdistrictRows(act, etabs);
       const rowsHtml = entry.rows.map((row,rIdx)=>{
@@ -1640,7 +1650,11 @@
         const pillsHtml = row.etabIds.map(id=>{
           const e = etabs.find(x=>x.id===id);
           if(!e) return "";
-          return `<button type="button" class="interdistrict-pill" data-interdistrict-pill data-act="${escapeAttr(act)}" data-etab="${escapeAttr(e.id)}" title="Cliquer pour déplacer vers le lieu suivant">✓ ${escapeHtml(e.nom)}</button>`;
+          const isManual = manualIds.includes(e.id);
+          const removeBtn = isManual ? `<button type="button" class="icon-btn interdistrict-pill-remove" data-interdistrict-remove-manual data-act="${escapeAttr(act)}" data-etab="${escapeAttr(e.id)}" title="Retirer cet établissement (ajout exceptionnel)">✕</button>` : "";
+          return `<span class="interdistrict-pill-wrap">
+            <button type="button" class="interdistrict-pill${isManual?" is-manual":""}" data-interdistrict-pill data-act="${escapeAttr(act)}" data-etab="${escapeAttr(e.id)}" title="${isManual?"Ajout exceptionnel — cliquer pour déplacer vers le lieu suivant":"Cliquer pour déplacer vers le lieu suivant"}">✓ ${escapeHtml(e.nom)}${isManual?" ⚠":""}</button>${removeBtn}
+          </span>`;
         }).join("");
         return `
           <div class="interdistrict-row" data-row-index="${rIdx}">
@@ -1652,6 +1666,7 @@
           </div>
         `;
       }).join("");
+      const addManualOptions = sortedEtabs().filter(e=>!etabs.some(x=>x.id===e.id));
       return `
         <div class="interdistrict-card">
           <div class="interdistrict-card-head" style="background:${color};">
@@ -1659,8 +1674,12 @@
             <div class="count">${etabs.length} collège${etabs.length>1?"s":""}</div>
           </div>
           <div class="interdistrict-rows">${rowsHtml}</div>
-          <div style="padding:0 12px 12px;">
+          <div style="padding:0 12px 12px; display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
             <button type="button" class="secondary interdistrict-add-row" data-interdistrict-add-row="${escapeAttr(act)}">+ Ajouter un lieu</button>
+            ${addManualOptions.length ? `<select data-interdistrict-add-manual data-act="${escapeAttr(act)}" title="Ajouter un établissement ne pratiquant pas officiellement cette activité en compétition (cas exceptionnel)">
+              <option value="">+ Ajouter un établissement (exceptionnel)…</option>
+              ${addManualOptions.map(e=>`<option value="${escapeAttr(e.id)}">${escapeHtml(e.nom)}</option>`).join("")}
+            </select>` : ""}
           </div>
         </div>
       `;
@@ -1704,6 +1723,34 @@
         const removed = entry.rows.splice(rowIdx, 1)[0];
         const target = entry.rows[0];
         removed.etabIds.forEach(id=>{ if(!target.etabIds.includes(id)) target.etabIds.push(id); });
+        saveState();
+        renderInterdistrict();
+      });
+    });
+    container.querySelectorAll("[data-interdistrict-add-manual]").forEach(sel=>{
+      sel.addEventListener("change", ()=>{
+        const etabId = sel.value;
+        if(!etabId) return;
+        const act = sel.dataset.act;
+        if(!state.interdistrict[act] || !state.interdistrict[act].rows || !state.interdistrict[act].rows.length){
+          state.interdistrict[act] = { rows: [{ id: uid(), lieu: "", etabIds: [] }], manualEtabIds: [] };
+        }
+        const entry = state.interdistrict[act];
+        if(!entry.manualEtabIds) entry.manualEtabIds = [];
+        if(!entry.manualEtabIds.includes(etabId)) entry.manualEtabIds.push(etabId);
+        if(!entry.rows.some(r=>r.etabIds.includes(etabId))) entry.rows[0].etabIds.push(etabId);
+        saveState();
+        renderInterdistrict();
+      });
+    });
+    container.querySelectorAll("[data-interdistrict-remove-manual]").forEach(btn=>{
+      btn.addEventListener("click", e=>{
+        e.stopPropagation();
+        const act = btn.dataset.act, etabId = btn.dataset.etab;
+        const entry = state.interdistrict[act];
+        if(!entry) return;
+        entry.manualEtabIds = (entry.manualEtabIds||[]).filter(id=>id!==etabId);
+        entry.rows.forEach(r=>{ r.etabIds = r.etabIds.filter(id=>id!==etabId); });
         saveState();
         renderInterdistrict();
       });
@@ -2452,16 +2499,16 @@ ${styleTag}
   /* Export annuaire à hauteur de ligne fixe : vignette compacte (police,
      avatar, marges réduits) pour que 2 lignes de collègues, même avec
      badge(s) Coordo, tiennent confortablement dans la hauteur allouée. */
-  .prof-grid-fixed .prof-card{ overflow: hidden; padding: 3px; gap: 2px; }
-  .prof-grid-fixed .card-top{ gap: 5px; }
-  .prof-grid-fixed .avatar{ width: 32px; height: 32px; font-size: .68rem; }
-  .prof-grid-fixed h4{ font-size: .66rem; margin: 0; line-height: 1.15; }
-  .prof-grid-fixed .prof-name-note{ font-size: .58rem; }
-  .prof-grid-fixed .badges{ gap: 2px; margin-bottom: 1px; }
-  .prof-grid-fixed .badge{ font-size: .54rem; padding: 1px 5px; gap: 2px; margin-right: 2px; }
-  .prof-grid-fixed p{ font-size: .58rem; line-height: 1.2; margin: 0; }
-  .prof-grid-fixed .tags{ margin-top: 1px; }
-  .prof-grid-fixed .tag{ font-size: .54rem; padding: 1px 5px; margin: 1px 2px 0 0; }
+  .prof-grid-fixed .prof-card{ overflow: hidden; padding: 5px; gap: 3px; }
+  .prof-grid-fixed .card-top{ gap: 7px; }
+  .prof-grid-fixed .avatar{ width: 42px; height: 42px; font-size: .82rem; }
+  .prof-grid-fixed h4{ font-size: .76rem; margin: 0; line-height: 1.2; }
+  .prof-grid-fixed .prof-name-note{ font-size: .66rem; }
+  .prof-grid-fixed .badges{ gap: 3px; margin-bottom: 2px; }
+  .prof-grid-fixed .badge{ font-size: .62rem; padding: 2px 6px; gap: 2px; margin-right: 3px; }
+  .prof-grid-fixed p{ font-size: .68rem; line-height: 1.25; margin: 0; }
+  .prof-grid-fixed .tags{ margin-top: 2px; }
+  .prof-grid-fixed .tag{ font-size: .6rem; padding: 2px 6px; margin: 2px 3px 0 0; }
   .etab-block-head h3{ font-size:1.4rem; }
   .etab-head-meta{ font-size:.85rem; }
   @page{ size: A4 portrait; margin:10mm; }
@@ -2502,7 +2549,7 @@ ${innerHtml}
       // Le nombre de colonnes par ligne s'adapte au nombre de collègues (voir
       // etabBlockHtml), donc cette hauteur reste très confortable même pour
       // les établissements les plus fournis.
-      const etabsHtml = sortedEtabs().map(etab=>etabBlockHtml(etab, {editable:false, fixedRows:2, blockHeightMm:62})).join("");
+      const etabsHtml = sortedEtabs().map(etab=>etabBlockHtml(etab, {editable:false, fixedRows:2, blockHeightMm:68})).join("");
       body += `<div id="profs-container">${etabsHtml}</div>`;
     }
     if(includeActivites){
