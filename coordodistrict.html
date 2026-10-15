@@ -160,7 +160,7 @@
   .ag-prof-card{
     display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
     flex:1 1 150px; min-width:130px; border:1px solid var(--border); border-radius:9px; padding:14px 8px;
-    background:#fbfcff; cursor:pointer; text-align:center; font-family:inherit;
+    background:#fbfcff; cursor:pointer; text-align:center; font-family:inherit; color:var(--text);
   }
   .ag-prof-card.is-present{ background:#eaf6ee; border-color:#3f9a5c; }
   .ag-prof-card.is-excuse{ background:#fff6e5; border-color:#c98a1f; }
@@ -430,6 +430,10 @@
     <!-- 2. Effectifs par activité (compétition) -->
     <div class="panel-header collapsible-header" style="margin-top:22px;" data-collapsible="body-effectifs">
       <h2><span class="collapse-chevron">▾</span> Effectifs par activité (compétition)</h2>
+      <div class="actions">
+        <button id="btn-export-effectifs-pdf" class="secondary">📄 Export PDF</button>
+        <button id="btn-export-effectifs-excel" class="secondary">📊 Export Excel</button>
+      </div>
     </div>
     <div id="body-effectifs">
       <p class="hint">Cliquez sur une activité pour afficher/compléter les effectifs par établissement.</p>
@@ -1119,6 +1123,17 @@
     if(!parsed.stockRecompenses) parsed.stockRecompenses = defaultStockRecompenses();
     if(!parsed.remboursements) parsed.remboursements = [];
     if(!parsed.ags) parsed.ags = [];
+    // Ancien format : présence = booléen (true/false). Nouveau format :
+    // chaîne "present"/"excuse", absence = pas de clé. Convertit les
+    // anciennes réunions pour ne pas perdre les présences déjà cochées.
+    parsed.ags.forEach(ag=>{
+      if(!ag.presences) { ag.presences = {}; return; }
+      Object.keys(ag.presences).forEach(profId=>{
+        const v = ag.presences[profId];
+        if(v === true) ag.presences[profId] = "present";
+        else if(v !== "present" && v !== "excuse") delete ag.presences[profId];
+      });
+    });
     if(!parsed.interdistrict) parsed.interdistrict = {};
     if(!parsed.activiteEffectifs) parsed.activiteEffectifs = {};
     return parsed;
@@ -1716,6 +1731,18 @@
     return '<option value="">— Non précisé —</option>' +
       profs.map(p=>`<option value="${escapeAttr(p.id)}" ${p.id===selectedId?"selected":""}>${escapeHtml(p.nom)}</option>`).join("");
   }
+  // Préremplit le professeur responsable avec le collègue de l'établissement
+  // qui pratique cette activité en compétition (info Annuaire), quand ce
+  // champ n'a pas encore été choisi manuellement.
+  function defaultResponsableId(act, etab){
+    const isStandard = ACTIVITES.includes(act) && act !== "Autres";
+    const profs = etab.profs.filter(p=>!p.virtual).sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}));
+    const match = profs.find(p=>{
+      const list = p.activitesCompetition || [];
+      return isStandard ? list.includes(act) : (list.includes("Autres") && p.autreCompetitionPrecision === act);
+    });
+    return match ? match.id : "";
+  }
   function getEffectifEntry(act, etabId, create){
     if(!state.activiteEffectifs[act]) {
       if(!create) return null;
@@ -1724,7 +1751,10 @@
     if(!state.activiteEffectifs[act][etabId]){
       if(!create) return null;
       state.activiteEffectifs[act][etabId] = {
-        profResponsableId: "", referentId: "", referentJoId: "",
+        // profResponsableId: null = jamais choisi manuellement (le collègue
+        // qui pratique l'activité en compétition est proposé par défaut,
+        // sans être enregistré) ; "" = explicitement remis à "Non précisé".
+        profResponsableId: null, referentId: "", referentJoId: "",
         categories: { BG:{effectif:0,equipes:0}, BF:{effectif:0,equipes:0}, MG:{effectif:0,equipes:0}, MF:{effectif:0,equipes:0} }
       };
     }
@@ -1746,7 +1776,7 @@
       const expanded = expandedEffectifActs.has(act);
       const rowsHtml = etabs.map(etab=>{
         const entry = getEffectifEntry(act, etab.id, false) || {
-          profResponsableId:"", referentId:"", referentJoId:"",
+          profResponsableId:null, referentId:"", referentJoId:"",
           categories: { BG:{effectif:0,equipes:0}, BF:{effectif:0,equipes:0}, MG:{effectif:0,equipes:0}, MF:{effectif:0,equipes:0} }
         };
         const catCells = EFFECTIF_CATEGORIES.map(cat=>{
@@ -1756,10 +1786,12 @@
             <td><input type="number" min="0" value="${c.equipes||0}" data-effectif-field data-act="${escapeAttr(act)}" data-etab="${escapeAttr(etab.id)}" data-cat="${cat}" data-field="equipes"></td>
           `;
         }).join("");
+        const profResponsableId = (entry.profResponsableId === null || entry.profResponsableId === undefined)
+          ? defaultResponsableId(act, etab) : entry.profResponsableId;
         return `
           <tr>
             <td><strong>${escapeHtml(etab.nom)}</strong></td>
-            <td><select data-effectif-prof data-act="${escapeAttr(act)}" data-etab="${escapeAttr(etab.id)}">${profOptionsHtml(etab, entry.profResponsableId)}</select></td>
+            <td><select data-effectif-prof data-act="${escapeAttr(act)}" data-etab="${escapeAttr(etab.id)}">${profOptionsHtml(etab, profResponsableId)}</select></td>
             ${catCells}
             <td><select data-effectif-referent data-act="${escapeAttr(act)}" data-etab="${escapeAttr(etab.id)}">${profOptionsHtml(etab, entry.referentId)}</select></td>
             <td><select data-effectif-referent-jo data-act="${escapeAttr(act)}" data-etab="${escapeAttr(etab.id)}">${profOptionsHtml(etab, entry.referentJoId)}</select></td>
@@ -1769,7 +1801,7 @@
       const catHeaders = EFFECTIF_CATEGORIES.map(cat=>`<th colspan="2">${cat}</th>`).join("");
       const catSubHeaders = EFFECTIF_CATEGORIES.map(()=>`<th>Effectif</th><th>Équipes</th>`).join("");
       return `
-        <div class="effectif-card">
+        <div class="effectif-card"${expanded ? ` style="grid-column:1 / -1;"` : ""}>
           <div class="effectif-card-head" style="background:${color};" data-effectif-toggle="${escapeAttr(act)}">
             <h4><span class="collapse-chevron">${expanded?"▾":"▸"}</span> ${escapeHtml(act)}</h4>
             <div class="count">${etabs.length} collège${etabs.length>1?"s":""}</div>
@@ -3163,6 +3195,90 @@ ${innerHtml}
   }
 
   document.getElementById("btn-recompenses-export-excel").addEventListener("click", exportRecompensesExcel);
+
+  // Reprend exactement la même logique de préremplissage que l'écran
+  // (defaultResponsableId), pour que les exports affichent le même
+  // responsable que ce qui est visible sans avoir à l'enregistrer d'abord.
+  function effectifsActivitesConcernees(){
+    const allActKeys = [...ACTIVITES.filter(act => act !== "Autres"), ...autresTextsFor("competition")];
+    return allActKeys.filter(act => competitionEtabsAny(act).length > 0);
+  }
+  function effectifRowsFor(act){
+    return competitionEtabsAny(act).map(etab=>{
+      const entry = getEffectifEntry(act, etab.id, false);
+      const profResponsableId = entry && entry.profResponsableId !== null && entry.profResponsableId !== undefined
+        ? entry.profResponsableId : defaultResponsableId(act, etab);
+      const profResponsable = profResponsableId ? findProfById(profResponsableId) : null;
+      const referent = entry && entry.referentId ? findProfById(entry.referentId) : null;
+      const referentJo = entry && entry.referentJoId ? findProfById(entry.referentJoId) : null;
+      const cats = EFFECTIF_CATEGORIES.map(cat=>{
+        const c = (entry && entry.categories && entry.categories[cat]) || {effectif:0,equipes:0};
+        return [c.effectif||0, c.equipes||0];
+      });
+      return { etab, profResponsable, referent, referentJo, cats };
+    });
+  }
+  function exportEffectifsExcel(){
+    const activites = effectifsActivitesConcernees();
+    if(!activites.length){ alert("Aucune activité en compétition pour le moment."); return; }
+    const header = ["Activité","Établissement","Prof. responsable"];
+    EFFECTIF_CATEGORIES.forEach(cat=>{ header.push("Effectif "+cat, "Équipes "+cat); });
+    header.push("Référent","Référent JO");
+    const rows = [];
+    activites.forEach(act=>{
+      effectifRowsFor(act).forEach(r=>{
+        const row = [act, r.etab.nom, r.profResponsable ? r.profResponsable.nom : ""];
+        r.cats.forEach(c=>{ row.push(c[0], c[1]); });
+        row.push(r.referent ? r.referent.nom : "", r.referentJo ? r.referentJo.nom : "");
+        rows.push(row);
+      });
+    });
+    downloadXlsx("Effectifs_District_Villeurbanne.xlsx", [
+      { name: "Effectifs", header, rows, headerColors: header.map((h,i)=>PALETTE_HEX[PALETTE[i % PALETTE.length]]) }
+    ]);
+  }
+  document.getElementById("btn-export-effectifs-excel").addEventListener("click", exportEffectifsExcel);
+
+  function buildEffectifsPrintHtml(){
+    const activites = effectifsActivitesConcernees();
+    const body = activites.map((act,i)=>{
+      const color = `var(--${PALETTE[i % PALETTE.length]})`;
+      const rows = effectifRowsFor(act);
+      const catHeaders = EFFECTIF_CATEGORIES.map(cat=>`<th colspan="2">${cat}</th>`).join("");
+      const catSubHeaders = EFFECTIF_CATEGORIES.map(()=>`<th>Effectif</th><th>Équipes</th>`).join("");
+      const rowsHtml = rows.map(r=>{
+        const catCells = r.cats.map(c=>`<td>${c[0]}</td><td>${c[1]}</td>`).join("");
+        return `<tr>
+          <td>${escapeHtml(r.etab.nom)}</td>
+          <td>${r.profResponsable ? escapeHtml(r.profResponsable.nom) : "—"}</td>
+          ${catCells}
+          <td>${r.referent ? escapeHtml(r.referent.nom) : "—"}</td>
+          <td>${r.referentJo ? escapeHtml(r.referentJo.nom) : "—"}</td>
+        </tr>`;
+      }).join("");
+      return `
+        <div class="effectif-card" style="page-break-inside:avoid; margin-bottom:14px;">
+          <div class="effectif-card-head" style="background:${color};"><h4>${escapeHtml(act)}</h4></div>
+          <div class="effectif-table-wrap">
+            <table class="effectif-table">
+              <thead>
+                <tr><th rowspan="2">Établissement</th><th rowspan="2">Prof. responsable</th>${catHeaders}<th rowspan="2">Référent</th><th rowspan="2">Référent JO</th></tr>
+                <tr>${catSubHeaders}</tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }).join("");
+    return buildPrintDocument("District de Villeurbanne — Effectifs par activité", body, `
+      .effectif-table{ font-size:.7rem; }
+      .effectif-table th, .effectif-table td{ white-space:normal; }
+    `);
+  }
+  document.getElementById("btn-export-effectifs-pdf").addEventListener("click", ()=>{
+    openPrintPreview(buildEffectifsPrintHtml());
+  });
 
   function exportAnnuaireExcel(){
     const etabRows = sortedEtabs().map(e=>[e.nom, e.adresse||"", formatPhone(e.telephone)||"", e.email||""]);
