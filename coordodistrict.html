@@ -237,10 +237,10 @@
   .prof-card .card-top{ display:flex; align-items:center; gap:9px; }
   .prof-card .card-photo{ flex:0 0 auto; position:relative; }
   .prof-card .card-info{ flex:0 0 auto; }
-  .prof-card .avatar{
+  .avatar{
     width:64px; height:64px; border-radius:50%; object-fit:cover; background:#dde3f3;
     display:flex; align-items:center; justify-content:center; font-weight:700; color:#4A6FA5;
-    font-size:1.25rem;
+    font-size:1.25rem; flex:0 0 auto;
   }
   .prof-card .photo-upload-btn{
     position:absolute; right:-3px; bottom:-3px; width:22px; height:22px; border-radius:50%;
@@ -3500,9 +3500,7 @@ ${innerHtml}
         const status = current.presences[prof.id] || "absent"; // "absent" | "present" | "excuse"
         const statusLabel = status === "present" ? "Présent" : status === "excuse" ? "Excusé" : "Absent";
         const tagsHtml = profTagsHtml(prof);
-        const avatar = prof.photo
-          ? `<img class="avatar" src="${prof.photo}" alt="${escapeAttr(prof.nom)}">`
-          : `<div class="avatar">${initials(prof.nom)}</div>`;
+        const avatar = prof.photo ? `<img class="avatar" src="${prof.photo}" alt="${escapeAttr(prof.nom)}">` : "";
         const badges = (prof.coordoAS || prof.coordoEPS) ? `
             <div class="ag-prof-badges">
               ${prof.coordoAS ? '<span class="badge as">★ AS</span>' : ""}
