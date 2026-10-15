@@ -167,6 +167,8 @@
   .ag-prof-name{ font-weight:700; font-size:.88rem; }
   .ag-prof-badges{ display:flex; flex-wrap:wrap; gap:3px; justify-content:center; }
   .ag-prof-meta{ font-size:.72rem; color:var(--muted); line-height:1.3; }
+  .ag-prof-tags{ display:flex; flex-wrap:wrap; justify-content:center; gap:0; }
+  .ag-prof-tags .tag{ font-size:.66rem; }
   .ag-status-label{ font-size:.72rem; font-weight:700; color:var(--muted); }
   .ag-prof-card.is-present .ag-status-label{ color:#3f9a5c; }
   .ag-prof-card.is-excuse .ag-status-label{ color:#c98a1f; }
@@ -1428,17 +1430,18 @@
   }
 
   // ---------- RENDER: PROFS ----------
-  function profActivitesSummary(prof){
+  // Mêmes pastilles colorées (gris = loisir, rose = compétition) que dans
+  // l'Annuaire — réutilisées telles quelles dans l'onglet AG.
+  function profTagsHtml(prof){
     const tagLabel = (a, i, displayArr, precision) => {
       if(displayArr && displayArr[i]) return displayArr[i];
       if(a==="Autres" && precision) return precision;
       return a;
     };
-    const all = [
-      ...(prof.activitesPratiquees||[]).map((a,i)=>tagLabel(a, i, prof.activitesPratiqueesDisplay, prof.autrePratiqueePrecision)),
-      ...(prof.activitesCompetition||[]).map((a,i)=>tagLabel(a, i, prof.activitesCompetitionDisplay, prof.autreCompetitionPrecision))
-    ];
-    return all.join(", ");
+    return `
+      ${(prof.activitesPratiquees||[]).map((a,i)=>`<span class="tag">${escapeHtml(tagLabel(a, i, prof.activitesPratiqueesDisplay, prof.autrePratiqueePrecision))}</span>`).join("")}
+      ${(prof.activitesCompetition||[]).map((a,i)=>`<span class="tag comp">${escapeHtml(tagLabel(a, i, prof.activitesCompetitionDisplay, prof.autreCompetitionPrecision))}</span>`).join("")}
+    `;
   }
 
   function profCardHtml(prof, etab, opts){
@@ -1469,15 +1472,7 @@
           ? `<p class="copy-text" title="Cliquer pour copier le téléphone" data-copy-text="${escapeAttr(phoneFormatted)}">${escapeHtml(phoneFormatted)}</p>`
           : `<p><a href="tel:${escapeAttr(prof.telephone.replace(/[^0-9+]/g,""))}" style="color:inherit;text-decoration:none;">${escapeHtml(phoneFormatted)}</a></p>`)
       : "<p>—</p>";
-    const tagLabel = (a, i, displayArr, precision) => {
-      if(displayArr && displayArr[i]) return displayArr[i];
-      if(a==="Autres" && precision) return precision;
-      return a;
-    };
-    const tagsHtml = `
-      ${(prof.activitesPratiquees||[]).map((a,i)=>`<span class="tag">${escapeHtml(tagLabel(a, i, prof.activitesPratiqueesDisplay, prof.autrePratiqueePrecision))}</span>`).join("")}
-      ${(prof.activitesCompetition||[]).map((a,i)=>`<span class="tag comp">${escapeHtml(tagLabel(a, i, prof.activitesCompetitionDisplay, prof.autreCompetitionPrecision))}</span>`).join("")}
-    `;
+    const tagsHtml = profTagsHtml(prof);
     return `
       <div class="prof-card${prof.coordoAS ? " is-as" : ""}${prof.coordoEPS ? " is-eps" : ""}">
         <div class="card-top">
@@ -3502,7 +3497,7 @@ ${innerHtml}
       const profsHtml = profs.map(prof=>{
         const status = current.presences[prof.id] || "absent"; // "absent" | "present" | "excuse"
         const statusLabel = status === "present" ? "Présent" : status === "excuse" ? "Excusé" : "Absent";
-        const activites = profActivitesSummary(prof);
+        const tagsHtml = profTagsHtml(prof);
         const badges = (prof.coordoAS || prof.coordoEPS) ? `
             <div class="ag-prof-badges">
               ${prof.coordoAS ? '<span class="badge as">★ AS</span>' : ""}
@@ -3512,7 +3507,7 @@ ${innerHtml}
           <button type="button" class="ag-prof-card${status==="present" ? " is-present" : ""}${status==="excuse" ? " is-excuse" : ""}" data-ag-prof="${escapeAttr(prof.id)}" title="Cliquer pour changer : Absent → Présent → Excusé">
             <span class="ag-prof-name">${escapeHtml(prof.nom)}</span>
             ${badges}
-            ${activites ? `<span class="ag-prof-meta">${escapeHtml(activites)}</span>` : ""}
+            <div class="ag-prof-tags">${tagsHtml}</div>
             <span class="ag-status-label">${statusLabel}</span>
           </button>
         `;
