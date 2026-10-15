@@ -63,6 +63,20 @@
   }
   .panel-header h2{ margin:0; font-size:1.1rem; }
   .hint{ color:var(--muted); font-size:.85rem; margin:0; }
+  .collapsible-header h2{ cursor:pointer; user-select:none; }
+  .collapsible-header h2:hover{ opacity:.8; }
+  .collapse-chevron{ display:inline-block; width:14px; }
+  .effectifs-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; margin-top:12px; }
+  .effectif-card{ border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; background:#fff; box-shadow:var(--shadow); }
+  .effectif-card-head{ padding:10px 12px; color:#fff; cursor:pointer; user-select:none; display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .effectif-card-head h4{ margin:0; font-size:1rem; }
+  .effectif-card-head .count{ font-size:.75rem; opacity:.9; }
+  .effectif-table-wrap{ overflow-x:auto; }
+  .effectif-table{ width:100%; border-collapse:collapse; font-size:.78rem; }
+  .effectif-table th, .effectif-table td{ padding:6px 8px; border-bottom:1px solid var(--border); white-space:nowrap; }
+  .effectif-table thead th{ background:#f3f5fb; text-align:left; }
+  .effectif-table input[type=number]{ width:48px; padding:3px 4px; border:1px solid var(--border); border-radius:5px; text-align:center; }
+  .effectif-table select{ padding:3px 4px; border:1px solid var(--border); border-radius:5px; max-width:140px; }
   .profs-meta-row{
     display:flex; align-items:flex-start; justify-content:space-between;
     flex-wrap:wrap; gap:10px; margin-bottom:10px;
@@ -146,13 +160,16 @@
   .ag-prof-card{
     display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
     flex:1 1 150px; min-width:130px; border:1px solid var(--border); border-radius:9px; padding:14px 8px;
-    background:#fbfcff; cursor:pointer; text-align:center;
+    background:#fbfcff; cursor:pointer; text-align:center; font-family:inherit;
   }
   .ag-prof-card.is-present{ background:#eaf6ee; border-color:#3f9a5c; }
+  .ag-prof-card.is-excuse{ background:#fff6e5; border-color:#c98a1f; }
   .ag-prof-name{ font-weight:700; font-size:.88rem; }
   .ag-prof-badges{ display:flex; flex-wrap:wrap; gap:3px; justify-content:center; }
   .ag-prof-meta{ font-size:.72rem; color:var(--muted); line-height:1.3; }
-  .ag-prof-card input[type=checkbox]{ width:22px; height:22px; cursor:pointer; }
+  .ag-status-label{ font-size:.72rem; font-weight:700; color:var(--muted); }
+  .ag-prof-card.is-present .ag-status-label{ color:#3f9a5c; }
+  .ag-prof-card.is-excuse .ag-status-label{ color:#c98a1f; }
 
   /* Onglet profs */
   #profs-container, #ag-container{
@@ -393,24 +410,35 @@
     </div>
 
     <!-- 1. Compétition -->
-    <div class="panel-header" style="margin-top:10px;">
-      <h2>Activités engagées en compétition</h2>
+    <div class="panel-header collapsible-header" style="margin-top:10px;" data-collapsible="body-competition">
+      <h2><span class="collapse-chevron">▾</span> Activités engagées en compétition</h2>
       <div class="actions">
         <button id="btn-export-competition-pdf" class="secondary">📄 Export PDF</button>
         <button id="btn-export-competition-excel" class="secondary">📊 Exporter ce tableau</button>
       </div>
     </div>
-    <p class="hint">Récapitulatif non modifiable — le choix des activités se fait dans la fiche de chaque collègue</p>
-    <div class="table-wrap">
-      <table id="table-activites-competition">
-        <thead><tr id="thead-activites-competition-row"></tr></thead>
-        <tbody id="tbody-activites-competition"></tbody>
-      </table>
+    <div id="body-competition">
+      <p class="hint">Récapitulatif non modifiable — le choix des activités se fait dans la fiche de chaque collègue</p>
+      <div class="table-wrap">
+        <table id="table-activites-competition">
+          <thead><tr id="thead-activites-competition-row"></tr></thead>
+          <tbody id="tbody-activites-competition"></tbody>
+        </table>
+      </div>
     </div>
 
-    <!-- 2. Organisation District Villeurbanne -->
-    <div class="panel-header" style="margin-top:22px;">
-      <h2>Organisation District Villeurbanne</h2>
+    <!-- 2. Effectifs par activité (compétition) -->
+    <div class="panel-header collapsible-header" style="margin-top:22px;" data-collapsible="body-effectifs">
+      <h2><span class="collapse-chevron">▾</span> Effectifs par activité (compétition)</h2>
+    </div>
+    <div id="body-effectifs">
+      <p class="hint">Cliquez sur une activité pour afficher/compléter les effectifs par établissement.</p>
+      <div id="effectifs-container"></div>
+    </div>
+
+    <!-- 3. Organisation District Villeurbanne -->
+    <div class="panel-header collapsible-header" style="margin-top:22px;" data-collapsible="body-organisation">
+      <h2><span class="collapse-chevron">▾</span> Organisation District Villeurbanne</h2>
       <div class="actions">
         <button id="btn-add-lieu" class="secondary">➕ Ajouter un lieu</button>
         <button id="btn-add-external-etab" class="secondary">➕ Ajouter un établissement</button>
@@ -418,23 +446,27 @@
         <button id="btn-export-interdistrict-excel" class="secondary">📊 Exporter ce tableau</button>
       </div>
     </div>
-    <p class="hint">Pour chaque activité en compétition : choisissez le lieu, répartissez les établissements en plusieurs poules si besoin.</p>
-    <div id="interdistrict-container"></div>
+    <div id="body-organisation">
+      <p class="hint">Pour chaque activité en compétition : choisissez le lieu, répartissez les établissements en plusieurs poules si besoin.</p>
+      <div id="interdistrict-container"></div>
+    </div>
 
-    <!-- 3. Loisir -->
-    <div class="panel-header" style="margin-top:22px;">
-      <h2>Activités pratiquées (loisir)</h2>
+    <!-- 4. Loisir -->
+    <div class="panel-header collapsible-header" style="margin-top:22px;" data-collapsible="body-pratiquees">
+      <h2><span class="collapse-chevron">▾</span> Activités pratiquées (loisir)</h2>
       <div class="actions">
         <button id="btn-export-pratiquees-pdf" class="secondary">📄 Export PDF</button>
         <button id="btn-export-pratiquees-excel" class="secondary">📊 Exporter ce tableau</button>
       </div>
     </div>
-    <p class="hint">Récapitulatif non modifiable — le choix des activités se fait dans la fiche de chaque collègue</p>
-    <div class="table-wrap">
-      <table id="table-activites-pratiquees">
-        <thead><tr id="thead-activites-pratiquees-row"></tr></thead>
-        <tbody id="tbody-activites-pratiquees"></tbody>
-      </table>
+    <div id="body-pratiquees">
+      <p class="hint">Récapitulatif non modifiable — le choix des activités se fait dans la fiche de chaque collègue</p>
+      <div class="table-wrap">
+        <table id="table-activites-pratiquees">
+          <thead><tr id="thead-activites-pratiquees-row"></tr></thead>
+          <tbody id="tbody-activites-pratiquees"></tbody>
+        </table>
+      </div>
     </div>
 
     <div class="panel-header" style="margin-top:22px;">
@@ -605,6 +637,8 @@
         <button id="btn-copy-emails" class="export-tile" style="background:var(--c2)"><span class="export-tile-icon">✉️</span><span>Emails par établissement</span></button>
         <button id="btn-copy-emails-activite" class="export-tile" style="background:var(--c9)"><span class="export-tile-icon">✉️</span><span>Emails par activité</span></button>
         <button id="btn-copy-emails-coordo-as" class="export-tile" style="background:var(--c5)"><span class="export-tile-icon">✉️</span><span>Emails des coordos AS</span></button>
+        <button id="btn-copy-emails-referent" class="export-tile" style="background:var(--c12)"><span class="export-tile-icon">✉️</span><span>Emails des référents d'activité</span></button>
+        <button id="btn-copy-emails-referent-jo" class="export-tile" style="background:var(--c13)"><span class="export-tile-icon">✉️</span><span>Emails des référents jeunes officiels</span></button>
       </div>
     </div>
 
@@ -1086,6 +1120,7 @@
     if(!parsed.remboursements) parsed.remboursements = [];
     if(!parsed.ags) parsed.ags = [];
     if(!parsed.interdistrict) parsed.interdistrict = {};
+    if(!parsed.activiteEffectifs) parsed.activiteEffectifs = {};
     return parsed;
   }
 
@@ -1319,6 +1354,18 @@
       document.querySelectorAll(".tab-panel").forEach(p=>p.classList.remove("active"));
       btn.classList.add("active");
       document.getElementById("tab-"+btn.dataset.tab).classList.add("active");
+    });
+  });
+
+  // ---------- SECTIONS REPLIABLES (ex: tableaux de l'onglet Activités) ----------
+  document.querySelectorAll(".collapsible-header").forEach(header=>{
+    const h2 = header.querySelector("h2");
+    const body = document.getElementById(header.dataset.collapsible);
+    if(!h2 || !body) return;
+    h2.addEventListener("click", ()=>{
+      const collapsed = body.classList.toggle("hidden");
+      const chevron = h2.querySelector(".collapse-chevron");
+      if(chevron) chevron.textContent = collapsed ? "▸" : "▾";
     });
   });
 
@@ -1651,7 +1698,132 @@
     renderActiviteTable("thead-activites-pratiquees-row", "tbody-activites-pratiquees", "pratiquee");
     renderActiviteTable("thead-activites-competition-row", "tbody-activites-competition", "competition");
     renderActiviteFilterResult();
+    renderEffectifs();
     renderInterdistrict();
+  }
+
+  // ---------- RENDER: EFFECTIFS PAR ACTIVITE (compétition) ----------
+  const EFFECTIF_CATEGORIES = ["BG","BF","MG","MF"];
+  function findProfById(profId){
+    for(const etab of state.etablissements){
+      const p = etab.profs.find(x=>x.id===profId);
+      if(p) return p;
+    }
+    return null;
+  }
+  function profOptionsHtml(etab, selectedId){
+    const profs = etab.profs.filter(p=>!p.virtual).sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}));
+    return '<option value="">— Non précisé —</option>' +
+      profs.map(p=>`<option value="${escapeAttr(p.id)}" ${p.id===selectedId?"selected":""}>${escapeHtml(p.nom)}</option>`).join("");
+  }
+  function getEffectifEntry(act, etabId, create){
+    if(!state.activiteEffectifs[act]) {
+      if(!create) return null;
+      state.activiteEffectifs[act] = {};
+    }
+    if(!state.activiteEffectifs[act][etabId]){
+      if(!create) return null;
+      state.activiteEffectifs[act][etabId] = {
+        profResponsableId: "", referentId: "", referentJoId: "",
+        categories: { BG:{effectif:0,equipes:0}, BF:{effectif:0,equipes:0}, MG:{effectif:0,equipes:0}, MF:{effectif:0,equipes:0} }
+      };
+    }
+    return state.activiteEffectifs[act][etabId];
+  }
+  let expandedEffectifActs = new Set();
+  function renderEffectifs(){
+    const container = document.getElementById("effectifs-container");
+    if(!container) return;
+    const allActKeys = [...ACTIVITES.filter(act => act !== "Autres"), ...autresTextsFor("competition")];
+    const activitesConcernees = allActKeys.filter(act => competitionEtabsAny(act).length > 0);
+    if(!activitesConcernees.length){
+      container.innerHTML = `<p class="hint">Aucune activité en compétition pour le moment.</p>`;
+      return;
+    }
+    container.innerHTML = `<div class="effectifs-grid">` + activitesConcernees.map((act,i)=>{
+      const etabs = competitionEtabsAny(act);
+      const color = `var(--${PALETTE[i % PALETTE.length]})`;
+      const expanded = expandedEffectifActs.has(act);
+      const rowsHtml = etabs.map(etab=>{
+        const entry = getEffectifEntry(act, etab.id, false) || {
+          profResponsableId:"", referentId:"", referentJoId:"",
+          categories: { BG:{effectif:0,equipes:0}, BF:{effectif:0,equipes:0}, MG:{effectif:0,equipes:0}, MF:{effectif:0,equipes:0} }
+        };
+        const catCells = EFFECTIF_CATEGORIES.map(cat=>{
+          const c = entry.categories[cat] || {effectif:0,equipes:0};
+          return `
+            <td><input type="number" min="0" value="${c.effectif||0}" data-effectif-field data-act="${escapeAttr(act)}" data-etab="${escapeAttr(etab.id)}" data-cat="${cat}" data-field="effectif"></td>
+            <td><input type="number" min="0" value="${c.equipes||0}" data-effectif-field data-act="${escapeAttr(act)}" data-etab="${escapeAttr(etab.id)}" data-cat="${cat}" data-field="equipes"></td>
+          `;
+        }).join("");
+        return `
+          <tr>
+            <td><strong>${escapeHtml(etab.nom)}</strong></td>
+            <td><select data-effectif-prof data-act="${escapeAttr(act)}" data-etab="${escapeAttr(etab.id)}">${profOptionsHtml(etab, entry.profResponsableId)}</select></td>
+            ${catCells}
+            <td><select data-effectif-referent data-act="${escapeAttr(act)}" data-etab="${escapeAttr(etab.id)}">${profOptionsHtml(etab, entry.referentId)}</select></td>
+            <td><select data-effectif-referent-jo data-act="${escapeAttr(act)}" data-etab="${escapeAttr(etab.id)}">${profOptionsHtml(etab, entry.referentJoId)}</select></td>
+          </tr>
+        `;
+      }).join("");
+      const catHeaders = EFFECTIF_CATEGORIES.map(cat=>`<th colspan="2">${cat}</th>`).join("");
+      const catSubHeaders = EFFECTIF_CATEGORIES.map(()=>`<th>Effectif</th><th>Équipes</th>`).join("");
+      return `
+        <div class="effectif-card">
+          <div class="effectif-card-head" style="background:${color};" data-effectif-toggle="${escapeAttr(act)}">
+            <h4><span class="collapse-chevron">${expanded?"▾":"▸"}</span> ${escapeHtml(act)}</h4>
+            <div class="count">${etabs.length} collège${etabs.length>1?"s":""}</div>
+          </div>
+          ${expanded ? `
+          <div class="effectif-table-wrap">
+            <table class="effectif-table">
+              <thead>
+                <tr><th rowspan="2">Établissement</th><th rowspan="2">Prof. responsable</th>${catHeaders}<th rowspan="2">Référent</th><th rowspan="2">Référent JO</th></tr>
+                <tr>${catSubHeaders}</tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+            </table>
+          </div>` : ""}
+        </div>
+      `;
+    }).join("") + `</div>`;
+
+    container.querySelectorAll("[data-effectif-toggle]").forEach(head=>{
+      head.addEventListener("click", ()=>{
+        const act = head.dataset.effectifToggle;
+        if(expandedEffectifActs.has(act)) expandedEffectifActs.delete(act);
+        else expandedEffectifActs.add(act);
+        renderEffectifs();
+      });
+    });
+    container.querySelectorAll("[data-effectif-field]").forEach(input=>{
+      input.addEventListener("change", ()=>{
+        const entry = getEffectifEntry(input.dataset.act, input.dataset.etab, true);
+        entry.categories[input.dataset.cat][input.dataset.field] = Math.max(0, Number(input.value)||0);
+        saveState();
+      });
+    });
+    container.querySelectorAll("[data-effectif-prof]").forEach(sel=>{
+      sel.addEventListener("change", ()=>{
+        const entry = getEffectifEntry(sel.dataset.act, sel.dataset.etab, true);
+        entry.profResponsableId = sel.value;
+        saveState();
+      });
+    });
+    container.querySelectorAll("[data-effectif-referent]").forEach(sel=>{
+      sel.addEventListener("change", ()=>{
+        const entry = getEffectifEntry(sel.dataset.act, sel.dataset.etab, true);
+        entry.referentId = sel.value;
+        saveState();
+      });
+    });
+    container.querySelectorAll("[data-effectif-referent-jo]").forEach(sel=>{
+      sel.addEventListener("change", ()=>{
+        const entry = getEffectifEntry(sel.dataset.act, sel.dataset.etab, true);
+        entry.referentJoId = sel.value;
+        saveState();
+      });
+    });
   }
 
   // ---------- RENDER: INTERDISTRICT ----------
@@ -2503,6 +2675,28 @@
     if(!emails.length){ alert("Aucun coordonnateur AS avec une adresse email renseignée."); return; }
     copyToClipboard(emails.join("; "), "Les adresses email des coordos AS");
   });
+  function gatherEffectifEmails(field){
+    const set = new Set();
+    Object.values(state.activiteEffectifs||{}).forEach(byEtab=>{
+      Object.values(byEtab).forEach(entry=>{
+        const profId = entry[field];
+        if(!profId) return;
+        const p = findProfById(profId);
+        if(p && p.email && p.email.trim()) set.add(p.email.trim());
+      });
+    });
+    return [...set];
+  }
+  document.getElementById("btn-copy-emails-referent").addEventListener("click", ()=>{
+    const emails = gatherEffectifEmails("referentId");
+    if(!emails.length){ alert("Aucun référent d'activité avec une adresse email renseignée (voir l'onglet Activités > Effectifs par activité)."); return; }
+    copyToClipboard(emails.join("; "), "Les adresses email des référents d'activité");
+  });
+  document.getElementById("btn-copy-emails-referent-jo").addEventListener("click", ()=>{
+    const emails = gatherEffectifEmails("referentJoId");
+    if(!emails.length){ alert("Aucun référent jeune officiel avec une adresse email renseignée (voir l'onglet Activités > Effectifs par activité)."); return; }
+    copyToClipboard(emails.join("; "), "Les adresses email des référents jeunes officiels");
+  });
 
   const isEmbedded = (function(){ try{ return window.self !== window.top; }catch(e){ return true; } })();
 
@@ -2731,7 +2925,6 @@ ${innerHtml}
     // identique à la grille de cartes visible (mêmes couleurs, mêmes badges,
     // même case cochée/décochée), sans dupliquer la logique d'affichage.
     const containerClone = document.getElementById("ag-container").cloneNode(true);
-    containerClone.querySelectorAll("input[type=checkbox]").forEach(cb=>{ cb.disabled = true; });
     const recap = document.getElementById("ag-recap").textContent;
     const body = `<p class="hint" style="text-align:center; margin:0 0 16px;">${escapeHtml(recap)}</p>${containerClone.outerHTML}`;
     return buildPrintDocument("District de Villeurbanne — AG du " + formatDateFR(current.date), body);
@@ -2878,7 +3071,10 @@ ${innerHtml}
           if(colIdx === 0) return null;
           const prof = etabs[rowIdx].profs[colIdx-1];
           if(!prof) return null;
-          return current.presences[prof.id] ? "FFDFF5E3" : "FFFBE1E1";
+          const status = current.presences[prof.id];
+          if(status === "present") return "FFDFF5E3";
+          if(status === "excuse") return "FFFCEBCB";
+          return "FFFBE1E1";
         }
       }
     ]);
@@ -3128,15 +3324,17 @@ ${innerHtml}
 
   // ---------- RENDER: AG (réunions + présence) ----------
   function recountAgRecap(ag){
-    let present = 0, total = 0;
+    let present = 0, excuse = 0, total = 0;
     state.etablissements.forEach(etab=>{
       etab.profs.forEach(p=>{
         if(p.virtual) return;
         total++;
-        if(ag.presences[p.id]) present++;
+        if(ag.presences[p.id] === "present") present++;
+        else if(ag.presences[p.id] === "excuse") excuse++;
       });
     });
-    document.getElementById("ag-recap").textContent = present + " présent" + (present>1?"s":"") + " sur " + total + " collègues.";
+    document.getElementById("ag-recap").textContent = present + " présent" + (present>1?"s":"")
+      + ", " + excuse + " excusé" + (excuse>1?"s":"") + " sur " + total + " collègues.";
   }
 
   // currentAgId : simple état d'affichage local (pas sauvegardé) — la
@@ -3186,7 +3384,8 @@ ${innerHtml}
         .sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}));
       if(!profs.length) return "";
       const profsHtml = profs.map(prof=>{
-        const present = !!current.presences[prof.id];
+        const status = current.presences[prof.id] || "absent"; // "absent" | "present" | "excuse"
+        const statusLabel = status === "present" ? "Présent" : status === "excuse" ? "Excusé" : "Absent";
         const activites = profActivitesSummary(prof);
         const badges = (prof.coordoAS || prof.coordoEPS) ? `
             <div class="ag-prof-badges">
@@ -3194,12 +3393,12 @@ ${innerHtml}
               ${prof.coordoEPS ? '<span class="badge">★ EPS</span>' : ""}
             </div>` : "";
         return `
-          <label class="ag-prof-card${present ? " is-present" : ""}">
+          <button type="button" class="ag-prof-card${status==="present" ? " is-present" : ""}${status==="excuse" ? " is-excuse" : ""}" data-ag-prof="${escapeAttr(prof.id)}" title="Cliquer pour changer : Absent → Présent → Excusé">
             <span class="ag-prof-name">${escapeHtml(prof.nom)}</span>
             ${badges}
             ${activites ? `<span class="ag-prof-meta">${escapeHtml(activites)}</span>` : ""}
-            <input type="checkbox" data-ag-prof="${escapeAttr(prof.id)}" ${present ? "checked" : ""}>
-          </label>
+            <span class="ag-status-label">${statusLabel}</span>
+          </button>
         `;
       }).join("");
       return `
@@ -3213,12 +3412,15 @@ ${innerHtml}
     }).join("");
 
     recountAgRecap(current);
-    container.querySelectorAll("[data-ag-prof]").forEach(cb=>{
-      cb.addEventListener("change", ()=>{
-        current.presences[cb.dataset.agProf] = cb.checked;
-        cb.closest(".ag-prof-card").classList.toggle("is-present", cb.checked);
+    container.querySelectorAll("[data-ag-prof]").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        const profId = btn.dataset.agProf;
+        const curStatus = current.presences[profId] || "absent";
+        const next = curStatus === "absent" ? "present" : curStatus === "present" ? "excuse" : "absent";
+        if(next === "absent") delete current.presences[profId];
+        else current.presences[profId] = next;
         saveState();
-        recountAgRecap(current);
+        renderAg();
       });
     });
   }
