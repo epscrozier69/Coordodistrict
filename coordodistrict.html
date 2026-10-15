@@ -861,7 +861,9 @@
     <form id="form-demande-recompense">
       <input type="hidden" id="demande-recompense-etab-id">
       <div class="form-row"><label>Collègue demandeur</label><select id="demande-recompense-prof"></select></div>
+      <div class="form-row"><label>Activité</label><select id="demande-recompense-activite"></select></div>
       <div class="form-row"><label>Date de la demande</label><input type="date" id="demande-recompense-date" required></div>
+      <div class="form-row"><label>Date souhaitée</label><input type="date" id="demande-recompense-date-souhaitee"></div>
       <div class="form-row"><label>Or</label><input type="number" id="demande-recompense-or" min="0" value="0"></div>
       <div class="form-row"><label>Argent</label><input type="number" id="demande-recompense-argent" min="0" value="0"></div>
       <div class="form-row"><label>Bronze</label><input type="number" id="demande-recompense-bronze" min="0" value="0"></div>
@@ -2332,7 +2334,9 @@
       const tr = document.createElement("tr");
       const historiqueDemandes = etab.recompensesDemandes.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(r=>{
         const prof = r.profId ? getProf(etab, r.profId) : null;
-        return `<div>${formatDateFR(r.date)} — Or:${r.or||0} Argent:${r.argent||0} Bronze:${r.bronze||0} Coupes:${r.coupes||0}${prof ? " ("+escapeHtml(prof.nom)+")" : ""} <button class="icon-btn" data-del-demande-recompense="${r.id}" data-etab-demande-recompense="${etab.id}" title="Supprimer">🗑</button></div>`;
+        return `<div>${formatDateFR(r.date)} — Or:${r.or||0} Argent:${r.argent||0} Bronze:${r.bronze||0} Coupes:${r.coupes||0}`
+          + `${r.activite ? " — "+escapeHtml(r.activite) : ""}${prof ? " ("+escapeHtml(prof.nom)+")" : ""}${r.dateSouhaitee ? " — souhaitée le "+formatDateFR(r.dateSouhaitee) : ""}`
+          + ` <button class="icon-btn" data-del-demande-recompense="${r.id}" data-etab-demande-recompense="${etab.id}" title="Supprimer">🗑</button></div>`;
       }
       ).join("");
       const historique = etab.recompenses.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(r=>
@@ -2409,11 +2413,21 @@
     renderAll();
   });
 
+  // Activités proposées pour une demande de récompenses : mêmes activités
+  // (standard + "Autres" saisies librement) que partout ailleurs dans l'app.
+  function activiteSelectOptionsHtml(selectedValue){
+    const activites = [...ACTIVITES.filter(a=>a!=="Autres"), ...autresTextsFor("competition")];
+    return '<option value="">— Non précisé —</option>' +
+      activites.map(a=>`<option value="${escapeAttr(a)}" ${a===selectedValue?"selected":""}>${escapeHtml(a)}</option>`).join("");
+  }
+
   function openDemandeRecompenseModal(etabId){
     const etab = getEtab(etabId);
     populateProfSelect(document.getElementById("demande-recompense-prof"), etab);
+    document.getElementById("demande-recompense-activite").innerHTML = activiteSelectOptionsHtml("");
     document.getElementById("demande-recompense-etab-id").value = etabId;
     document.getElementById("demande-recompense-date").value = new Date().toISOString().slice(0,10);
+    document.getElementById("demande-recompense-date-souhaitee").value = "";
     document.getElementById("demande-recompense-or").value = 0;
     document.getElementById("demande-recompense-argent").value = 0;
     document.getElementById("demande-recompense-bronze").value = 0;
@@ -2427,7 +2441,9 @@
     const entry = {
       id: uid(),
       profId: document.getElementById("demande-recompense-prof").value || "",
+      activite: document.getElementById("demande-recompense-activite").value || "",
       date: document.getElementById("demande-recompense-date").value,
+      dateSouhaitee: document.getElementById("demande-recompense-date-souhaitee").value || "",
       or: Number(document.getElementById("demande-recompense-or").value)||0,
       argent: Number(document.getElementById("demande-recompense-argent").value)||0,
       bronze: Number(document.getElementById("demande-recompense-bronze").value)||0,
@@ -3201,7 +3217,8 @@ ${innerHtml}
     const rows = sortedEtabs().map(etab=>{
       const demandes = etab.recompensesDemandes.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(r=>{
         const prof = r.profId ? getProf(etab, r.profId) : null;
-        return formatDateFR(r.date) + " — Or:"+(r.or||0)+" Argent:"+(r.argent||0)+" Bronze:"+(r.bronze||0)+" Coupes:"+(r.coupes||0) + (prof ? " ("+prof.nom+")" : "");
+        return formatDateFR(r.date) + " — Or:"+(r.or||0)+" Argent:"+(r.argent||0)+" Bronze:"+(r.bronze||0)+" Coupes:"+(r.coupes||0)
+          + (r.activite ? " — "+r.activite : "") + (prof ? " ("+prof.nom+")" : "") + (r.dateSouhaitee ? " — souhaitée le "+formatDateFR(r.dateSouhaitee) : "");
       }).join("\n");
       const distributions = etab.recompenses.slice().sort((a,b)=>b.date.localeCompare(a.date))
         .map(r=>formatDateFR(r.date) + " — Or:"+(r.or||0)+" Argent:"+(r.argent||0)+" Bronze:"+(r.bronze||0)+" Coupes:"+(r.coupes||0)).join("\n");
