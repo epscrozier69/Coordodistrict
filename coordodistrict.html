@@ -163,6 +163,8 @@
     background:#fbfcff; cursor:pointer; text-align:center; font-family:inherit; color:var(--text);
   }
   .ag-prof-card.is-present{ background:#eaf6ee; border-color:#3f9a5c; }
+  .ag-prof-top{ display:flex; align-items:center; gap:6px; }
+  .ag-prof-top .avatar{ width:34px; height:34px; font-size:.72rem; flex:0 0 auto; }
   .ag-prof-card.is-excuse{ background:#fff6e5; border-color:#c98a1f; }
   .ag-prof-name{ font-weight:700; font-size:.88rem; }
   .ag-prof-badges{ display:flex; flex-wrap:wrap; gap:3px; justify-content:center; }
@@ -3498,6 +3500,9 @@ ${innerHtml}
         const status = current.presences[prof.id] || "absent"; // "absent" | "present" | "excuse"
         const statusLabel = status === "present" ? "Présent" : status === "excuse" ? "Excusé" : "Absent";
         const tagsHtml = profTagsHtml(prof);
+        const avatar = prof.photo
+          ? `<img class="avatar" src="${prof.photo}" alt="${escapeAttr(prof.nom)}">`
+          : `<div class="avatar">${initials(prof.nom)}</div>`;
         const badges = (prof.coordoAS || prof.coordoEPS) ? `
             <div class="ag-prof-badges">
               ${prof.coordoAS ? '<span class="badge as">★ AS</span>' : ""}
@@ -3505,7 +3510,7 @@ ${innerHtml}
             </div>` : "";
         return `
           <button type="button" class="ag-prof-card${status==="present" ? " is-present" : ""}${status==="excuse" ? " is-excuse" : ""}" data-ag-prof="${escapeAttr(prof.id)}" title="Cliquer pour changer : Absent → Présent → Excusé">
-            <span class="ag-prof-name">${escapeHtml(prof.nom)}</span>
+            <div class="ag-prof-top">${avatar}<span class="ag-prof-name">${escapeHtml(prof.nom)}</span></div>
             ${badges}
             <div class="ag-prof-tags">${tagsHtml}</div>
             <span class="ag-status-label">${statusLabel}</span>
