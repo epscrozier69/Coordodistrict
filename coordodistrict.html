@@ -1780,8 +1780,8 @@
         const catCells = EFFECTIF_CATEGORIES.map(cat=>{
           const c = entry.categories[cat] || {effectif:0,equipes:0};
           return `
-            <td><input type="number" min="0" value="${c.effectif||0}" data-effectif-field data-act="${escapeAttr(act)}" data-etab="${escapeAttr(etab.id)}" data-cat="${cat}" data-field="effectif"></td>
-            <td><input type="number" min="0" value="${c.equipes||0}" data-effectif-field data-act="${escapeAttr(act)}" data-etab="${escapeAttr(etab.id)}" data-cat="${cat}" data-field="equipes"></td>
+            <td><input type="number" min="0" value="${c.effectif||""}" data-effectif-field data-act="${escapeAttr(act)}" data-etab="${escapeAttr(etab.id)}" data-cat="${cat}" data-field="effectif"></td>
+            <td><input type="number" min="0" value="${c.equipes||""}" data-effectif-field data-act="${escapeAttr(act)}" data-etab="${escapeAttr(etab.id)}" data-cat="${cat}" data-field="equipes"></td>
           `;
         }).join("");
         const profResponsableId = (entry.profResponsableId === null || entry.profResponsableId === undefined)
@@ -1831,6 +1831,16 @@
         const entry = getEffectifEntry(input.dataset.act, input.dataset.etab, true);
         entry.categories[input.dataset.cat][input.dataset.field] = Math.max(0, Number(input.value)||0);
         saveState();
+      });
+      // Valider avec Entrée enregistre la valeur et passe directement à la
+      // case suivante, pour saisir toute une ligne sans toucher la souris.
+      input.addEventListener("keydown", e=>{
+        if(e.key !== "Enter") return;
+        e.preventDefault();
+        const table = input.closest("table");
+        const fields = [...table.querySelectorAll("[data-effectif-field]")];
+        const next = fields[fields.indexOf(input) + 1];
+        if(next){ next.focus(); next.select(); } else input.blur();
       });
     });
     container.querySelectorAll("[data-effectif-prof]").forEach(sel=>{
