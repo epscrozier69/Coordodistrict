@@ -71,6 +71,9 @@
   .effectif-card-head{ padding:10px 12px; color:#fff; cursor:pointer; user-select:none; display:flex; align-items:center; justify-content:space-between; gap:8px; }
   .effectif-card-head h4{ margin:0; font-size:1rem; }
   .effectif-card-head .count{ font-size:.75rem; opacity:.9; }
+  .effectif-referents-row{ display:flex; flex-wrap:wrap; gap:18px; padding:10px 12px; background:#f7f9fd; border-bottom:1px solid var(--border); }
+  .effectif-referents-row label{ display:flex; flex-direction:column; gap:3px; font-size:.78rem; font-weight:600; color:var(--text); }
+  .effectif-referents-row select{ padding:5px 8px; border:1px solid var(--border); border-radius:6px; min-width:220px; }
   .effectif-table-wrap{ overflow-x:auto; }
   .effectif-table{ width:100%; border-collapse:collapse; font-size:.78rem; }
   .effectif-table th, .effectif-table td{ padding:6px 8px; border-bottom:1px solid var(--border); white-space:nowrap; }
@@ -1141,6 +1144,7 @@
     });
     if(!parsed.interdistrict) parsed.interdistrict = {};
     if(!parsed.activiteEffectifs) parsed.activiteEffectifs = {};
+    if(!parsed.activiteReferents) parsed.activiteReferents = {};
     return parsed;
   }
 
@@ -1716,7 +1720,7 @@
   }
 
   // ---------- RENDER: EFFECTIFS PAR ACTIVITE (compétition) ----------
-  const EFFECTIF_CATEGORIES = ["BG","BF","MG","MF"];
+  const EFFECTIF_CATEGORIES = ["BF","BG","MF","MG"];
   function findProfById(profId){
     for(const etab of state.etablissements){
       const p = etab.profs.find(x=>x.id===profId);
@@ -1752,11 +1756,28 @@
         // profResponsableId: null = jamais choisi manuellement (le collègue
         // qui pratique l'activité en compétition est proposé par défaut,
         // sans être enregistré) ; "" = explicitement remis à "Non précisé".
-        profResponsableId: null, referentId: "", referentJoId: "",
-        categories: { BG:{effectif:0,equipes:0}, BF:{effectif:0,equipes:0}, MG:{effectif:0,equipes:0}, MF:{effectif:0,equipes:0} }
+        profResponsableId: null,
+        categories: { BF:{effectif:0,equipes:0}, BG:{effectif:0,equipes:0}, MF:{effectif:0,equipes:0}, MG:{effectif:0,equipes:0} }
       };
     }
     return state.activiteEffectifs[act][etabId];
+  }
+  // Un seul référent et un seul référent jeune officiel par ACTIVITÉ (pas un
+  // par établissement) : stockés séparément des effectifs par établissement.
+  function getActiviteReferents(act, create){
+    if(!state.activiteReferents[act]){
+      if(!create) return { referentId:"", referentJoId:"" };
+      state.activiteReferents[act] = { referentId:"", referentJoId:"" };
+    }
+    return state.activiteReferents[act];
+  }
+  function profOptionsAcrossEtabsHtml(etabs, selectedId){
+    const options = [];
+    etabs.forEach(etab=>{
+      etab.profs.filter(p=>!p.virtual).sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}))
+        .forEach(p=>options.push(`<option value="${escapeAttr(p.id)}" ${p.id===selectedId?"selected":""}>${escapeHtml(p.nom)} — ${escapeHtml(etab.nom)}</option>`));
+    });
+    return '<option value="">— Non précisé —</option>' + options.join("");
   }
   let expandedEffectifActs = new Set();
   function renderEffectifs(){
@@ -1772,10 +1793,11 @@
       const etabs = competitionEtabsAny(act);
       const color = `var(--${PALETTE[i % PALETTE.length]})`;
       const expanded = expandedEffectifActs.has(act);
+      const referents = getActiviteReferents(act, false);
       const rowsHtml = etabs.map(etab=>{
         const entry = getEffectifEntry(act, etab.id, false) || {
-          profResponsableId:null, referentId:"", referentJoId:"",
-          categories: { BG:{effectif:0,equipes:0}, BF:{effectif:0,equipes:0}, MG:{effectif:0,equipes:0}, MF:{effectif:0,equipes:0} }
+          profResponsableId:null,
+          categories: { BF:{effectif:0,equipes:0}, BG:{effectif:0,equipes:0}, MF:{effectif:0,equipes:0}, MG:{effectif:0,equipes:0} }
         };
         const catCells = EFFECTIF_CATEGORIES.map(cat=>{
           const c = entry.categories[cat] || {effectif:0,equipes:0};
@@ -1791,8 +1813,6 @@
             <td><strong>${escapeHtml(etab.nom)}</strong></td>
             <td><select data-effectif-prof data-act="${escapeAttr(act)}" data-etab="${escapeAttr(etab.id)}">${profOptionsHtml(etab, profResponsableId)}</select></td>
             ${catCells}
-            <td><select data-effectif-referent data-act="${escapeAttr(act)}" data-etab="${escapeAttr(etab.id)}">${profOptionsHtml(etab, entry.referentId)}</select></td>
-            <td><select data-effectif-referent-jo data-act="${escapeAttr(act)}" data-etab="${escapeAttr(etab.id)}">${profOptionsHtml(etab, entry.referentJoId)}</select></td>
           </tr>
         `;
       }).join("");
@@ -1805,10 +1825,18 @@
             <div class="count">${etabs.length} collège${etabs.length>1?"s":""}</div>
           </div>
           ${expanded ? `
+          <div class="effectif-referents-row">
+            <label>Référent d'activité
+              <select data-effectif-referent-activite data-act="${escapeAttr(act)}">${profOptionsAcrossEtabsHtml(etabs, referents.referentId)}</select>
+            </label>
+            <label>Référent jeune officiel
+              <select data-effectif-referent-jo-activite data-act="${escapeAttr(act)}">${profOptionsAcrossEtabsHtml(etabs, referents.referentJoId)}</select>
+            </label>
+          </div>
           <div class="effectif-table-wrap">
             <table class="effectif-table">
               <thead>
-                <tr><th rowspan="2">Établissement</th><th rowspan="2">Prof. responsable</th>${catHeaders}<th rowspan="2">Référent</th><th rowspan="2">Référent JO</th></tr>
+                <tr><th rowspan="2">Établissement</th><th rowspan="2">Prof. responsable</th>${catHeaders}</tr>
                 <tr>${catSubHeaders}</tr>
               </thead>
               <tbody>${rowsHtml}</tbody>
@@ -1850,17 +1878,15 @@
         saveState();
       });
     });
-    container.querySelectorAll("[data-effectif-referent]").forEach(sel=>{
+    container.querySelectorAll("[data-effectif-referent-activite]").forEach(sel=>{
       sel.addEventListener("change", ()=>{
-        const entry = getEffectifEntry(sel.dataset.act, sel.dataset.etab, true);
-        entry.referentId = sel.value;
+        getActiviteReferents(sel.dataset.act, true).referentId = sel.value;
         saveState();
       });
     });
-    container.querySelectorAll("[data-effectif-referent-jo]").forEach(sel=>{
+    container.querySelectorAll("[data-effectif-referent-jo-activite]").forEach(sel=>{
       sel.addEventListener("change", ()=>{
-        const entry = getEffectifEntry(sel.dataset.act, sel.dataset.etab, true);
-        entry.referentJoId = sel.value;
+        getActiviteReferents(sel.dataset.act, true).referentJoId = sel.value;
         saveState();
       });
     });
@@ -2717,13 +2743,11 @@
   });
   function gatherEffectifEmails(field){
     const set = new Set();
-    Object.values(state.activiteEffectifs||{}).forEach(byEtab=>{
-      Object.values(byEtab).forEach(entry=>{
-        const profId = entry[field];
-        if(!profId) return;
-        const p = findProfById(profId);
-        if(p && p.email && p.email.trim()) set.add(p.email.trim());
-      });
+    Object.values(state.activiteReferents||{}).forEach(entry=>{
+      const profId = entry[field];
+      if(!profId) return;
+      const p = findProfById(profId);
+      if(p && p.email && p.email.trim()) set.add(p.email.trim());
     });
     return [...set];
   }
@@ -3217,27 +3241,33 @@ ${innerHtml}
       const profResponsableId = entry && entry.profResponsableId !== null && entry.profResponsableId !== undefined
         ? entry.profResponsableId : defaultResponsableId(act, etab);
       const profResponsable = profResponsableId ? findProfById(profResponsableId) : null;
-      const referent = entry && entry.referentId ? findProfById(entry.referentId) : null;
-      const referentJo = entry && entry.referentJoId ? findProfById(entry.referentJoId) : null;
       const cats = EFFECTIF_CATEGORIES.map(cat=>{
         const c = (entry && entry.categories && entry.categories[cat]) || {effectif:0,equipes:0};
         return [c.effectif||0, c.equipes||0];
       });
-      return { etab, profResponsable, referent, referentJo, cats };
+      return { etab, profResponsable, cats };
     });
+  }
+  // Référent et référent JO : une seule valeur pour toute l'activité (voir
+  // getActiviteReferents), affichée une fois par activité dans les exports.
+  function effectifReferentsFor(act){
+    const r = getActiviteReferents(act, false);
+    return {
+      referent: r.referentId ? findProfById(r.referentId) : null,
+      referentJo: r.referentJoId ? findProfById(r.referentJoId) : null
+    };
   }
   function exportEffectifsExcel(){
     const activites = effectifsActivitesConcernees();
     if(!activites.length){ alert("Aucune activité en compétition pour le moment."); return; }
-    const header = ["Activité","Établissement","Prof. responsable"];
+    const header = ["Activité","Référent","Référent JO","Établissement","Prof. responsable"];
     EFFECTIF_CATEGORIES.forEach(cat=>{ header.push("Effectif "+cat, "Équipes "+cat); });
-    header.push("Référent","Référent JO");
     const rows = [];
     activites.forEach(act=>{
+      const { referent, referentJo } = effectifReferentsFor(act);
       effectifRowsFor(act).forEach(r=>{
-        const row = [act, r.etab.nom, r.profResponsable ? r.profResponsable.nom : ""];
+        const row = [act, referent ? referent.nom : "", referentJo ? referentJo.nom : "", r.etab.nom, r.profResponsable ? r.profResponsable.nom : ""];
         r.cats.forEach(c=>{ row.push(c[0], c[1]); });
-        row.push(r.referent ? r.referent.nom : "", r.referentJo ? r.referentJo.nom : "");
         rows.push(row);
       });
     });
@@ -3252,6 +3282,7 @@ ${innerHtml}
     const body = activites.map((act,i)=>{
       const color = `var(--${PALETTE[i % PALETTE.length]})`;
       const rows = effectifRowsFor(act);
+      const { referent, referentJo } = effectifReferentsFor(act);
       const catHeaders = EFFECTIF_CATEGORIES.map(cat=>`<th colspan="2">${cat}</th>`).join("");
       const catSubHeaders = EFFECTIF_CATEGORIES.map(()=>`<th>Effectif</th><th>Équipes</th>`).join("");
       const rowsHtml = rows.map(r=>{
@@ -3260,17 +3291,16 @@ ${innerHtml}
           <td>${escapeHtml(r.etab.nom)}</td>
           <td>${r.profResponsable ? escapeHtml(r.profResponsable.nom) : "—"}</td>
           ${catCells}
-          <td>${r.referent ? escapeHtml(r.referent.nom) : "—"}</td>
-          <td>${r.referentJo ? escapeHtml(r.referentJo.nom) : "—"}</td>
         </tr>`;
       }).join("");
       return `
         <div class="effectif-card" style="page-break-inside:avoid; margin-bottom:14px;">
           <div class="effectif-card-head" style="background:${color};"><h4>${escapeHtml(act)}</h4></div>
+          <p class="hint" style="padding:6px 12px; margin:0;">Référent : ${referent ? escapeHtml(referent.nom) : "—"} — Référent JO : ${referentJo ? escapeHtml(referentJo.nom) : "—"}</p>
           <div class="effectif-table-wrap">
             <table class="effectif-table">
               <thead>
-                <tr><th rowspan="2">Établissement</th><th rowspan="2">Prof. responsable</th>${catHeaders}<th rowspan="2">Référent</th><th rowspan="2">Référent JO</th></tr>
+                <tr><th rowspan="2">Établissement</th><th rowspan="2">Prof. responsable</th>${catHeaders}</tr>
                 <tr>${catSubHeaders}</tr>
               </thead>
               <tbody>${rowsHtml}</tbody>
