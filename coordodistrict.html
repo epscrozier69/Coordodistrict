@@ -750,6 +750,27 @@
   </div>
 </div>
 
+<!-- MODAL AJOUT LIGNE MANUELLE (Effectifs par activité) -->
+<div class="modal-overlay hidden" id="modal-overlay-add-manual-effectif">
+  <div class="modal">
+    <h3>Ajouter un établissement manuel</h3>
+    <p class="hint">Pour un établissement (et son collègue) absent de votre annuaire, afin de renseigner ses effectifs pour cette activité.</p>
+    <input type="hidden" id="add-manual-effectif-act">
+    <div class="form-row">
+      <label for="add-manual-effectif-etab">Nom de l'établissement</label>
+      <input type="text" id="add-manual-effectif-etab" placeholder="Ex: Collège Jean Moulin">
+    </div>
+    <div class="form-row">
+      <label for="add-manual-effectif-prof">Nom du collègue</label>
+      <input type="text" id="add-manual-effectif-prof" placeholder="Ex: Dupont Marie">
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="secondary" data-close="modal-overlay-add-manual-effectif">Annuler</button>
+      <button type="button" id="btn-add-manual-effectif-confirm">Ajouter</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL CONTACT PAR ACTIVITE -->
 <div class="modal-overlay hidden" id="modal-overlay-contact-activite">
   <div class="modal">
@@ -1147,6 +1168,7 @@
     if(!parsed.interdistrict) parsed.interdistrict = {};
     if(!parsed.activiteEffectifs) parsed.activiteEffectifs = {};
     if(!parsed.activiteReferents) parsed.activiteReferents = {};
+    if(!parsed.activiteEffectifsManuels) parsed.activiteEffectifsManuels = {};
     return parsed;
   }
 
@@ -1759,6 +1781,10 @@
         // qui pratique l'activité en compétition est proposé par défaut,
         // sans être enregistré) ; "" = explicitement remis à "Non précisé".
         profResponsableId: null,
+        // 2e responsable, optionnel : un autre collègue du même établissement
+        // en charge d'une seule catégorie (ex: sports collectifs où deux
+        // enseignants se répartissent les catégories).
+        secondResponsableId: "", secondResponsableCat: "",
         categories: { BF:{effectif:0,equipes:0}, BG:{effectif:0,equipes:0}, MF:{effectif:0,equipes:0}, MG:{effectif:0,equipes:0} }
       };
     }
@@ -1781,6 +1807,15 @@
     });
     return '<option value="">— Non précisé —</option>' + options.join("");
   }
+  // Lignes ajoutées manuellement dans Effectifs par activité, pour un
+  // établissement (et son collègue) absent de l'annuaire — ex: futsal
+  // féminin avec un établissement d'un autre district. Le nom de
+  // l'établissement et du collègue sont en texte libre ; les effectifs
+  // réutilisent le mécanisme habituel (getEffectifEntry) avec l'id de la
+  // ligne manuelle comme clé, pas besoin d'une structure séparée pour eux.
+  function getManualEffectifRows(act){
+    return (state.activiteEffectifsManuels[act]) || [];
+  }
   let expandedEffectifActs = new Set();
   function renderEffectifs(){
     const container = document.getElementById("effectifs-container");
@@ -1796,9 +1831,11 @@
       const color = `var(--${PALETTE[i % PALETTE.length]})`;
       const expanded = expandedEffectifActs.has(act);
       const referents = getActiviteReferents(act, false);
+      const secondCatOptionsHtml = selectedCat => '<option value="">—</option>' +
+        EFFECTIF_CATEGORIES.map(cat=>`<option value="${cat}" ${cat===selectedCat?"selected":""}>${cat}</option>`).join("");
       const rowsHtml = etabs.map(etab=>{
         const entry = getEffectifEntry(act, etab.id, false) || {
-          profResponsableId:null,
+          profResponsableId:null, secondResponsableId:"", secondResponsableCat:"",
           categories: { BF:{effectif:0,equipes:0}, BG:{effectif:0,equipes:0}, MF:{effectif:0,equipes:0}, MG:{effectif:0,equipes:0} }
         };
         const catCells = EFFECTIF_CATEGORIES.map(cat=>{
@@ -1814,6 +1851,26 @@
           <tr>
             <td><strong>${escapeHtml(etab.nom)}</strong></td>
             <td><select data-effectif-prof data-act="${escapeAttr(act)}" data-etab="${escapeAttr(etab.id)}">${profOptionsHtml(etab, profResponsableId)}</select></td>
+            <td><select data-effectif-second-prof data-act="${escapeAttr(act)}" data-etab="${escapeAttr(etab.id)}">${profOptionsHtml(etab, entry.secondResponsableId)}</select></td>
+            <td><select data-effectif-second-cat data-act="${escapeAttr(act)}" data-etab="${escapeAttr(etab.id)}">${secondCatOptionsHtml(entry.secondResponsableCat)}</select></td>
+            ${catCells}
+          </tr>
+        `;
+      }).join("") + getManualEffectifRows(act).map(m=>{
+        const entry = getEffectifEntry(act, m.id, false) || { categories: { BF:{effectif:0,equipes:0}, BG:{effectif:0,equipes:0}, MF:{effectif:0,equipes:0}, MG:{effectif:0,equipes:0} } };
+        const catCells = EFFECTIF_CATEGORIES.map(cat=>{
+          const c = entry.categories[cat] || {effectif:0,equipes:0};
+          return `
+            <td><input type="number" min="0" value="${c.effectif||""}" data-effectif-field data-act="${escapeAttr(act)}" data-etab="${escapeAttr(m.id)}" data-cat="${cat}" data-field="effectif"></td>
+            <td><input type="number" min="0" value="${c.equipes||""}" data-effectif-field data-act="${escapeAttr(act)}" data-etab="${escapeAttr(m.id)}" data-cat="${cat}" data-field="equipes"></td>
+          `;
+        }).join("");
+        return `
+          <tr class="effectif-row-manual">
+            <td><strong>${escapeHtml(m.etabNom)}</strong> 🌐</td>
+            <td>${escapeHtml(m.profNom || "— Non précisé —")} <button type="button" class="icon-btn" data-effectif-remove-manual data-act="${escapeAttr(act)}" data-row="${escapeAttr(m.id)}" title="Retirer cette ligne">✕</button></td>
+            <td>—</td>
+            <td>—</td>
             ${catCells}
           </tr>
         `;
@@ -1824,7 +1881,7 @@
         <div class="effectif-card"${expanded ? ` style="grid-column:1 / -1;"` : ""}>
           <div class="effectif-card-head" style="background:${color};" data-effectif-toggle="${escapeAttr(act)}">
             <h4><span class="collapse-chevron">${expanded?"▾":"▸"}</span> ${escapeHtml(act)}</h4>
-            <div class="count">${etabs.length} collège${etabs.length>1?"s":""}</div>
+            <div class="count">${etabs.length + getManualEffectifRows(act).length} collège${(etabs.length + getManualEffectifRows(act).length)>1?"s":""}</div>
           </div>
           ${expanded ? `
           <div class="effectif-referents-row">
@@ -1838,11 +1895,14 @@
           <div class="effectif-table-wrap">
             <table class="effectif-table">
               <thead>
-                <tr><th rowspan="2">Établissement</th><th rowspan="2">Prof. responsable</th>${catHeaders}</tr>
+                <tr><th rowspan="2">Établissement</th><th rowspan="2">Prof. responsable</th><th rowspan="2">2<sup>e</sup> responsable</th><th rowspan="2">Catégorie</th>${catHeaders}</tr>
                 <tr>${catSubHeaders}</tr>
               </thead>
               <tbody>${rowsHtml}</tbody>
             </table>
+          </div>
+          <div style="padding:8px 12px;">
+            <button type="button" class="secondary" data-effectif-add-manual="${escapeAttr(act)}">➕ Ajouter un établissement manuel</button>
           </div>` : ""}
         </div>
       `;
@@ -1880,6 +1940,20 @@
         saveState();
       });
     });
+    container.querySelectorAll("[data-effectif-second-prof]").forEach(sel=>{
+      sel.addEventListener("change", ()=>{
+        const entry = getEffectifEntry(sel.dataset.act, sel.dataset.etab, true);
+        entry.secondResponsableId = sel.value;
+        saveState();
+      });
+    });
+    container.querySelectorAll("[data-effectif-second-cat]").forEach(sel=>{
+      sel.addEventListener("change", ()=>{
+        const entry = getEffectifEntry(sel.dataset.act, sel.dataset.etab, true);
+        entry.secondResponsableCat = sel.value;
+        saveState();
+      });
+    });
     container.querySelectorAll("[data-effectif-referent-activite]").forEach(sel=>{
       sel.addEventListener("change", ()=>{
         getActiviteReferents(sel.dataset.act, true).referentId = sel.value;
@@ -1892,7 +1966,37 @@
         saveState();
       });
     });
+    container.querySelectorAll("[data-effectif-add-manual]").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        document.getElementById("add-manual-effectif-act").value = btn.dataset.effectifAddManual;
+        document.getElementById("add-manual-effectif-etab").value = "";
+        document.getElementById("add-manual-effectif-prof").value = "";
+        openModal("modal-overlay-add-manual-effectif");
+      });
+    });
+    container.querySelectorAll("[data-effectif-remove-manual]").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        const act = btn.dataset.act, rowId = btn.dataset.row;
+        if(state.activiteEffectifsManuels[act]){
+          state.activiteEffectifsManuels[act] = state.activiteEffectifsManuels[act].filter(m=>m.id!==rowId);
+        }
+        if(state.activiteEffectifs[act]) delete state.activiteEffectifs[act][rowId];
+        saveState();
+        renderEffectifs();
+      });
+    });
   }
+  document.getElementById("btn-add-manual-effectif-confirm").addEventListener("click", ()=>{
+    const act = document.getElementById("add-manual-effectif-act").value;
+    const etabNom = document.getElementById("add-manual-effectif-etab").value.trim();
+    const profNom = document.getElementById("add-manual-effectif-prof").value.trim();
+    if(!etabNom){ alert("Indiquez le nom de l'établissement."); return; }
+    if(!state.activiteEffectifsManuels[act]) state.activiteEffectifsManuels[act] = [];
+    state.activiteEffectifsManuels[act].push({ id: "manual:"+uid(), etabNom, profNom });
+    saveState();
+    renderEffectifs();
+    closeModal("modal-overlay-add-manual-effectif");
+  });
 
   // ---------- RENDER: INTERDISTRICT ----------
   // Garantit au moins 1 colonne (lieu) pour une activité, sans jamais en
@@ -3250,20 +3354,35 @@ ${innerHtml}
   // responsable que ce qui est visible sans avoir à l'enregistrer d'abord.
   function effectifsActivitesConcernees(){
     const allActKeys = [...ACTIVITES.filter(act => act !== "Autres"), ...autresTextsFor("competition")];
-    return allActKeys.filter(act => competitionEtabsAny(act).length > 0);
+    return allActKeys.filter(act => competitionEtabsAny(act).length > 0 || getManualEffectifRows(act).length > 0);
   }
   function effectifRowsFor(act){
-    return competitionEtabsAny(act).map(etab=>{
+    const real = competitionEtabsAny(act).map(etab=>{
       const entry = getEffectifEntry(act, etab.id, false);
       const profResponsableId = entry && entry.profResponsableId !== null && entry.profResponsableId !== undefined
         ? entry.profResponsableId : defaultResponsableId(act, etab);
       const profResponsable = profResponsableId ? findProfById(profResponsableId) : null;
+      const secondResponsable = entry && entry.secondResponsableId ? findProfById(entry.secondResponsableId) : null;
       const cats = EFFECTIF_CATEGORIES.map(cat=>{
         const c = (entry && entry.categories && entry.categories[cat]) || {effectif:0,equipes:0};
         return [c.effectif||0, c.equipes||0];
       });
-      return { etab, profResponsable, cats };
+      return {
+        etabNom: etab.nom, profNom: profResponsable ? profResponsable.nom : "",
+        secondProfNom: secondResponsable ? secondResponsable.nom : "",
+        secondCat: (entry && entry.secondResponsableCat) || "",
+        cats, manual:false
+      };
     });
+    const manual = getManualEffectifRows(act).map(m=>{
+      const entry = getEffectifEntry(act, m.id, false);
+      const cats = EFFECTIF_CATEGORIES.map(cat=>{
+        const c = (entry && entry.categories && entry.categories[cat]) || {effectif:0,equipes:0};
+        return [c.effectif||0, c.equipes||0];
+      });
+      return { etabNom: m.etabNom, profNom: m.profNom||"", secondProfNom:"", secondCat:"", cats, manual:true };
+    });
+    return [...real, ...manual];
   }
   // Référent et référent JO : une seule valeur pour toute l'activité (voir
   // getActiviteReferents), affichée une fois par activité dans les exports.
@@ -3277,13 +3396,13 @@ ${innerHtml}
   function exportEffectifsExcel(){
     const activites = effectifsActivitesConcernees();
     if(!activites.length){ alert("Aucune activité en compétition pour le moment."); return; }
-    const header = ["Activité","Référent","Référent JO","Établissement","Prof. responsable"];
+    const header = ["Activité","Référent","Référent JO","Établissement","Prof. responsable","2e responsable","Catégorie (2e responsable)"];
     EFFECTIF_CATEGORIES.forEach(cat=>{ header.push("Effectif "+cat, "Équipes "+cat); });
     const rows = [];
     activites.forEach(act=>{
       const { referent, referentJo } = effectifReferentsFor(act);
       effectifRowsFor(act).forEach(r=>{
-        const row = [act, referent ? referent.nom : "", referentJo ? referentJo.nom : "", r.etab.nom, r.profResponsable ? r.profResponsable.nom : ""];
+        const row = [act, referent ? referent.nom : "", referentJo ? referentJo.nom : "", r.etabNom, r.profNom, r.secondProfNom, r.secondCat];
         r.cats.forEach(c=>{ row.push(c[0], c[1]); });
         rows.push(row);
       });
@@ -3305,8 +3424,10 @@ ${innerHtml}
       const rowsHtml = rows.map(r=>{
         const catCells = r.cats.map(c=>`<td>${c[0]}</td><td>${c[1]}</td>`).join("");
         return `<tr>
-          <td>${escapeHtml(r.etab.nom)}</td>
-          <td>${r.profResponsable ? escapeHtml(r.profResponsable.nom) : "—"}</td>
+          <td>${escapeHtml(r.etabNom)}${r.manual ? " 🌐" : ""}</td>
+          <td>${r.profNom ? escapeHtml(r.profNom) : "—"}</td>
+          <td>${r.secondProfNom ? escapeHtml(r.secondProfNom) : "—"}</td>
+          <td>${r.secondCat || "—"}</td>
           ${catCells}
         </tr>`;
       }).join("");
@@ -3317,7 +3438,7 @@ ${innerHtml}
           <div class="effectif-table-wrap">
             <table class="effectif-table">
               <thead>
-                <tr><th rowspan="2">Établissement</th><th rowspan="2">Prof. responsable</th>${catHeaders}</tr>
+                <tr><th rowspan="2">Établissement</th><th rowspan="2">Prof. responsable</th><th rowspan="2">2e responsable</th><th rowspan="2">Catégorie</th>${catHeaders}</tr>
                 <tr>${catSubHeaders}</tr>
               </thead>
               <tbody>${rowsHtml}</tbody>
