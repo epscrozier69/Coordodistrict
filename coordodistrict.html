@@ -2588,25 +2588,33 @@
     return '<option value="">— Choisir —</option>' +
       activites.map(a=>`<option value="${escapeAttr(a)}" ${a===selectedValue?"selected":""}>${escapeHtml(a)}</option>`).join("");
   }
-  // Collègues (tous établissements confondus) qui pratiquent cette activité
-  // en compétition, pour le choix du demandeur dans la demande de récompenses.
+  function findProfEtab(profId){
+    return state.etablissements.find(etab=>etab.profs.some(p=>p.id===profId)) || null;
+  }
+  // Collègues proposés : ceux qui pratiquent l'activité en compétition, plus
+  // le référent d'activité (Effectifs par activité) s'il est précisé — même
+  // s'il n'est pas lui-même compétiteur sur cette activité.
   function profsForActiviteOptionsHtml(act, selectedId){
     const isStandard = ACTIVITES.includes(act) && act !== "Autres";
     const list = [];
+    const seen = new Set();
     sortedEtabs().forEach(etab=>{
       etab.profs.filter(p=>!p.virtual).forEach(p=>{
         const comp = p.activitesCompetition || [];
         const matches = isStandard ? comp.includes(act) : (comp.includes("Autres") && p.autreCompetitionPrecision === act);
-        if(matches) list.push({ p, etab });
+        if(matches){ list.push({ p, etab }); seen.add(p.id); }
       });
     });
+    const referentId = (state.activiteReferents[act] && state.activiteReferents[act].referentId) || "";
+    if(referentId && !seen.has(referentId)){
+      const refEtab = findProfEtab(referentId);
+      const refProf = refEtab ? refEtab.profs.find(p=>p.id===referentId) : null;
+      if(refProf) list.push({ p: refProf, etab: refEtab });
+    }
     list.sort((a,b)=>a.p.nom.localeCompare(b.p.nom,"fr",{sensitivity:"base"}));
     if(!list.length) return '<option value="">— Aucun collègue ne pratique cette activité en compétition —</option>';
     return '<option value="">— Choisir —</option>' +
       list.map(({p,etab})=>`<option value="${escapeAttr(p.id)}" ${p.id===selectedId?"selected":""}>${escapeHtml(p.nom)} — ${escapeHtml(etab.nom)}</option>`).join("");
-  }
-  function findProfEtab(profId){
-    return state.etablissements.find(etab=>etab.profs.some(p=>p.id===profId)) || null;
   }
 
   function openDemandeRecompenseModal(){
