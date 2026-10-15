@@ -530,6 +530,7 @@
       <h2>Gestion des récompenses</h2>
       <p class="hint">Stock initial : 80 ors, 103 argents, 60 bronzes, 3 coupes</p>
       <div class="actions">
+        <button id="btn-demande-recompense-global" class="secondary">+ Demande</button>
         <button id="btn-recharge-recompenses" class="secondary">🔋 Recharger le stock</button>
         <button id="btn-recompenses-export-pdf" class="secondary">📄 Export PDF</button>
         <button id="btn-recompenses-export-excel" class="secondary">📊 Export Excel</button>
@@ -911,9 +912,8 @@
   <div class="modal">
     <h3>Ajouter une demande de récompenses</h3>
     <form id="form-demande-recompense">
-      <input type="hidden" id="demande-recompense-etab-id">
-      <div class="form-row"><label>Collègue demandeur</label><select id="demande-recompense-prof"></select></div>
       <div class="form-row"><label>Activité</label><select id="demande-recompense-activite"></select></div>
+      <div class="form-row"><label>Collègue demandeur</label><select id="demande-recompense-prof"><option value="">— Choisissez d'abord une activité —</option></select></div>
       <div class="form-row"><label>Date de la demande</label><input type="date" id="demande-recompense-date" required></div>
       <div class="form-row"><label>Date souhaitée</label><input type="date" id="demande-recompense-date-souhaitee"></div>
       <div class="form-row"><label>Or</label><input type="text" id="demande-recompense-or" placeholder="nombre ou précision"></div>
@@ -2514,7 +2514,6 @@
         <td>${historiqueDemandes||"—"}</td>
         <td>${historique||"—"}</td>
         <td>
-          <button class="small" data-add-demande-recompense="${etab.id}">+ Demande</button>
           <button class="small" data-add-recompense="${etab.id}">+ Distribution</button>
         </td>
       `;
@@ -2530,9 +2529,6 @@
         etab.recompenses = etab.recompenses.filter(r=>r.id!==btn.dataset.delRecompense);
         saveState(); renderAll();
       });
-    });
-    tbody.querySelectorAll("[data-add-demande-recompense]").forEach(btn=>{
-      btn.addEventListener("click", ()=>openDemandeRecompenseModal(btn.dataset.addDemandeRecompense));
     });
     tbody.querySelectorAll("[data-del-demande-recompense]").forEach(btn=>{
       btn.addEventListener("click", ()=>{
@@ -2584,18 +2580,38 @@
   });
 
   // Activités proposées pour une demande de récompenses : mêmes activités
-  // (standard + "Autres" saisies librement) que partout ailleurs dans l'app.
+  // (standard + "Autres" saisies librement) que partout ailleurs dans l'app,
+  // classées par ordre alphabétique.
   function activiteSelectOptionsHtml(selectedValue){
-    const activites = [...ACTIVITES.filter(a=>a!=="Autres"), ...autresTextsFor("competition")];
-    return '<option value="">— Non précisé —</option>' +
+    const activites = [...ACTIVITES.filter(a=>a!=="Autres"), ...autresTextsFor("competition")]
+      .sort((a,b)=>a.localeCompare(b,"fr",{sensitivity:"base"}));
+    return '<option value="">— Choisir —</option>' +
       activites.map(a=>`<option value="${escapeAttr(a)}" ${a===selectedValue?"selected":""}>${escapeHtml(a)}</option>`).join("");
   }
+  // Collègues (tous établissements confondus) qui pratiquent cette activité
+  // en compétition, pour le choix du demandeur dans la demande de récompenses.
+  function profsForActiviteOptionsHtml(act, selectedId){
+    const isStandard = ACTIVITES.includes(act) && act !== "Autres";
+    const list = [];
+    sortedEtabs().forEach(etab=>{
+      etab.profs.filter(p=>!p.virtual).forEach(p=>{
+        const comp = p.activitesCompetition || [];
+        const matches = isStandard ? comp.includes(act) : (comp.includes("Autres") && p.autreCompetitionPrecision === act);
+        if(matches) list.push({ p, etab });
+      });
+    });
+    list.sort((a,b)=>a.p.nom.localeCompare(b.p.nom,"fr",{sensitivity:"base"}));
+    if(!list.length) return '<option value="">— Aucun collègue ne pratique cette activité en compétition —</option>';
+    return '<option value="">— Choisir —</option>' +
+      list.map(({p,etab})=>`<option value="${escapeAttr(p.id)}" ${p.id===selectedId?"selected":""}>${escapeHtml(p.nom)} — ${escapeHtml(etab.nom)}</option>`).join("");
+  }
+  function findProfEtab(profId){
+    return state.etablissements.find(etab=>etab.profs.some(p=>p.id===profId)) || null;
+  }
 
-  function openDemandeRecompenseModal(etabId){
-    const etab = getEtab(etabId);
-    populateProfSelect(document.getElementById("demande-recompense-prof"), etab);
+  function openDemandeRecompenseModal(){
     document.getElementById("demande-recompense-activite").innerHTML = activiteSelectOptionsHtml("");
-    document.getElementById("demande-recompense-etab-id").value = etabId;
+    document.getElementById("demande-recompense-prof").innerHTML = '<option value="">— Choisissez d\'abord une activité —</option>';
     document.getElementById("demande-recompense-date").value = new Date().toISOString().slice(0,10);
     document.getElementById("demande-recompense-date-souhaitee").value = "";
     document.getElementById("demande-recompense-or").value = "";
@@ -2604,18 +2620,29 @@
     document.getElementById("demande-recompense-coupes").value = "";
     openModal("modal-overlay-demande-recompense");
   }
+  document.getElementById("btn-demande-recompense-global").addEventListener("click", openDemandeRecompenseModal);
+  document.getElementById("demande-recompense-activite").addEventListener("change", function(){
+    document.getElementById("demande-recompense-prof").innerHTML = this.value
+      ? profsForActiviteOptionsHtml(this.value, "")
+      : '<option value="">— Choisissez d\'abord une activité —</option>';
+  });
 
   document.getElementById("form-demande-recompense").addEventListener("submit", e=>{
     e.preventDefault();
-    const etab = getEtab(document.getElementById("demande-recompense-etab-id").value);
+    const activite = document.getElementById("demande-recompense-activite").value;
+    const profId = document.getElementById("demande-recompense-prof").value;
+    if(!activite){ alert("Choisissez l'activité concernée."); return; }
+    if(!profId){ alert("Choisissez le collègue demandeur."); return; }
+    const etab = findProfEtab(profId);
+    if(!etab){ alert("Collègue introuvable."); return; }
     // Or/Argent/Bronze/Coupes en saisie libre (nombre ou précision textuelle,
     // ex: "2 SS") : ces quantités de demande sont purement informatives et
     // n'entrent pas dans le calcul du stock (seules les distributions le
     // font, via le modal "+ Distribution" qui reste numérique).
     const entry = {
       id: uid(),
-      profId: document.getElementById("demande-recompense-prof").value || "",
-      activite: document.getElementById("demande-recompense-activite").value || "",
+      profId,
+      activite,
       date: document.getElementById("demande-recompense-date").value,
       dateSouhaitee: document.getElementById("demande-recompense-date-souhaitee").value || "",
       or: document.getElementById("demande-recompense-or").value.trim(),
@@ -2624,7 +2651,7 @@
       coupes: document.getElementById("demande-recompense-coupes").value.trim()
     };
     if(!entry.or && !entry.argent && !entry.bronze && !entry.coupes){
-      alert("Indiquez au moins une quantité supérieure à 0.");
+      alert("Indiquez au moins une quantité.");
       return;
     }
     etab.recompensesDemandes.push(entry);
