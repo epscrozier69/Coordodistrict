@@ -79,6 +79,9 @@
   .effectif-table th, .effectif-table td{ padding:6px 8px; border-bottom:1px solid var(--border); white-space:nowrap; }
   .effectif-table thead th{ background:#f3f5fb; text-align:left; color:var(--text); text-transform:none; }
   .effectif-table input[type=number]{ width:48px; padding:3px 4px; border:1px solid var(--border); border-radius:5px; text-align:center; }
+  .effectif-table .effectif-equipes-input{ width:60px; padding:3px 4px; border:1px solid var(--border); border-radius:5px; text-align:center; }
+  .effectif-second-badge{ display:inline-flex; align-items:center; gap:4px; font-size:.68rem; font-weight:600; color:var(--muted); background:#eef1fa; border-radius:10px; padding:2px 6px; margin-left:4px; }
+  .effectif-second-badge .icon-btn{ width:16px; height:16px; font-size:.6rem; }
   .effectif-table select{ padding:3px 4px; border:1px solid var(--border); border-radius:5px; max-width:140px; }
   .profs-meta-row{
     display:flex; align-items:flex-start; justify-content:space-between;
@@ -771,6 +774,34 @@
   </div>
 </div>
 
+<!-- MODAL AJOUT 2e RESPONSABLE (Effectifs par activité) -->
+<div class="modal-overlay hidden" id="modal-overlay-add-second-responsable">
+  <div class="modal">
+    <h3>Ajouter un 2e responsable</h3>
+    <p class="hint">Pour un collègue du même établissement en charge d'une catégorie en particulier (ex: sports collectifs).</p>
+    <input type="hidden" id="add-second-responsable-act">
+    <input type="hidden" id="add-second-responsable-etab">
+    <div class="form-row">
+      <label for="add-second-responsable-prof">Collègue</label>
+      <select id="add-second-responsable-prof"></select>
+    </div>
+    <div class="form-row">
+      <label for="add-second-responsable-cat">Catégorie</label>
+      <select id="add-second-responsable-cat">
+        <option value="">— Choisir —</option>
+        <option value="BF">BF</option>
+        <option value="BG">BG</option>
+        <option value="MF">MF</option>
+        <option value="MG">MG</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="secondary" data-close="modal-overlay-add-second-responsable">Annuler</button>
+      <button type="button" id="btn-add-second-responsable-confirm">Ajouter</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL CONTACT PAR ACTIVITE -->
 <div class="modal-overlay hidden" id="modal-overlay-contact-activite">
   <div class="modal">
@@ -885,10 +916,10 @@
       <div class="form-row"><label>Activité</label><select id="demande-recompense-activite"></select></div>
       <div class="form-row"><label>Date de la demande</label><input type="date" id="demande-recompense-date" required></div>
       <div class="form-row"><label>Date souhaitée</label><input type="date" id="demande-recompense-date-souhaitee"></div>
-      <div class="form-row"><label>Or</label><input type="number" id="demande-recompense-or" min="0" value="0"></div>
-      <div class="form-row"><label>Argent</label><input type="number" id="demande-recompense-argent" min="0" value="0"></div>
-      <div class="form-row"><label>Bronze</label><input type="number" id="demande-recompense-bronze" min="0" value="0"></div>
-      <div class="form-row"><label>Coupes</label><input type="number" id="demande-recompense-coupes" min="0" value="0"></div>
+      <div class="form-row"><label>Or</label><input type="text" id="demande-recompense-or" placeholder="nombre ou précision"></div>
+      <div class="form-row"><label>Argent</label><input type="text" id="demande-recompense-argent" placeholder="nombre ou précision"></div>
+      <div class="form-row"><label>Bronze</label><input type="text" id="demande-recompense-bronze" placeholder="nombre ou précision"></div>
+      <div class="form-row"><label>Coupes</label><input type="text" id="demande-recompense-coupes" placeholder="nombre ou précision"></div>
       <div class="modal-footer">
         <button type="button" class="secondary" data-close="modal-overlay-demande-recompense">Annuler</button>
         <button type="submit">Ajouter</button>
@@ -1831,46 +1862,50 @@
       const color = `var(--${PALETTE[i % PALETTE.length]})`;
       const expanded = expandedEffectifActs.has(act);
       const referents = getActiviteReferents(act, false);
-      const secondCatOptionsHtml = selectedCat => '<option value="">—</option>' +
-        EFFECTIF_CATEGORIES.map(cat=>`<option value="${cat}" ${cat===selectedCat?"selected":""}>${cat}</option>`).join("");
       const rowsHtml = etabs.map(etab=>{
         const entry = getEffectifEntry(act, etab.id, false) || {
           profResponsableId:null, secondResponsableId:"", secondResponsableCat:"",
-          categories: { BF:{effectif:0,equipes:0}, BG:{effectif:0,equipes:0}, MF:{effectif:0,equipes:0}, MG:{effectif:0,equipes:0} }
+          categories: { BF:{effectif:0,equipes:""}, BG:{effectif:0,equipes:""}, MF:{effectif:0,equipes:""}, MG:{effectif:0,equipes:""} }
         };
         const catCells = EFFECTIF_CATEGORIES.map(cat=>{
-          const c = entry.categories[cat] || {effectif:0,equipes:0};
+          const c = entry.categories[cat] || {effectif:0,equipes:""};
           return `
             <td><input type="number" min="0" value="${c.effectif||""}" data-effectif-field data-act="${escapeAttr(act)}" data-etab="${escapeAttr(etab.id)}" data-cat="${cat}" data-field="effectif"></td>
-            <td><input type="text" value="${escapeAttr(c.equipes||"")}" placeholder="ex: 1 SS" data-effectif-field data-act="${escapeAttr(act)}" data-etab="${escapeAttr(etab.id)}" data-cat="${cat}" data-field="equipes"></td>
+            <td><input type="text" class="effectif-equipes-input" value="${escapeAttr(c.equipes||"")}" data-effectif-field data-act="${escapeAttr(act)}" data-etab="${escapeAttr(etab.id)}" data-cat="${cat}" data-field="equipes"></td>
           `;
         }).join("");
         const profResponsableId = (entry.profResponsableId === null || entry.profResponsableId === undefined)
           ? defaultResponsableId(act, etab) : entry.profResponsableId;
+        // Le 2e responsable (une seule catégorie) n'est pas affiché d'office :
+        // un petit bouton + le propose, et seulement si on clique dessus le
+        // choix du collègue et de la catégorie apparaît (fenêtre dédiée).
+        let secondHtml;
+        if(entry.secondResponsableId){
+          const p = etab.profs.find(x=>x.id===entry.secondResponsableId);
+          secondHtml = `<span class="effectif-second-badge">👤 ${escapeHtml(p ? p.nom : "?")} (${escapeHtml(entry.secondResponsableCat||"?")})<button type="button" class="icon-btn" data-effectif-second-clear data-act="${escapeAttr(act)}" data-etab="${escapeAttr(etab.id)}" title="Retirer ce 2e responsable">✕</button></span>`;
+        } else {
+          secondHtml = `<button type="button" class="icon-btn" data-effectif-second-add data-act="${escapeAttr(act)}" data-etab="${escapeAttr(etab.id)}" title="Ajouter un 2e responsable pour une catégorie">+</button>`;
+        }
         return `
           <tr>
-            <td><strong>${escapeHtml(etab.nom)}</strong></td>
+            <td><strong>${escapeHtml(etab.nom)}</strong> ${secondHtml}</td>
             <td><select data-effectif-prof data-act="${escapeAttr(act)}" data-etab="${escapeAttr(etab.id)}">${profOptionsHtml(etab, profResponsableId)}</select></td>
-            <td><select data-effectif-second-prof data-act="${escapeAttr(act)}" data-etab="${escapeAttr(etab.id)}">${profOptionsHtml(etab, entry.secondResponsableId)}</select></td>
-            <td><select data-effectif-second-cat data-act="${escapeAttr(act)}" data-etab="${escapeAttr(etab.id)}">${secondCatOptionsHtml(entry.secondResponsableCat)}</select></td>
             ${catCells}
           </tr>
         `;
       }).join("") + getManualEffectifRows(act).map(m=>{
-        const entry = getEffectifEntry(act, m.id, false) || { categories: { BF:{effectif:0,equipes:0}, BG:{effectif:0,equipes:0}, MF:{effectif:0,equipes:0}, MG:{effectif:0,equipes:0} } };
+        const entry = getEffectifEntry(act, m.id, false) || { categories: { BF:{effectif:0,equipes:""}, BG:{effectif:0,equipes:""}, MF:{effectif:0,equipes:""}, MG:{effectif:0,equipes:""} } };
         const catCells = EFFECTIF_CATEGORIES.map(cat=>{
-          const c = entry.categories[cat] || {effectif:0,equipes:0};
+          const c = entry.categories[cat] || {effectif:0,equipes:""};
           return `
             <td><input type="number" min="0" value="${c.effectif||""}" data-effectif-field data-act="${escapeAttr(act)}" data-etab="${escapeAttr(m.id)}" data-cat="${cat}" data-field="effectif"></td>
-            <td><input type="text" value="${escapeAttr(c.equipes||"")}" placeholder="ex: 1 SS" data-effectif-field data-act="${escapeAttr(act)}" data-etab="${escapeAttr(m.id)}" data-cat="${cat}" data-field="equipes"></td>
+            <td><input type="text" class="effectif-equipes-input" value="${escapeAttr(c.equipes||"")}" data-effectif-field data-act="${escapeAttr(act)}" data-etab="${escapeAttr(m.id)}" data-cat="${cat}" data-field="equipes"></td>
           `;
         }).join("");
         return `
           <tr class="effectif-row-manual">
             <td><strong>${escapeHtml(m.etabNom)}</strong> 🌐</td>
             <td>${escapeHtml(m.profNom || "— Non précisé —")} <button type="button" class="icon-btn" data-effectif-remove-manual data-act="${escapeAttr(act)}" data-row="${escapeAttr(m.id)}" title="Retirer cette ligne">✕</button></td>
-            <td>—</td>
-            <td>—</td>
             ${catCells}
           </tr>
         `;
@@ -1895,7 +1930,7 @@
           <div class="effectif-table-wrap">
             <table class="effectif-table">
               <thead>
-                <tr><th rowspan="2">Établissement</th><th rowspan="2">Prof. responsable</th><th rowspan="2">2<sup>e</sup> responsable</th><th rowspan="2">Catégorie</th>${catHeaders}</tr>
+                <tr><th rowspan="2">Établissement</th><th rowspan="2">Prof. responsable</th>${catHeaders}</tr>
                 <tr>${catSubHeaders}</tr>
               </thead>
               <tbody>${rowsHtml}</tbody>
@@ -1943,18 +1978,25 @@
         saveState();
       });
     });
-    container.querySelectorAll("[data-effectif-second-prof]").forEach(sel=>{
-      sel.addEventListener("change", ()=>{
-        const entry = getEffectifEntry(sel.dataset.act, sel.dataset.etab, true);
-        entry.secondResponsableId = sel.value;
-        saveState();
+    container.querySelectorAll("[data-effectif-second-add]").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        const etab = getEtab(btn.dataset.etab);
+        if(!etab) return;
+        document.getElementById("add-second-responsable-act").value = btn.dataset.act;
+        document.getElementById("add-second-responsable-etab").value = btn.dataset.etab;
+        document.getElementById("add-second-responsable-prof").innerHTML = profOptionsHtml(etab, "");
+        document.getElementById("add-second-responsable-cat").value = "";
+        openModal("modal-overlay-add-second-responsable");
       });
     });
-    container.querySelectorAll("[data-effectif-second-cat]").forEach(sel=>{
-      sel.addEventListener("change", ()=>{
-        const entry = getEffectifEntry(sel.dataset.act, sel.dataset.etab, true);
-        entry.secondResponsableCat = sel.value;
+    container.querySelectorAll("[data-effectif-second-clear]").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        if(!confirm("Retirer ce 2e responsable ?")) return;
+        const entry = getEffectifEntry(btn.dataset.act, btn.dataset.etab, true);
+        entry.secondResponsableId = "";
+        entry.secondResponsableCat = "";
         saveState();
+        renderEffectifs();
       });
     });
     container.querySelectorAll("[data-effectif-referent-activite]").forEach(sel=>{
@@ -1999,6 +2041,20 @@
     saveState();
     renderEffectifs();
     closeModal("modal-overlay-add-manual-effectif");
+  });
+  document.getElementById("btn-add-second-responsable-confirm").addEventListener("click", ()=>{
+    const act = document.getElementById("add-second-responsable-act").value;
+    const etabId = document.getElementById("add-second-responsable-etab").value;
+    const profId = document.getElementById("add-second-responsable-prof").value;
+    const cat = document.getElementById("add-second-responsable-cat").value;
+    if(!profId){ alert("Choisissez le collègue."); return; }
+    if(!cat){ alert("Choisissez la catégorie."); return; }
+    const entry = getEffectifEntry(act, etabId, true);
+    entry.secondResponsableId = profId;
+    entry.secondResponsableCat = cat;
+    saveState();
+    renderEffectifs();
+    closeModal("modal-overlay-add-second-responsable");
   });
 
   // ---------- RENDER: INTERDISTRICT ----------
@@ -2441,7 +2497,7 @@
       const tr = document.createElement("tr");
       const historiqueDemandes = etab.recompensesDemandes.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(r=>{
         const prof = r.profId ? getProf(etab, r.profId) : null;
-        return `<div>${formatDateFR(r.date)} — Or:${r.or||0} Argent:${r.argent||0} Bronze:${r.bronze||0} Coupes:${r.coupes||0}`
+        return `<div>${formatDateFR(r.date)} — Or:${escapeHtml(String(r.or||0))} Argent:${escapeHtml(String(r.argent||0))} Bronze:${escapeHtml(String(r.bronze||0))} Coupes:${escapeHtml(String(r.coupes||0))}`
           + `${r.activite ? " — "+escapeHtml(r.activite) : ""}${prof ? " ("+escapeHtml(prof.nom)+")" : ""}${r.dateSouhaitee ? " — souhaitée le "+formatDateFR(r.dateSouhaitee) : ""}`
           + ` <button class="icon-btn" data-del-demande-recompense="${r.id}" data-etab-demande-recompense="${etab.id}" title="Supprimer">🗑</button></div>`;
       }
@@ -2487,15 +2543,22 @@
     });
   }
 
+  // Les quantités de la dernière demande peuvent être en saisie libre (ex:
+  // "2 SS") ; on n'en extrait que la partie numérique pour préremplir la
+  // distribution (champs numériques), sans planter si ce n'est pas un nombre.
+  function numericPrefix(v){
+    const n = parseInt(v, 10);
+    return isNaN(n) ? "" : n;
+  }
   function openRecompenseModal(etabId){
     const etab = getEtab(etabId);
     const derniereDemande = etab.recompensesDemandes.slice().sort((a,b)=>b.date.localeCompare(a.date))[0];
     document.getElementById("recompense-etab-id").value = etabId;
     document.getElementById("recompense-date").value = new Date().toISOString().slice(0,10);
-    document.getElementById("recompense-or").value = derniereDemande ? (derniereDemande.or||0) : 0;
-    document.getElementById("recompense-argent").value = derniereDemande ? (derniereDemande.argent||0) : 0;
-    document.getElementById("recompense-bronze").value = derniereDemande ? (derniereDemande.bronze||0) : 0;
-    document.getElementById("recompense-coupes").value = derniereDemande ? (derniereDemande.coupes||0) : 0;
+    document.getElementById("recompense-or").value = derniereDemande ? numericPrefix(derniereDemande.or) : "";
+    document.getElementById("recompense-argent").value = derniereDemande ? numericPrefix(derniereDemande.argent) : "";
+    document.getElementById("recompense-bronze").value = derniereDemande ? numericPrefix(derniereDemande.bronze) : "";
+    document.getElementById("recompense-coupes").value = derniereDemande ? numericPrefix(derniereDemande.coupes) : "";
     openModal("modal-overlay-recompense");
   }
 
@@ -2535,26 +2598,30 @@
     document.getElementById("demande-recompense-etab-id").value = etabId;
     document.getElementById("demande-recompense-date").value = new Date().toISOString().slice(0,10);
     document.getElementById("demande-recompense-date-souhaitee").value = "";
-    document.getElementById("demande-recompense-or").value = 0;
-    document.getElementById("demande-recompense-argent").value = 0;
-    document.getElementById("demande-recompense-bronze").value = 0;
-    document.getElementById("demande-recompense-coupes").value = 0;
+    document.getElementById("demande-recompense-or").value = "";
+    document.getElementById("demande-recompense-argent").value = "";
+    document.getElementById("demande-recompense-bronze").value = "";
+    document.getElementById("demande-recompense-coupes").value = "";
     openModal("modal-overlay-demande-recompense");
   }
 
   document.getElementById("form-demande-recompense").addEventListener("submit", e=>{
     e.preventDefault();
     const etab = getEtab(document.getElementById("demande-recompense-etab-id").value);
+    // Or/Argent/Bronze/Coupes en saisie libre (nombre ou précision textuelle,
+    // ex: "2 SS") : ces quantités de demande sont purement informatives et
+    // n'entrent pas dans le calcul du stock (seules les distributions le
+    // font, via le modal "+ Distribution" qui reste numérique).
     const entry = {
       id: uid(),
       profId: document.getElementById("demande-recompense-prof").value || "",
       activite: document.getElementById("demande-recompense-activite").value || "",
       date: document.getElementById("demande-recompense-date").value,
       dateSouhaitee: document.getElementById("demande-recompense-date-souhaitee").value || "",
-      or: Number(document.getElementById("demande-recompense-or").value)||0,
-      argent: Number(document.getElementById("demande-recompense-argent").value)||0,
-      bronze: Number(document.getElementById("demande-recompense-bronze").value)||0,
-      coupes: Number(document.getElementById("demande-recompense-coupes").value)||0
+      or: document.getElementById("demande-recompense-or").value.trim(),
+      argent: document.getElementById("demande-recompense-argent").value.trim(),
+      bronze: document.getElementById("demande-recompense-bronze").value.trim(),
+      coupes: document.getElementById("demande-recompense-coupes").value.trim()
     };
     if(!entry.or && !entry.argent && !entry.bronze && !entry.coupes){
       alert("Indiquez au moins une quantité supérieure à 0.");
