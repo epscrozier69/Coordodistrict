@@ -1319,12 +1319,9 @@
   document.getElementById("btn-migrate-photos").addEventListener("click", migratePhotosToDrive);
   function pushRemoteState(){
     if(!SYNC_URL) return;
-    if(JSON.stringify(state).length > 45000){
-      const msg = "Échec de synchronisation : données trop volumineuses (" + JSON.stringify(state).length + " caractères, limite 45000).";
-      setSyncStatus(msg);
-      alert(msg);
-      return;
-    }
+    // L'état complet est stocké comme fichier Google Drive côté Apps Script
+    // (et non plus dans une cellule Google Sheets, limitée à ~50000
+    // caractères) : plus de limite de taille pratique à vérifier ici.
     if(syncInFlight){ syncPending = true; return; }
     syncInFlight = true;
     setSyncStatus("Synchronisation en cours…");
