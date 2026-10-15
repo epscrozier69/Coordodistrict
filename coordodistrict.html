@@ -1842,7 +1842,7 @@
           const c = entry.categories[cat] || {effectif:0,equipes:0};
           return `
             <td><input type="number" min="0" value="${c.effectif||""}" data-effectif-field data-act="${escapeAttr(act)}" data-etab="${escapeAttr(etab.id)}" data-cat="${cat}" data-field="effectif"></td>
-            <td><input type="number" min="0" value="${c.equipes||""}" data-effectif-field data-act="${escapeAttr(act)}" data-etab="${escapeAttr(etab.id)}" data-cat="${cat}" data-field="equipes"></td>
+            <td><input type="text" value="${escapeAttr(c.equipes||"")}" placeholder="ex: 1 SS" data-effectif-field data-act="${escapeAttr(act)}" data-etab="${escapeAttr(etab.id)}" data-cat="${cat}" data-field="equipes"></td>
           `;
         }).join("");
         const profResponsableId = (entry.profResponsableId === null || entry.profResponsableId === undefined)
@@ -1862,7 +1862,7 @@
           const c = entry.categories[cat] || {effectif:0,equipes:0};
           return `
             <td><input type="number" min="0" value="${c.effectif||""}" data-effectif-field data-act="${escapeAttr(act)}" data-etab="${escapeAttr(m.id)}" data-cat="${cat}" data-field="effectif"></td>
-            <td><input type="number" min="0" value="${c.equipes||""}" data-effectif-field data-act="${escapeAttr(act)}" data-etab="${escapeAttr(m.id)}" data-cat="${cat}" data-field="equipes"></td>
+            <td><input type="text" value="${escapeAttr(c.equipes||"")}" placeholder="ex: 1 SS" data-effectif-field data-act="${escapeAttr(act)}" data-etab="${escapeAttr(m.id)}" data-cat="${cat}" data-field="equipes"></td>
           `;
         }).join("");
         return `
@@ -1919,7 +1919,10 @@
     container.querySelectorAll("[data-effectif-field]").forEach(input=>{
       input.addEventListener("change", ()=>{
         const entry = getEffectifEntry(input.dataset.act, input.dataset.etab, true);
-        entry.categories[input.dataset.cat][input.dataset.field] = Math.max(0, Number(input.value)||0);
+        // "Effectif" reste un nombre ; "Équipes" accepte du texte libre
+        // (ex: "1 SS" pour une équipe section sportive).
+        entry.categories[input.dataset.cat][input.dataset.field] =
+          input.dataset.field === "effectif" ? Math.max(0, Number(input.value)||0) : input.value.trim();
         saveState();
       });
       // Valider avec Entrée enregistre la valeur et passe directement à la
@@ -3364,8 +3367,8 @@ ${innerHtml}
       const profResponsable = profResponsableId ? findProfById(profResponsableId) : null;
       const secondResponsable = entry && entry.secondResponsableId ? findProfById(entry.secondResponsableId) : null;
       const cats = EFFECTIF_CATEGORIES.map(cat=>{
-        const c = (entry && entry.categories && entry.categories[cat]) || {effectif:0,equipes:0};
-        return [c.effectif||0, c.equipes||0];
+        const c = (entry && entry.categories && entry.categories[cat]) || {effectif:0,equipes:""};
+        return [c.effectif||0, c.equipes||""];
       });
       return {
         etabNom: etab.nom, profNom: profResponsable ? profResponsable.nom : "",
@@ -3377,8 +3380,8 @@ ${innerHtml}
     const manual = getManualEffectifRows(act).map(m=>{
       const entry = getEffectifEntry(act, m.id, false);
       const cats = EFFECTIF_CATEGORIES.map(cat=>{
-        const c = (entry && entry.categories && entry.categories[cat]) || {effectif:0,equipes:0};
-        return [c.effectif||0, c.equipes||0];
+        const c = (entry && entry.categories && entry.categories[cat]) || {effectif:0,equipes:""};
+        return [c.effectif||0, c.equipes||""];
       });
       return { etabNom: m.etabNom, profNom: m.profNom||"", secondProfNom:"", secondCat:"", cats, manual:true };
     });
