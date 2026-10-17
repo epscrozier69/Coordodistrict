@@ -255,6 +255,7 @@
   }
   .prof-card .photo-upload-btn:hover{ background:#eef1fa; }
   .prof-card .photo-remove-btn{ right:auto; left:-3px; bottom:-3px; border-color:#d9534f; color:#d9534f; }
+  .date-souhaitee{ color:#d9534f; font-weight:700; }
   .prof-card .photo-remove-btn:hover{ background:#fdeeee; }
   .prof-card h4{ margin:0 0 2px; font-size:.9rem; }
   .prof-card .prof-name-row{
@@ -2484,7 +2485,17 @@
         groups[key].etabIds.add(etab.id);
       });
     });
-    return Object.values(groups).sort((a,b)=>a.activite.localeCompare(b.activite,"fr",{sensitivity:"base"}));
+    // Les lignes (activités) sont triées par date souhaitée la plus proche
+    // parmi leurs demandes, toutes activités confondues — pas par ordre
+    // alphabétique — pour que l'urgence la plus proche remonte en haut.
+    const minDateSouhaitee = group => group.demandes.reduce((min,{demande:d})=>{
+      const v = d.dateSouhaitee || "9999-99-99";
+      return v < min ? v : min;
+    }, "9999-99-99");
+    return Object.values(groups).sort((a,b)=>{
+      const cmp = minDateSouhaitee(a).localeCompare(minDateSouhaitee(b));
+      return cmp !== 0 ? cmp : a.activite.localeCompare(b.activite,"fr",{sensitivity:"base"});
+    });
   }
 
   function renderRecompenses(){
@@ -2534,7 +2545,7 @@
           const prof = r.profId ? getProf(etab, r.profId) : null;
           const profLabel = prof ? prof.nom : (r.profNomManuel || "");
           return `<div>${formatDateFR(r.date)} — <strong>${escapeHtml(etab.nom)}</strong> — Or:${escapeHtml(String(r.or||0))} Argent:${escapeHtml(String(r.argent||0))} Bronze:${escapeHtml(String(r.bronze||0))} Coupes:${escapeHtml(String(r.coupes||0))}`
-            + `${profLabel ? " ("+escapeHtml(profLabel)+")" : ""}${r.dateSouhaitee ? " — souhaitée le "+formatDateFR(r.dateSouhaitee) : ""}`
+            + `${profLabel ? " ("+escapeHtml(profLabel)+")" : ""}${r.dateSouhaitee ? ` — <strong class="date-souhaitee">souhaitée le ${formatDateFR(r.dateSouhaitee)}</strong>` : ""}`
             + ` <button class="icon-btn" data-edit-demande-recompense="${r.id}" data-etab-demande-recompense="${etab.id}" title="Modifier">✏️</button>`
             + ` <button class="icon-btn" data-del-demande-recompense="${r.id}" data-etab-demande-recompense="${etab.id}" title="Supprimer">🗑</button></div>`;
         }).join("");
