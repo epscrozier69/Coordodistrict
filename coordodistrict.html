@@ -136,13 +136,14 @@
   #table-cartes thead th:nth-child(5){background:var(--c13);}
 
   #table-recompenses thead th:nth-child(1){background:var(--c1);}
-  #table-recompenses thead th:nth-child(2){background:var(--c4);}
-  #table-recompenses thead th:nth-child(3){background:var(--c8);}
-  #table-recompenses thead th:nth-child(4){background:var(--c5);}
-  #table-recompenses thead th:nth-child(5){background:var(--c9);}
-  #table-recompenses thead th:nth-child(6){background:var(--c15);}
-  #table-recompenses thead th:nth-child(7){background:var(--c11);}
-  #table-recompenses thead th:nth-child(8){background:var(--c13);}
+  #table-recompenses thead th:nth-child(2){background:var(--c2);}
+  #table-recompenses thead th:nth-child(3){background:var(--c4);}
+  #table-recompenses thead th:nth-child(4){background:var(--c8);}
+  #table-recompenses thead th:nth-child(5){background:var(--c5);}
+  #table-recompenses thead th:nth-child(6){background:var(--c9);}
+  #table-recompenses thead th:nth-child(7){background:var(--c15);}
+  #table-recompenses thead th:nth-child(8){background:var(--c11);}
+  #table-recompenses thead th:nth-child(9){background:var(--c13);}
   #table-recompenses td:nth-child(2), #table-recompenses td:nth-child(3),
   #table-recompenses td:nth-child(4), #table-recompenses td:nth-child(5){ text-align:center; }
 
@@ -544,11 +545,12 @@
         <thead>
           <tr>
             <th>Activité</th>
+            <th>Établissement</th>
             <th>Or distribués</th>
             <th>Argent distribués</th>
             <th>Bronze distribués</th>
             <th>Coupes distribuées</th>
-            <th>Historique des demandes</th>
+            <th>Demande</th>
             <th>Historique des distributions</th>
             <th>Actions</th>
           </tr>
@@ -788,7 +790,7 @@
       <select id="add-second-responsable-prof"></select>
     </div>
     <div class="form-row">
-      <label for="add-second-responsable-cat">Catégorie</label>
+      <label for="add-second-responsable-cat">Catégorie (facultatif)</label>
       <select id="add-second-responsable-cat">
         <option value="">— Choisir —</option>
         <option value="BF">BF</option>
@@ -1444,9 +1446,11 @@
   document.querySelectorAll(".collapsible-header").forEach(header=>{
     const h2 = header.querySelector("h2");
     const body = document.getElementById(header.dataset.collapsible);
+    const actions = header.querySelector(".actions");
     if(!h2 || !body) return;
     h2.addEventListener("click", ()=>{
       const collapsed = body.classList.toggle("hidden");
+      if(actions) actions.classList.toggle("hidden", collapsed);
       const chevron = h2.querySelector(".collapse-chevron");
       if(chevron) chevron.textContent = collapsed ? "▸" : "▾";
     });
@@ -1893,7 +1897,8 @@
         let secondHtml;
         if(entry.secondResponsableId){
           const p = etab.profs.find(x=>x.id===entry.secondResponsableId);
-          secondHtml = `<span class="effectif-second-badge">👤 ${escapeHtml(p ? p.nom : "?")} (${escapeHtml(entry.secondResponsableCat||"?")})<button type="button" class="icon-btn" data-effectif-second-clear data-act="${escapeAttr(act)}" data-etab="${escapeAttr(etab.id)}" title="Retirer ce 2e responsable">✕</button></span>`;
+          const catSuffix = entry.secondResponsableCat ? ` (${escapeHtml(entry.secondResponsableCat)})` : "";
+          secondHtml = `<span class="effectif-second-badge">👤 ${escapeHtml(p ? p.nom : "?")}${catSuffix}<button type="button" class="icon-btn" data-effectif-second-clear data-act="${escapeAttr(act)}" data-etab="${escapeAttr(etab.id)}" title="Retirer ce 2e responsable">✕</button></span>`;
         } else {
           secondHtml = `<button type="button" class="icon-btn" data-effectif-second-add data-act="${escapeAttr(act)}" data-etab="${escapeAttr(etab.id)}" title="Ajouter un 2e responsable pour une catégorie">+</button>`;
         }
@@ -2059,7 +2064,9 @@
     const profId = document.getElementById("add-second-responsable-prof").value;
     const cat = document.getElementById("add-second-responsable-cat").value;
     if(!profId){ alert("Choisissez le collègue."); return; }
-    if(!cat){ alert("Choisissez la catégorie."); return; }
+    // La catégorie est facultative : un 2e collègue peut simplement
+    // s'occuper aussi de l'activité, sans être rattaché à une catégorie
+    // précise.
     const entry = getEffectifEntry(act, etabId, true);
     entry.secondResponsableId = profId;
     entry.secondResponsableCat = cat;
@@ -2472,30 +2479,24 @@
     { key:"coupes", label:"Coupes" }
   ];
 
-  // Regroupe toutes les demandes de récompenses par activité (ordre
-  // alphabétique), tous établissements confondus — une activité sans
-  // aucune demande n'apparaît pas.
-  function recompenseActiviteGroups(){
-    const groups = {};
+  // Une ligne par demande de récompenses (même activité ou même
+  // établissement répété autant de fois que nécessaire), triées par date
+  // souhaitée la plus proche d'abord, toutes activités confondues (celles
+  // sans date souhaitée sont reléguées en fin de liste).
+  function recompenseDemandeRows(){
+    const rows = [];
     state.etablissements.forEach(etab=>{
-      (etab.recompensesDemandes||[]).forEach(d=>{
-        const key = d.activite || "— Activité non précisée —";
-        if(!groups[key]) groups[key] = { activite: key, demandes: [], etabIds: new Set() };
-        groups[key].demandes.push({ etab, demande: d });
-        groups[key].etabIds.add(etab.id);
-      });
+      (etab.recompensesDemandes||[]).forEach(d=>{ rows.push({ etab, demande: d }); });
     });
-    // Les lignes (activités) sont triées par date souhaitée la plus proche
-    // parmi leurs demandes, toutes activités confondues — pas par ordre
-    // alphabétique — pour que l'urgence la plus proche remonte en haut.
-    const minDateSouhaitee = group => group.demandes.reduce((min,{demande:d})=>{
-      const v = d.dateSouhaitee || "9999-99-99";
-      return v < min ? v : min;
-    }, "9999-99-99");
-    return Object.values(groups).sort((a,b)=>{
-      const cmp = minDateSouhaitee(a).localeCompare(minDateSouhaitee(b));
-      return cmp !== 0 ? cmp : a.activite.localeCompare(b.activite,"fr",{sensitivity:"base"});
+    rows.sort((a,b)=>{
+      const da = a.demande.dateSouhaitee || "9999-99-99";
+      const db = b.demande.dateSouhaitee || "9999-99-99";
+      const cmp = da.localeCompare(db);
+      if(cmp !== 0) return cmp;
+      const actCmp = (a.demande.activite||"").localeCompare(b.demande.activite||"","fr",{sensitivity:"base"});
+      return actCmp !== 0 ? actCmp : a.etab.nom.localeCompare(b.etab.nom,"fr",{sensitivity:"base"});
     });
+    return rows;
   }
 
   function renderRecompenses(){
@@ -2530,55 +2531,38 @@
 
     const tbody = document.getElementById("tbody-recompenses");
     tbody.innerHTML = "";
-    // Une ligne par activité ayant au moins une demande (plus de ligne
-    // "établissement" vide par défaut) : l'établissement devient une info
-    // au sein de chaque ligne d'historique, pas la clé principale du tableau.
-    recompenseActiviteGroups().forEach(group=>{
+    // Une ligne par demande (même activité ou même établissement répétés
+    // autant de fois que nécessaire), triées par date souhaitée la plus
+    // proche d'abord — pas de ligne si aucune demande n'existe.
+    recompenseDemandeRows().forEach(({etab, demande:r})=>{
       const tr = document.createElement("tr");
-      const etabsInGroup = [...group.etabIds].map(id=>getEtab(id)).filter(Boolean)
-        .sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}));
-      // Triée par date souhaitée la plus proche d'abord (les demandes sans
-      // date souhaitée sont reléguées en fin de liste).
-      const historiqueDemandes = group.demandes.slice()
-        .sort((a,b)=>(a.demande.dateSouhaitee||"9999-99-99").localeCompare(b.demande.dateSouhaitee||"9999-99-99"))
-        .map(({etab,demande:r})=>{
-          const prof = r.profId ? getProf(etab, r.profId) : null;
-          const profLabel = prof ? prof.nom : (r.profNomManuel || "");
-          return `<div>${formatDateFR(r.date)} — <strong>${escapeHtml(etab.nom)}</strong> — Or:${escapeHtml(String(r.or||0))} Argent:${escapeHtml(String(r.argent||0))} Bronze:${escapeHtml(String(r.bronze||0))} Coupes:${escapeHtml(String(r.coupes||0))}`
-            + `${profLabel ? " ("+escapeHtml(profLabel)+")" : ""}${r.dateSouhaitee ? ` — <strong class="date-souhaitee">souhaitée le ${formatDateFR(r.dateSouhaitee)}</strong>` : ""}`
-            + ` <button class="icon-btn" data-edit-demande-recompense="${r.id}" data-etab-demande-recompense="${etab.id}" title="Modifier">✏️</button>`
-            + ` <button class="icon-btn" data-del-demande-recompense="${r.id}" data-etab-demande-recompense="${etab.id}" title="Supprimer">🗑</button></div>`;
-        }).join("");
-      const historique = etabsInGroup.flatMap(etab=>etab.recompenses.map(r=>({etab,r})))
-        .sort((a,b)=>b.r.date.localeCompare(a.r.date))
-        .map(({etab,r})=>`<div>${formatDateFR(r.date)} — <strong>${escapeHtml(etab.nom)}</strong> — Or:${r.or||0} Argent:${r.argent||0} Bronze:${r.bronze||0} Coupes:${r.coupes||0} <button class="icon-btn" data-del-recompense="${r.id}" data-etab-recompense="${etab.id}" title="Supprimer">🗑</button></div>`)
+      const prof = r.profId ? getProf(etab, r.profId) : null;
+      const profLabel = prof ? prof.nom : (r.profNomManuel || "");
+      const demandeHtml = `<div>${formatDateFR(r.date)}${profLabel ? " — "+escapeHtml(profLabel) : ""} — Or:${escapeHtml(String(r.or||0))} Argent:${escapeHtml(String(r.argent||0))} Bronze:${escapeHtml(String(r.bronze||0))} Coupes:${escapeHtml(String(r.coupes||0))}`
+        + `${r.dateSouhaitee ? ` — <strong class="date-souhaitee">souhaitée le ${formatDateFR(r.dateSouhaitee)}</strong>` : ""}`
+        + ` <button class="icon-btn" data-edit-demande-recompense="${r.id}" data-etab-demande-recompense="${etab.id}" title="Modifier">✏️</button>`
+        + ` <button class="icon-btn" data-del-demande-recompense="${r.id}" data-etab-demande-recompense="${etab.id}" title="Supprimer">🗑</button></div>`;
+      const historique = etab.recompenses.slice().sort((a,b)=>b.date.localeCompare(a.date))
+        .map(h=>`<div>${formatDateFR(h.date)} — Or:${h.or||0} Argent:${h.argent||0} Bronze:${h.bronze||0} Coupes:${h.coupes||0} <button class="icon-btn" data-del-recompense="${h.id}" data-etab-recompense="${etab.id}" title="Supprimer">🗑</button></div>`)
         .join("");
-      const totalOr = etabsInGroup.reduce((s,e)=>s+totalRecompensesFor(e,"or"),0);
-      const totalArgent = etabsInGroup.reduce((s,e)=>s+totalRecompensesFor(e,"argent"),0);
-      const totalBronze = etabsInGroup.reduce((s,e)=>s+totalRecompensesFor(e,"bronze"),0);
-      const totalCoupes = etabsInGroup.reduce((s,e)=>s+totalRecompensesFor(e,"coupes"),0);
-      const etabOptions = etabsInGroup.map(e=>`<option value="${escapeAttr(e.id)}">${escapeHtml(e.nom)}</option>`).join("");
       tr.innerHTML = `
-        <td><strong>${escapeHtml(group.activite)}</strong></td>
-        <td>${totalOr||""}</td>
-        <td>${totalArgent||""}</td>
-        <td>${totalBronze||""}</td>
-        <td>${totalCoupes||""}</td>
-        <td>${historiqueDemandes||"—"}</td>
+        <td><strong>${escapeHtml(r.activite || "— Non précisée —")}</strong></td>
+        <td>${escapeHtml(etab.nom)}</td>
+        <td>${totalRecompensesFor(etab,"or")||""}</td>
+        <td>${totalRecompensesFor(etab,"argent")||""}</td>
+        <td>${totalRecompensesFor(etab,"bronze")||""}</td>
+        <td>${totalRecompensesFor(etab,"coupes")||""}</td>
+        <td>${demandeHtml}</td>
         <td>${historique||"—"}</td>
         <td>
-          <select class="small" data-recompense-pick-etab>${etabOptions}</select>
-          <button class="small" data-add-recompense-for-group>+ Distribution</button>
+          <button class="small" data-add-recompense="${etab.id}">+ Distribution</button>
         </td>
       `;
       tbody.appendChild(tr);
     });
 
-    tbody.querySelectorAll("[data-add-recompense-for-group]").forEach(btn=>{
-      btn.addEventListener("click", ()=>{
-        const select = btn.closest("tr").querySelector("[data-recompense-pick-etab]");
-        if(select && select.value) openRecompenseModal(select.value);
-      });
+    tbody.querySelectorAll("[data-add-recompense]").forEach(btn=>{
+      btn.addEventListener("click", ()=>openRecompenseModal(btn.dataset.addRecompense));
     });
     tbody.querySelectorAll("[data-del-recompense]").forEach(btn=>{
       btn.addEventListener("click", ()=>{
@@ -3539,38 +3523,32 @@ ${innerHtml}
 
   function exportRecompensesExcel(){
     // Mêmes colonnes et couleurs d'en-tête que le tableau affiché à l'écran
-    // (table-recompenses, regroupé par activité), hors colonne Actions.
-    const rows = recompenseActiviteGroups().map(group=>{
-      const etabsInGroup = [...group.etabIds].map(id=>getEtab(id)).filter(Boolean)
-        .sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}));
-      const demandes = group.demandes.slice()
-        .sort((a,b)=>(a.demande.dateSouhaitee||"9999-99-99").localeCompare(b.demande.dateSouhaitee||"9999-99-99"))
-        .map(({etab,demande:r})=>{
-        const prof = r.profId ? getProf(etab, r.profId) : null;
-        const profLabel = prof ? prof.nom : (r.profNomManuel || "");
-        return formatDateFR(r.date) + " — "+etab.nom+" — Or:"+(r.or||0)+" Argent:"+(r.argent||0)+" Bronze:"+(r.bronze||0)+" Coupes:"+(r.coupes||0)
-          + (profLabel ? " ("+profLabel+")" : "") + (r.dateSouhaitee ? " — souhaitée le "+formatDateFR(r.dateSouhaitee) : "");
-      }).join("\n");
-      const distributions = etabsInGroup.flatMap(etab=>etab.recompenses.map(r=>({etab,r})))
-        .sort((a,b)=>b.r.date.localeCompare(a.r.date))
-        .map(({etab,r})=>formatDateFR(r.date) + " — "+etab.nom+" — Or:"+(r.or||0)+" Argent:"+(r.argent||0)+" Bronze:"+(r.bronze||0)+" Coupes:"+(r.coupes||0)).join("\n");
+    // (table-recompenses, une ligne par demande), hors colonne Actions.
+    const rows = recompenseDemandeRows().map(({etab, demande:r})=>{
+      const prof = r.profId ? getProf(etab, r.profId) : null;
+      const profLabel = prof ? prof.nom : (r.profNomManuel || "");
+      const demande = formatDateFR(r.date) + (profLabel ? " — "+profLabel : "") + " — Or:"+(r.or||0)+" Argent:"+(r.argent||0)+" Bronze:"+(r.bronze||0)+" Coupes:"+(r.coupes||0)
+        + (r.dateSouhaitee ? " — souhaitée le "+formatDateFR(r.dateSouhaitee) : "");
+      const distributions = etab.recompenses.slice().sort((a,b)=>b.date.localeCompare(a.date))
+        .map(h=>formatDateFR(h.date) + " — Or:"+(h.or||0)+" Argent:"+(h.argent||0)+" Bronze:"+(h.bronze||0)+" Coupes:"+(h.coupes||0)).join("\n");
       return [
-        group.activite,
-        etabsInGroup.reduce((s,e)=>s+totalRecompensesFor(e,"or"),0),
-        etabsInGroup.reduce((s,e)=>s+totalRecompensesFor(e,"argent"),0),
-        etabsInGroup.reduce((s,e)=>s+totalRecompensesFor(e,"bronze"),0),
-        etabsInGroup.reduce((s,e)=>s+totalRecompensesFor(e,"coupes"),0),
-        demandes,
+        r.activite || "— Non précisée —",
+        etab.nom,
+        totalRecompensesFor(etab,"or"),
+        totalRecompensesFor(etab,"argent"),
+        totalRecompensesFor(etab,"bronze"),
+        totalRecompensesFor(etab,"coupes"),
+        demande,
         distributions
       ];
     });
     downloadXlsx("Recompenses_District_Villeurbanne.xlsx", [
       {
         name: "Récompenses",
-        header: ["Activité","Or distribués","Argent distribués","Bronze distribués","Coupes distribuées","Historique des demandes","Historique des distributions"],
+        header: ["Activité","Établissement","Or distribués","Argent distribués","Bronze distribués","Coupes distribuées","Demande","Historique des distributions"],
         rows,
-        headerColors: [PALETTE_HEX.c1, PALETTE_HEX.c4, PALETTE_HEX.c8, PALETTE_HEX.c5, PALETTE_HEX.c9, PALETTE_HEX.c15, PALETTE_HEX.c11],
-        wrapColumns: [5,6]
+        headerColors: [PALETTE_HEX.c1, PALETTE_HEX.c2, PALETTE_HEX.c4, PALETTE_HEX.c8, PALETTE_HEX.c5, PALETTE_HEX.c9, PALETTE_HEX.c15, PALETTE_HEX.c11],
+        wrapColumns: [6,7]
       }
     ]);
   }
@@ -3582,7 +3560,8 @@ ${innerHtml}
   // responsable que ce qui est visible sans avoir à l'enregistrer d'abord.
   function effectifsActivitesConcernees(){
     const allActKeys = [...ACTIVITES.filter(act => act !== "Autres"), ...autresTextsFor("competition")];
-    return allActKeys.filter(act => competitionEtabsAny(act).length > 0 || getManualEffectifRows(act).length > 0);
+    return allActKeys.filter(act => competitionEtabsAny(act).length > 0 || getManualEffectifRows(act).length > 0)
+      .sort((a,b)=>a.localeCompare(b,"fr",{sensitivity:"base"}));
   }
   function effectifRowsFor(act){
     const real = competitionEtabsAny(act).map(etab=>{
@@ -3624,6 +3603,11 @@ ${innerHtml}
   function exportEffectifsExcel(){
     const activites = effectifsActivitesConcernees();
     if(!activites.length){ alert("Aucune activité en compétition pour le moment."); return; }
+    // Même couleur par activité que sur l'écran et dans le PDF (cycle de la
+    // palette, dans l'ordre alphabétique) : la colonne Activité en est
+    // colorée pour repérer visuellement chaque groupe de lignes.
+    const colorByActivite = {};
+    activites.forEach((act,i)=>{ colorByActivite[act] = PALETTE_HEX[PALETTE[i % PALETTE.length]]; });
     const header = ["Activité","Référent","Référent JO","Établissement","Prof. responsable","2e responsable","Catégorie (2e responsable)"];
     EFFECTIF_CATEGORIES.forEach(cat=>{ header.push("Effectif "+cat, "Équipes "+cat); });
     const rows = [];
@@ -3636,7 +3620,12 @@ ${innerHtml}
       });
     });
     downloadXlsx("Effectifs_District_Villeurbanne.xlsx", [
-      { name: "Effectifs", header, rows, headerColors: header.map((h,i)=>PALETTE_HEX[PALETTE[i % PALETTE.length]]) }
+      {
+        name: "Effectifs", header, rows,
+        headerColors: header.map((h,i)=>PALETTE_HEX[PALETTE[i % PALETTE.length]]),
+        cellFill: (rowIdx, colIdx) => colIdx===0 ? "FF"+colorByActivite[rows[rowIdx][0]] : null,
+        cellFont: (rowIdx, colIdx) => colIdx===0 ? { bold:true, color:{argb:"FFFFFFFF"} } : null
+      }
     ]);
   }
   document.getElementById("btn-export-effectifs-excel").addEventListener("click", exportEffectifsExcel);
@@ -3647,26 +3636,41 @@ ${innerHtml}
       const color = `var(--${PALETTE[i % PALETTE.length]})`;
       const rows = effectifRowsFor(act);
       const { referent, referentJo } = effectifReferentsFor(act);
+      // Colonnes "2e responsable" / "Catégorie" masquées pour cette activité
+      // si personne ne les a renseignées — pour gagner de la place et que
+      // tout tienne en largeur sur une page A4 portrait.
+      const hasSecond = rows.some(r=>r.secondProfNom);
       const catHeaders = EFFECTIF_CATEGORIES.map(cat=>`<th colspan="2">${cat}</th>`).join("");
-      const catSubHeaders = EFFECTIF_CATEGORIES.map(()=>`<th>Effectif</th><th>Équipes</th>`).join("");
+      const catSubHeaders = EFFECTIF_CATEGORIES.map(()=>`<th>Eff.</th><th>Éq.</th>`).join("");
       const rowsHtml = rows.map(r=>{
         const catCells = r.cats.map(c=>`<td>${c[0]}</td><td>${c[1]}</td>`).join("");
+        const secondCells = hasSecond ? `
+          <td>${r.secondProfNom ? escapeHtml(r.secondProfNom) : "—"}</td>
+          <td>${r.secondCat || "—"}</td>` : "";
         return `<tr>
           <td>${escapeHtml(r.etabNom)}${r.manual ? " 🌐" : ""}</td>
           <td>${r.profNom ? escapeHtml(r.profNom) : "—"}</td>
-          <td>${r.secondProfNom ? escapeHtml(r.secondProfNom) : "—"}</td>
-          <td>${r.secondCat || "—"}</td>
+          ${secondCells}
           ${catCells}
         </tr>`;
       }).join("");
+      // Largeurs fixes par colonne (colgroup) pour que les 10 à 12 colonnes
+      // tiennent systématiquement sur la largeur d'une page A4 portrait,
+      // sans débordement horizontal ni colonnes illisibles.
+      const baseCols = hasSecond
+        ? `<col style="width:15%"><col style="width:13%"><col style="width:11%"><col style="width:7%">`
+        : `<col style="width:17%"><col style="width:15%">`;
+      const catColWidth = hasSecond ? "54" : "68";
+      const catCols = EFFECTIF_CATEGORIES.map(()=>`<col style="width:${(catColWidth/8).toFixed(1)}%"><col style="width:${(catColWidth/8).toFixed(1)}%">`).join("");
       return `
         <div class="effectif-card" style="page-break-inside:avoid; margin-bottom:14px;">
           <div class="effectif-card-head" style="background:${color};"><h4>${escapeHtml(act)}</h4></div>
-          <p class="hint" style="padding:6px 12px; margin:0;">Référent : ${referent ? escapeHtml(referent.nom) : "—"} — Référent JO : ${referentJo ? escapeHtml(referentJo.nom) : "—"}</p>
+          <p class="hint" style="padding:6px 12px; margin:0;">Référent : ${referent ? escapeHtml(referent.nom) : '<strong class="date-souhaitee">Non précisé</strong>'} — Référent JO : ${referentJo ? escapeHtml(referentJo.nom) : '<strong class="date-souhaitee">Non précisé</strong>'}</p>
           <div class="effectif-table-wrap">
             <table class="effectif-table">
+              <colgroup>${baseCols}${catCols}</colgroup>
               <thead>
-                <tr><th rowspan="2">Établissement</th><th rowspan="2">Prof. responsable</th><th rowspan="2">2e responsable</th><th rowspan="2">Catégorie</th>${catHeaders}</tr>
+                <tr><th rowspan="2">Établissement</th><th rowspan="2">Prof. resp.</th>${hasSecond ? `<th rowspan="2">2e resp.</th><th rowspan="2">Catég.</th>` : ""}${catHeaders}</tr>
                 <tr>${catSubHeaders}</tr>
               </thead>
               <tbody>${rowsHtml}</tbody>
@@ -3676,8 +3680,10 @@ ${innerHtml}
       `;
     }).join("");
     return buildPrintDocument("District de Villeurbanne — Effectifs par activité", body, `
-      .effectif-table{ font-size:.7rem; }
-      .effectif-table th, .effectif-table td{ white-space:normal; }
+      @page{ size: A4 portrait; margin:10mm; }
+      .effectif-table{ font-size:.58rem; table-layout:fixed; width:100%; }
+      .effectif-table th, .effectif-table td{ white-space:normal; word-break:break-word; padding:2px 3px; overflow:hidden; }
+      .effectif-table-wrap{ overflow-x:visible; }
     `);
   }
   document.getElementById("btn-export-effectifs-pdf").addEventListener("click", ()=>{
