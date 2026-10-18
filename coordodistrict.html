@@ -3654,10 +3654,13 @@ ${innerHtml}
       // portrait.
       const hasSecond = rows.some(r=>r.secondProfNom);
       const hasCat = rows.some(r=>r.secondCat);
-      const catHeaders = EFFECTIF_CATEGORIES.map(cat=>`<th colspan="2">${cat}</th>`).join("");
-      const catSubHeaders = EFFECTIF_CATEGORIES.map(()=>`<th>Eff.</th><th>Éq.</th>`).join("");
+      // Classe "cat-sep" sur la 1re colonne de chaque catégorie (en-tête et
+      // cellules) pour tracer un trait vertical qui sépare visuellement
+      // BF / BG / MF / MG.
+      const catHeaders = EFFECTIF_CATEGORIES.map(cat=>`<th colspan="2" class="cat-sep">${cat}</th>`).join("");
+      const catSubHeaders = EFFECTIF_CATEGORIES.map(()=>`<th class="cat-sep">Eff.</th><th>Éq.</th>`).join("");
       const rowsHtml = rows.map(r=>{
-        const catCells = r.cats.map(c=>`<td>${c[0]}</td><td>${c[1]}</td>`).join("");
+        const catCells = r.cats.map(c=>`<td class="cat-sep">${c[0]}</td><td>${c[1]}</td>`).join("");
         const secondCells = (hasSecond ? `<td>${r.secondProfNom ? escapeHtml(r.secondProfNom) : "—"}</td>` : "")
           + (hasCat ? `<td>${r.secondCat || "—"}</td>` : "");
         return `<tr>
@@ -3702,6 +3705,7 @@ ${innerHtml}
       .effectif-table{ font-size:.58rem; table-layout:fixed; width:100%; }
       .effectif-table th, .effectif-table td{ white-space:normal; word-break:break-word; padding:2px 3px; overflow:hidden; }
       .effectif-table-wrap{ overflow-x:visible; }
+      .effectif-table .cat-sep{ border-left:1.5px solid #8a93a8; }
     `);
   }
   document.getElementById("btn-export-effectifs-pdf").addEventListener("click", ()=>{
