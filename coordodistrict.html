@@ -81,6 +81,7 @@
   .effectif-table thead th{ background:#f3f5fb; text-align:left; color:var(--text); text-transform:none; }
   .effectif-table input[type=number]{ width:48px; padding:3px 4px; border:1px solid var(--border); border-radius:5px; text-align:center; }
   .effectif-table .effectif-equipes-input{ width:60px; padding:3px 4px; border:1px solid var(--border); border-radius:5px; text-align:center; }
+  .effectif-table .effectif-college-input{ width:120px; padding:3px 4px; border:1px solid var(--border); border-radius:5px; }
   .effectif-second-badge{ display:inline-flex; align-items:center; gap:4px; font-size:.68rem; font-weight:600; color:var(--muted); background:#eef1fa; border-radius:10px; padding:2px 6px; margin-left:4px; }
   .effectif-second-badge .icon-btn{ width:16px; height:16px; font-size:.6rem; }
   .effectif-table select{ padding:3px 4px; border:1px solid var(--border); border-radius:5px; max-width:140px; }
@@ -1792,6 +1793,13 @@
 
   // ---------- RENDER: EFFECTIFS PAR ACTIVITE (compétition) ----------
   const EFFECTIF_CATEGORIES = ["BF","BG","MF","MG"];
+  // Sports collectifs (UNSS) — toute activité absente de cette liste (y
+  // compris les "Autres" saisies librement, ex: "Gymnastique Acro Aérienne")
+  // est considérée individuelle/artistique et propose la colonne "Collège".
+  const SPORTS_COLLECTIFS = ["Futsal","Futsal féminin","Basket","Handball","Volley","Rugby","Football"];
+  function isActiviteIndividuelle(act){
+    return !SPORTS_COLLECTIFS.includes(act);
+  }
   function findProfById(profId){
     for(const etab of state.etablissements){
       const p = etab.profs.find(x=>x.id===profId);
@@ -1832,6 +1840,9 @@
         // en charge d'une seule catégorie (ex: sports collectifs où deux
         // enseignants se répartissent les catégories).
         secondResponsableId: "", secondResponsableCat: "",
+        // Collège (texte libre) : uniquement pour les activités
+        // individuelles/artistiques (voir isActiviteIndividuelle).
+        college: "",
         categories: { BF:{effectif:0,equipes:0}, BG:{effectif:0,equipes:0}, MF:{effectif:0,equipes:0}, MG:{effectif:0,equipes:0} }
       };
     }
@@ -1878,6 +1889,9 @@
       const color = `var(--${PALETTE[i % PALETTE.length]})`;
       const expanded = expandedEffectifActs.has(act);
       const referents = getActiviteReferents(act, false);
+      // Colonne "Collège" : seulement pour les activités individuelles et
+      // artistiques (pas les sports collectifs).
+      const isIndiv = isActiviteIndividuelle(act);
       const rowsHtml = etabs.map(etab=>{
         const entry = getEffectifEntry(act, etab.id, false) || {
           profResponsableId:null, secondResponsableId:"", secondResponsableCat:"",
@@ -1903,11 +1917,13 @@
         } else {
           secondHtml = `<button type="button" class="icon-btn" data-effectif-second-add data-act="${escapeAttr(act)}" data-etab="${escapeAttr(etab.id)}" title="Ajouter un 2e responsable pour une catégorie">+</button>`;
         }
+        const collegeCell = isIndiv ? `<td><input type="text" class="effectif-college-input" value="${escapeAttr(entry.college||"")}" data-effectif-college data-act="${escapeAttr(act)}" data-etab="${escapeAttr(etab.id)}" placeholder="Collège"></td>` : "";
         return `
           <tr>
             <td><strong>${escapeHtml(etab.nom)}</strong> ${secondHtml}</td>
             <td><select data-effectif-prof data-act="${escapeAttr(act)}" data-etab="${escapeAttr(etab.id)}">${profOptionsHtml(etab, profResponsableId)}</select></td>
             ${catCells}
+            ${collegeCell}
           </tr>
         `;
       }).join("") + getManualEffectifRows(act).map(m=>{
@@ -1919,11 +1935,13 @@
             <td><input type="text" class="effectif-equipes-input" value="${escapeAttr(c.equipes||"")}" data-effectif-field data-act="${escapeAttr(act)}" data-etab="${escapeAttr(m.id)}" data-cat="${cat}" data-field="equipes"></td>
           `;
         }).join("");
+        const collegeCellManual = isIndiv ? `<td><input type="text" class="effectif-college-input" value="${escapeAttr(entry.college||"")}" data-effectif-college data-act="${escapeAttr(act)}" data-etab="${escapeAttr(m.id)}" placeholder="Collège"></td>` : "";
         return `
           <tr class="effectif-row-manual">
             <td><strong>${escapeHtml(m.etabNom)}</strong> 🌐</td>
             <td>${escapeHtml(m.profNom || "— Non précisé —")} <button type="button" class="icon-btn" data-effectif-remove-manual data-act="${escapeAttr(act)}" data-row="${escapeAttr(m.id)}" title="Retirer cette ligne">✕</button></td>
             ${catCells}
+            ${collegeCellManual}
           </tr>
         `;
       }).join("");
@@ -1950,7 +1968,7 @@
           <div class="effectif-table-wrap">
             <table class="effectif-table">
               <thead>
-                <tr><th rowspan="2">Établissement</th><th rowspan="2">Prof. responsable</th>${catHeaders}</tr>
+                <tr><th rowspan="2">Établissement</th><th rowspan="2">Prof. responsable</th>${catHeaders}${isIndiv ? '<th rowspan="2">Collège</th>' : ""}</tr>
                 <tr>${catSubHeaders}</tr>
               </thead>
               <tbody>${rowsHtml}</tbody>
@@ -2034,6 +2052,13 @@
     container.querySelectorAll("[data-effectif-remarque]").forEach(input=>{
       input.addEventListener("change", ()=>{
         getActiviteReferents(input.dataset.act, true).remarque = input.value.trim();
+        saveState();
+      });
+    });
+    container.querySelectorAll("[data-effectif-college]").forEach(input=>{
+      input.addEventListener("change", ()=>{
+        const entry = getEffectifEntry(input.dataset.act, input.dataset.etab, true);
+        entry.college = input.value.trim();
         saveState();
       });
     });
@@ -3588,6 +3613,7 @@ ${innerHtml}
         etabNom: etab.nom, profNom: profResponsable ? profResponsable.nom : "",
         secondProfNom: secondResponsable ? secondResponsable.nom : "",
         secondCat: (entry && entry.secondResponsableCat) || "",
+        college: (entry && entry.college) || "",
         cats, manual:false
       };
     });
@@ -3597,7 +3623,7 @@ ${innerHtml}
         const c = (entry && entry.categories && entry.categories[cat]) || {effectif:0,equipes:""};
         return [c.effectif||"", c.equipes||""];
       });
-      return { etabNom: m.etabNom, profNom: m.profNom||"", secondProfNom:"", secondCat:"", cats, manual:true };
+      return { etabNom: m.etabNom, profNom: m.profNom||"", secondProfNom:"", secondCat:"", college:(entry && entry.college)||"", cats, manual:true };
     });
     return [...real, ...manual];
   }
@@ -3619,13 +3645,18 @@ ${innerHtml}
     // colorée pour repérer visuellement chaque groupe de lignes.
     const colorByActivite = {};
     activites.forEach((act,i)=>{ colorByActivite[act] = PALETTE_HEX[PALETTE[i % PALETTE.length]]; });
+    // Colonne "Collège" ajoutée seulement si au moins une ligne la renseigne
+    // (elle n'existe de toute façon que pour les activités individuelles).
+    const hasAnyCollege = activites.some(act => effectifRowsFor(act).some(r=>r.college));
     const header = ["Activité","Référent","Référent JO","Remarque","Établissement","Prof. responsable","2e responsable","Catégorie (2e responsable)"];
+    if(hasAnyCollege) header.push("Collège");
     EFFECTIF_CATEGORIES.forEach(cat=>{ header.push("Effectif "+cat, "Équipes "+cat); });
     const rows = [];
     activites.forEach(act=>{
       const { referent, referentJo, remarque } = effectifReferentsFor(act);
       effectifRowsFor(act).forEach(r=>{
         const row = [act, referent ? referent.nom : "", referentJo ? referentJo.nom : "", remarque, r.etabNom, r.profNom, r.secondProfNom, r.secondCat];
+        if(hasAnyCollege) row.push(r.college||"");
         r.cats.forEach(c=>{ row.push(c[0], c[1]); });
         rows.push(row);
       });
@@ -3654,6 +3685,7 @@ ${innerHtml}
       // portrait.
       const hasSecond = rows.some(r=>r.secondProfNom);
       const hasCat = rows.some(r=>r.secondCat);
+      const hasCollege = rows.some(r=>r.college);
       // Classe "cat-sep" sur la 1re colonne de chaque catégorie (en-tête et
       // cellules) pour tracer un trait vertical qui sépare visuellement
       // BF / BG / MF / MG.
@@ -3663,25 +3695,29 @@ ${innerHtml}
         const catCells = r.cats.map(c=>`<td class="cat-sep">${c[0]}</td><td>${c[1]}</td>`).join("");
         const secondCells = (hasSecond ? `<td>${r.secondProfNom ? escapeHtml(r.secondProfNom) : "—"}</td>` : "")
           + (hasCat ? `<td>${r.secondCat || "—"}</td>` : "");
+        const collegeCell = hasCollege ? `<td>${r.college ? escapeHtml(r.college) : "—"}</td>` : "";
         return `<tr>
           <td>${escapeHtml(r.etabNom)}${r.manual ? " 🌐" : ""}</td>
           <td>${r.profNom ? escapeHtml(r.profNom) : "—"}</td>
           ${secondCells}
           ${catCells}
+          ${collegeCell}
         </tr>`;
       }).join("");
       // Largeurs fixes par colonne (colgroup) pour que les colonnes
       // tiennent systématiquement sur la largeur d'une page A4 portrait,
       // sans débordement horizontal ni colonnes illisibles — calculées pour
       // totaliser exactement 100%, quelle que soit la combinaison de
-      // colonnes "2e responsable" / "Catégorie" affichées.
-      const etabWidth = 17, profWidth = 15, secondWidth = 13, catWidth = 7;
+      // colonnes "2e responsable" / "Catégorie" / "Collège" affichées.
+      const etabWidth = 17, profWidth = 15, secondWidth = 13, catWidth = 7, collegeWidth = 14;
       let usedWidth = etabWidth + profWidth;
       let baseCols = `<col style="width:${etabWidth}%"><col style="width:${profWidth}%">`;
       if(hasSecond){ baseCols += `<col style="width:${secondWidth}%">`; usedWidth += secondWidth; }
       if(hasCat){ baseCols += `<col style="width:${catWidth}%">`; usedWidth += catWidth; }
+      if(hasCollege) usedWidth += collegeWidth;
       const catColWidth = 100 - usedWidth;
-      const catCols = EFFECTIF_CATEGORIES.map(()=>`<col style="width:${(catColWidth/8).toFixed(2)}%"><col style="width:${(catColWidth/8).toFixed(2)}%">`).join("");
+      const catCols = EFFECTIF_CATEGORIES.map(()=>`<col style="width:${(catColWidth/8).toFixed(2)}%"><col style="width:${(catColWidth/8).toFixed(2)}%">`).join("")
+        + (hasCollege ? `<col style="width:${collegeWidth}%">` : "");
       return `
         <div class="effectif-card" style="page-break-inside:avoid; margin-bottom:14px;">
           <div class="effectif-card-head" style="background:${color};"><h4>${escapeHtml(act)}</h4></div>
@@ -3691,7 +3727,7 @@ ${innerHtml}
             <table class="effectif-table">
               <colgroup>${baseCols}${catCols}</colgroup>
               <thead>
-                <tr><th rowspan="2">Établissement</th><th rowspan="2">Prof. resp.</th>${hasSecond ? `<th rowspan="2">2e resp.</th>` : ""}${hasCat ? `<th rowspan="2">Catég.</th>` : ""}${catHeaders}</tr>
+                <tr><th rowspan="2">Établissement</th><th rowspan="2">Prof. resp.</th>${hasSecond ? `<th rowspan="2">2e resp.</th>` : ""}${hasCat ? `<th rowspan="2">Catég.</th>` : ""}${catHeaders}${hasCollege ? `<th rowspan="2">Collège</th>` : ""}</tr>
                 <tr>${catSubHeaders}</tr>
               </thead>
               <tbody>${rowsHtml}</tbody>
