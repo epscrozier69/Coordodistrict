@@ -3647,17 +3647,19 @@ ${innerHtml}
       const color = `var(--${PALETTE[i % PALETTE.length]})`;
       const rows = effectifRowsFor(act);
       const { referent, referentJo, remarque } = effectifReferentsFor(act);
-      // Colonnes "2e responsable" / "Catégorie" masquées pour cette activité
-      // si personne ne les a renseignées — pour gagner de la place et que
-      // tout tienne en largeur sur une page A4 portrait.
+      // Colonnes "2e responsable" et "Catégorie" masquées indépendamment
+      // l'une de l'autre pour cette activité, si rien n'a été renseigné
+      // (un 2e responsable peut exister sans catégorie précisée) — pour
+      // gagner de la place et que tout tienne en largeur sur une page A4
+      // portrait.
       const hasSecond = rows.some(r=>r.secondProfNom);
+      const hasCat = rows.some(r=>r.secondCat);
       const catHeaders = EFFECTIF_CATEGORIES.map(cat=>`<th colspan="2">${cat}</th>`).join("");
       const catSubHeaders = EFFECTIF_CATEGORIES.map(()=>`<th>Eff.</th><th>Éq.</th>`).join("");
       const rowsHtml = rows.map(r=>{
         const catCells = r.cats.map(c=>`<td>${c[0]}</td><td>${c[1]}</td>`).join("");
-        const secondCells = hasSecond ? `
-          <td>${r.secondProfNom ? escapeHtml(r.secondProfNom) : "—"}</td>
-          <td>${r.secondCat || "—"}</td>` : "";
+        const secondCells = (hasSecond ? `<td>${r.secondProfNom ? escapeHtml(r.secondProfNom) : "—"}</td>` : "")
+          + (hasCat ? `<td>${r.secondCat || "—"}</td>` : "");
         return `<tr>
           <td>${escapeHtml(r.etabNom)}${r.manual ? " 🌐" : ""}</td>
           <td>${r.profNom ? escapeHtml(r.profNom) : "—"}</td>
@@ -3665,14 +3667,18 @@ ${innerHtml}
           ${catCells}
         </tr>`;
       }).join("");
-      // Largeurs fixes par colonne (colgroup) pour que les 10 à 12 colonnes
+      // Largeurs fixes par colonne (colgroup) pour que les colonnes
       // tiennent systématiquement sur la largeur d'une page A4 portrait,
-      // sans débordement horizontal ni colonnes illisibles.
-      const baseCols = hasSecond
-        ? `<col style="width:15%"><col style="width:13%"><col style="width:11%"><col style="width:7%">`
-        : `<col style="width:17%"><col style="width:15%">`;
-      const catColWidth = hasSecond ? "54" : "68";
-      const catCols = EFFECTIF_CATEGORIES.map(()=>`<col style="width:${(catColWidth/8).toFixed(1)}%"><col style="width:${(catColWidth/8).toFixed(1)}%">`).join("");
+      // sans débordement horizontal ni colonnes illisibles — calculées pour
+      // totaliser exactement 100%, quelle que soit la combinaison de
+      // colonnes "2e responsable" / "Catégorie" affichées.
+      const etabWidth = 17, profWidth = 15, secondWidth = 13, catWidth = 7;
+      let usedWidth = etabWidth + profWidth;
+      let baseCols = `<col style="width:${etabWidth}%"><col style="width:${profWidth}%">`;
+      if(hasSecond){ baseCols += `<col style="width:${secondWidth}%">`; usedWidth += secondWidth; }
+      if(hasCat){ baseCols += `<col style="width:${catWidth}%">`; usedWidth += catWidth; }
+      const catColWidth = 100 - usedWidth;
+      const catCols = EFFECTIF_CATEGORIES.map(()=>`<col style="width:${(catColWidth/8).toFixed(2)}%"><col style="width:${(catColWidth/8).toFixed(2)}%">`).join("");
       return `
         <div class="effectif-card" style="page-break-inside:avoid; margin-bottom:14px;">
           <div class="effectif-card-head" style="background:${color};"><h4>${escapeHtml(act)}</h4></div>
@@ -3682,7 +3688,7 @@ ${innerHtml}
             <table class="effectif-table">
               <colgroup>${baseCols}${catCols}</colgroup>
               <thead>
-                <tr><th rowspan="2">Établissement</th><th rowspan="2">Prof. resp.</th>${hasSecond ? `<th rowspan="2">2e resp.</th><th rowspan="2">Catég.</th>` : ""}${catHeaders}</tr>
+                <tr><th rowspan="2">Établissement</th><th rowspan="2">Prof. resp.</th>${hasSecond ? `<th rowspan="2">2e resp.</th>` : ""}${hasCat ? `<th rowspan="2">Catég.</th>` : ""}${catHeaders}</tr>
                 <tr>${catSubHeaders}</tr>
               </thead>
               <tbody>${rowsHtml}</tbody>
