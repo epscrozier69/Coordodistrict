@@ -74,6 +74,7 @@
   .effectif-referents-row{ display:flex; flex-wrap:wrap; gap:18px; padding:10px 12px; background:#f7f9fd; border-bottom:1px solid var(--border); }
   .effectif-referents-row label{ display:flex; flex-direction:column; gap:3px; font-size:.78rem; font-weight:600; color:var(--text); }
   .effectif-referents-row select{ padding:5px 8px; border:1px solid var(--border); border-radius:6px; min-width:220px; }
+  .effectif-referents-row input[type=text]{ padding:5px 8px; border:1px solid var(--border); border-radius:6px; width:100%; box-sizing:border-box; }
   .effectif-table-wrap{ overflow-x:auto; }
   .effectif-table{ width:100%; border-collapse:collapse; font-size:.78rem; }
   .effectif-table th, .effectif-table td{ padding:6px 8px; border-bottom:1px solid var(--border); white-space:nowrap; }
@@ -1840,8 +1841,8 @@
   // par établissement) : stockés séparément des effectifs par établissement.
   function getActiviteReferents(act, create){
     if(!state.activiteReferents[act]){
-      if(!create) return { referentId:"", referentJoId:"" };
-      state.activiteReferents[act] = { referentId:"", referentJoId:"" };
+      if(!create) return { referentId:"", referentJoId:"", remarque:"" };
+      state.activiteReferents[act] = { referentId:"", referentJoId:"", remarque:"" };
     }
     return state.activiteReferents[act];
   }
@@ -1942,6 +1943,9 @@
             <label>Référent jeune officiel
               <select data-effectif-referent-jo-activite data-act="${escapeAttr(act)}">${profOptionsAcrossEtabsHtml(etabs, referents.referentJoId)}</select>
             </label>
+            <label style="flex:1 1 220px;">Remarque
+              <input type="text" data-effectif-remarque data-act="${escapeAttr(act)}" value="${escapeAttr(referents.remarque||"")}" placeholder="Note facultative">
+            </label>
           </div>
           <div class="effectif-table-wrap">
             <table class="effectif-table">
@@ -2024,6 +2028,12 @@
     container.querySelectorAll("[data-effectif-referent-jo-activite]").forEach(sel=>{
       sel.addEventListener("change", ()=>{
         getActiviteReferents(sel.dataset.act, true).referentJoId = sel.value;
+        saveState();
+      });
+    });
+    container.querySelectorAll("[data-effectif-remarque]").forEach(input=>{
+      input.addEventListener("change", ()=>{
+        getActiviteReferents(input.dataset.act, true).remarque = input.value.trim();
         saveState();
       });
     });
@@ -3597,7 +3607,8 @@ ${innerHtml}
     const r = getActiviteReferents(act, false);
     return {
       referent: r.referentId ? findProfById(r.referentId) : null,
-      referentJo: r.referentJoId ? findProfById(r.referentJoId) : null
+      referentJo: r.referentJoId ? findProfById(r.referentJoId) : null,
+      remarque: r.remarque || ""
     };
   }
   function exportEffectifsExcel(){
@@ -3608,13 +3619,13 @@ ${innerHtml}
     // colorée pour repérer visuellement chaque groupe de lignes.
     const colorByActivite = {};
     activites.forEach((act,i)=>{ colorByActivite[act] = PALETTE_HEX[PALETTE[i % PALETTE.length]]; });
-    const header = ["Activité","Référent","Référent JO","Établissement","Prof. responsable","2e responsable","Catégorie (2e responsable)"];
+    const header = ["Activité","Référent","Référent JO","Remarque","Établissement","Prof. responsable","2e responsable","Catégorie (2e responsable)"];
     EFFECTIF_CATEGORIES.forEach(cat=>{ header.push("Effectif "+cat, "Équipes "+cat); });
     const rows = [];
     activites.forEach(act=>{
-      const { referent, referentJo } = effectifReferentsFor(act);
+      const { referent, referentJo, remarque } = effectifReferentsFor(act);
       effectifRowsFor(act).forEach(r=>{
-        const row = [act, referent ? referent.nom : "", referentJo ? referentJo.nom : "", r.etabNom, r.profNom, r.secondProfNom, r.secondCat];
+        const row = [act, referent ? referent.nom : "", referentJo ? referentJo.nom : "", remarque, r.etabNom, r.profNom, r.secondProfNom, r.secondCat];
         r.cats.forEach(c=>{ row.push(c[0], c[1]); });
         rows.push(row);
       });
@@ -3635,7 +3646,7 @@ ${innerHtml}
     const body = activites.map((act,i)=>{
       const color = `var(--${PALETTE[i % PALETTE.length]})`;
       const rows = effectifRowsFor(act);
-      const { referent, referentJo } = effectifReferentsFor(act);
+      const { referent, referentJo, remarque } = effectifReferentsFor(act);
       // Colonnes "2e responsable" / "Catégorie" masquées pour cette activité
       // si personne ne les a renseignées — pour gagner de la place et que
       // tout tienne en largeur sur une page A4 portrait.
@@ -3666,6 +3677,7 @@ ${innerHtml}
         <div class="effectif-card" style="page-break-inside:avoid; margin-bottom:14px;">
           <div class="effectif-card-head" style="background:${color};"><h4>${escapeHtml(act)}</h4></div>
           <p class="hint" style="padding:6px 12px; margin:0;">Référent : ${referent ? escapeHtml(referent.nom) : '<strong class="date-souhaitee">Non précisé</strong>'} — Référent JO : ${referentJo ? escapeHtml(referentJo.nom) : '<strong class="date-souhaitee">Non précisé</strong>'}</p>
+          ${remarque ? `<p class="hint" style="padding:0 12px 6px; margin:0;"><strong>Remarque :</strong> ${escapeHtml(remarque)}</p>` : ""}
           <div class="effectif-table-wrap">
             <table class="effectif-table">
               <colgroup>${baseCols}${catCols}</colgroup>
