@@ -3572,7 +3572,7 @@ ${innerHtml}
       const secondResponsable = entry && entry.secondResponsableId ? findProfById(entry.secondResponsableId) : null;
       const cats = EFFECTIF_CATEGORIES.map(cat=>{
         const c = (entry && entry.categories && entry.categories[cat]) || {effectif:0,equipes:""};
-        return [c.effectif||0, c.equipes||""];
+        return [c.effectif||"", c.equipes||""];
       });
       return {
         etabNom: etab.nom, profNom: profResponsable ? profResponsable.nom : "",
@@ -3585,7 +3585,7 @@ ${innerHtml}
       const entry = getEffectifEntry(act, m.id, false);
       const cats = EFFECTIF_CATEGORIES.map(cat=>{
         const c = (entry && entry.categories && entry.categories[cat]) || {effectif:0,equipes:""};
-        return [c.effectif||0, c.equipes||""];
+        return [c.effectif||"", c.equipes||""];
       });
       return { etabNom: m.etabNom, profNom: m.profNom||"", secondProfNom:"", secondCat:"", cats, manual:true };
     });
