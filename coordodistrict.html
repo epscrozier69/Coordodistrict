@@ -205,6 +205,11 @@
   }
   .export-tile-icon{ font-size:1.8rem; }
   .export-tile:hover{ transform:translateY(-2px); box-shadow:0 6px 18px rgba(0,0,0,.2); }
+  .export-tile-compact{
+    flex:0 0 auto; width:auto; height:auto; min-height:0; padding:8px 14px;
+    flex-direction:row; gap:8px;
+  }
+  .export-tile-compact .export-tile-icon{ font-size:1.1rem; }
   .interdistrict-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:16px; margin-top:12px; }
   .interdistrict-card{ border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; background:#fff; box-shadow:var(--shadow); }
   .interdistrict-card-head{ padding:10px 12px; color:#fff; }
@@ -404,9 +409,9 @@
         <button id="btn-migrate-photos" class="secondary">☁️ Migrer les photos vers Drive</button>
       </div>
     </div>
-    <div class="export-tiles" style="margin-bottom:14px;">
-      <button id="btn-export-annuaire-pdf" class="export-tile" style="background:var(--c1)"><span class="export-tile-icon">📄</span><span>Export PDF (consultation)</span></button>
-      <button id="btn-export-annuaire-excel" class="export-tile" style="background:var(--c10)"><span class="export-tile-icon">📊</span><span>Export Excel (Annuaire)</span></button>
+    <div class="export-tiles" style="margin-bottom:14px; justify-content:flex-end;">
+      <button id="btn-export-annuaire-pdf" class="export-tile export-tile-compact" style="background:var(--c1)"><span class="export-tile-icon">📄</span><span>Export PDF (consultation)</span></button>
+      <button id="btn-export-annuaire-excel" class="export-tile export-tile-compact" style="background:var(--c10)"><span class="export-tile-icon">📊</span><span>Export Excel (Annuaire)</span></button>
     </div>
     <div class="profs-meta-row">
       <p class="hint" id="profs-count-info" style="margin:0;"></p>
