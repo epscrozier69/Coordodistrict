@@ -1328,6 +1328,40 @@
     next();
   }
   document.getElementById("btn-migrate-photos").addEventListener("click", migratePhotosToDrive);
+  // Les effectifs par activité sont souvent remplis en parallèle par
+  // plusieurs collègues (un par établissement) sur des appareils différents.
+  // L'envoi global de l'état (pushRemoteState) remplace tout le document :
+  // sans cette fusion, l'appareil A pouvait écraser les effectifs saisis
+  // entre-temps par l'appareil B pour un autre établissement, simplement
+  // parce que A n'avait pas encore rechargé ces données. On complète donc
+  // l'état local avec les entrées présentes côté serveur mais absentes en
+  // local juste avant d'envoyer, sans jamais écraser une saisie locale.
+  function mergeEffectifsFromRemote(remote){
+    if(!remote) return;
+    if(remote.activiteEffectifs){
+      Object.keys(remote.activiteEffectifs).forEach(act=>{
+        if(!state.activiteEffectifs[act]) state.activiteEffectifs[act] = {};
+        Object.keys(remote.activiteEffectifs[act]).forEach(etabId=>{
+          if(!state.activiteEffectifs[act][etabId]){
+            state.activiteEffectifs[act][etabId] = remote.activiteEffectifs[act][etabId];
+          }
+        });
+      });
+    }
+    if(remote.activiteEffectifsManuels){
+      Object.keys(remote.activiteEffectifsManuels).forEach(act=>{
+        const remoteRows = remote.activiteEffectifsManuels[act] || [];
+        if(!state.activiteEffectifsManuels[act]) state.activiteEffectifsManuels[act] = [];
+        const localIds = new Set(state.activiteEffectifsManuels[act].map(r=>r.id));
+        remoteRows.forEach(r=>{ if(!localIds.has(r.id)) state.activiteEffectifsManuels[act].push(r); });
+      });
+    }
+    if(remote.activiteReferents){
+      Object.keys(remote.activiteReferents).forEach(act=>{
+        if(!state.activiteReferents[act]) state.activiteReferents[act] = remote.activiteReferents[act];
+      });
+    }
+  }
   function pushRemoteState(){
     if(!SYNC_URL) return;
     // L'état complet est stocké comme fichier Google Drive côté Apps Script
@@ -1336,10 +1370,14 @@
     if(syncInFlight){ syncPending = true; return; }
     syncInFlight = true;
     setSyncStatus("Synchronisation en cours…");
-    fetch(SYNC_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ token: SYNC_TOKEN, ts: Date.now(), data: state })
+    fetchRemoteState().then(remote=>{
+      mergeEffectifsFromRemote(remote);
+      cacheStateLocally();
+      return fetch(SYNC_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ token: SYNC_TOKEN, ts: Date.now(), data: state })
+      });
     }).then(r=>r.json()).then(json=>{
         if(json && json.ok) setSyncStatus("Synchronisé à " + new Date().toLocaleTimeString("fr-FR", {hour:"2-digit", minute:"2-digit"}));
         else {
