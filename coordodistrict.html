@@ -113,9 +113,8 @@
   .calendrier-table{ table-layout:fixed; min-width:0; width:auto; }
   .calendrier-scroll{ max-height:70vh; overflow:auto; border-radius:var(--radius); box-shadow:var(--shadow); }
   .calendrier-table thead th{ position:sticky; top:0; z-index:2; background:#fff; }
-  .cal-check-label{ display:inline-flex; align-items:center; gap:6px; cursor:pointer; width:100%; }
-  .cal-check-label input{ flex:0 0 auto; cursor:pointer; }
-  .cal-check-label span{ flex:1 1 auto; min-width:0; }
+  .cal-check-label{ cursor:pointer; }
+  .cal-check-label input{ cursor:pointer; vertical-align:middle; margin-right:4px; }
   thead th{
     color:#fff; padding:7px 10px; text-align:left; font-size:.74rem;
     text-transform:uppercase; letter-spacing:.4px; white-space:nowrap;
@@ -4160,7 +4159,7 @@ ${innerHtml}
         const text = row[ci] != null ? String(row[ci]) : "";
         const isMerged = m && typeof m === "object";
         let cellContent = escapeHtml(text);
-        if(text.trim() !== "" && !isMerged){
+        if(text.trim() !== "" && !isMerged && ci !== 0){
           const key = ri + "_" + ci + "_" + text.trim();
           const checked = state.calendrierChecks[key] ? "checked" : "";
           cellContent = '<label class="cal-check-label"><input type="checkbox" class="cal-check" data-key="' + escapeHtml(key) + '" ' + checked + '><span>' + cellContent + "</span></label>";
