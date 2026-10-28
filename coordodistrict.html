@@ -396,6 +396,7 @@
     <button class="tab-btn" data-tab="cross">Cross District</button>
     <button class="tab-btn" data-tab="export">Export</button>
     <button class="tab-btn" data-tab="ag">AG</button>
+    <button class="tab-btn" data-tab="calendrier">Calendrier District</button>
   </nav>
 </header>
 
@@ -695,6 +696,15 @@
     <div class="ag-tabs" id="ag-tabs"></div>
     <p class="hint" id="ag-recap"></p>
     <div id="ag-container"></div>
+  </section>
+
+  <!-- ONGLET CALENDRIER DISTRICT -->
+  <section id="tab-calendrier" class="tab-panel">
+    <div class="panel-header">
+      <h2>Calendrier District</h2>
+      <p class="hint" style="width:100%; margin:0;">Reprend tel quel l'onglet "Calendrier" du Google Sheet.</p>
+    </div>
+    <div id="calendrier-container"></div>
   </section>
 
 </main>
@@ -4093,6 +4103,26 @@ ${innerHtml}
   });
 
   // ---------- INIT ----------
+  function renderCalendrier(){
+    const container = document.getElementById("calendrier-container");
+    if(!container) return;
+    const cal = state.calendrier;
+    if(!cal || !cal.headers || !cal.headers.length){
+      container.innerHTML = '<p class="hint">Aucun calendrier importé pour le moment. Ajoutez un onglet "Calendrier" dans le Google Sheet.</p>';
+      return;
+    }
+    let html = '<table><thead><tr>';
+    cal.headers.forEach(h=>{ html += "<th>" + escapeHtml(h) + "</th>"; });
+    html += "</tr></thead><tbody>";
+    (cal.rows || []).forEach(row=>{
+      html += "<tr>";
+      cal.headers.forEach((h, i)=>{ html += "<td>" + escapeHtml(row[i] != null ? row[i] : "") + "</td>"; });
+      html += "</tr>";
+    });
+    html += "</tbody></table>";
+    container.innerHTML = html;
+  }
+
   function renderAll(){
     renderProfs();
     renderActivites();
@@ -4101,6 +4131,7 @@ ${innerHtml}
     renderFinances();
     renderCross();
     renderAg();
+    renderCalendrier();
   }
   renderAll();
 
