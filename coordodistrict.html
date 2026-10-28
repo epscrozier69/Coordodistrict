@@ -395,13 +395,13 @@
   <nav class="tabs">
     <button class="tab-btn active" data-tab="profs">Annuaire</button>
     <button class="tab-btn" data-tab="activites">Activités</button>
+    <button class="tab-btn" data-tab="calendrier">Calendrier</button>
     <button class="tab-btn" data-tab="cartes">Gestion cartes TCL</button>
     <button class="tab-btn" data-tab="recompenses">Gestion récompenses</button>
     <button class="tab-btn" data-tab="finances">Finances</button>
     <button class="tab-btn" data-tab="cross">Cross District</button>
     <button class="tab-btn" data-tab="export">Export</button>
     <button class="tab-btn" data-tab="ag">AG</button>
-    <button class="tab-btn" data-tab="calendrier">Calendrier</button>
   </nav>
 </header>
 
@@ -660,9 +660,13 @@
     </div>
 
     <div class="export-row">
-      <h3 class="export-row-title">🗄️ Sauvegarde</h3>
+      <h3 class="export-row-title">✉️ Emails</h3>
       <div class="export-tiles">
-        <button id="btn-export-backup-json" class="export-tile" style="background:var(--c4)"><span class="export-tile-icon">💾</span><span>Exporter une sauvegarde complète (JSON)</span></button>
+        <button id="btn-copy-emails" class="export-tile" style="background:var(--c2)"><span class="export-tile-icon">✉️</span><span>Emails par établissement</span></button>
+        <button id="btn-copy-emails-activite" class="export-tile" style="background:var(--c9)"><span class="export-tile-icon">✉️</span><span>Emails par activité</span></button>
+        <button id="btn-copy-emails-coordo-as" class="export-tile" style="background:var(--c5)"><span class="export-tile-icon">✉️</span><span>Emails des coordos AS</span></button>
+        <button id="btn-copy-emails-referent" class="export-tile" style="background:var(--c12)"><span class="export-tile-icon">✉️</span><span>Emails des référents d'activité</span></button>
+        <button id="btn-copy-emails-referent-jo" class="export-tile" style="background:var(--c13)"><span class="export-tile-icon">✉️</span><span>Emails des référents jeunes officiels</span></button>
       </div>
     </div>
 
@@ -675,13 +679,9 @@
     </div>
 
     <div class="export-row">
-      <h3 class="export-row-title">✉️ Emails</h3>
+      <h3 class="export-row-title">🗄️ Sauvegarde</h3>
       <div class="export-tiles">
-        <button id="btn-copy-emails" class="export-tile" style="background:var(--c2)"><span class="export-tile-icon">✉️</span><span>Emails par établissement</span></button>
-        <button id="btn-copy-emails-activite" class="export-tile" style="background:var(--c9)"><span class="export-tile-icon">✉️</span><span>Emails par activité</span></button>
-        <button id="btn-copy-emails-coordo-as" class="export-tile" style="background:var(--c5)"><span class="export-tile-icon">✉️</span><span>Emails des coordos AS</span></button>
-        <button id="btn-copy-emails-referent" class="export-tile" style="background:var(--c12)"><span class="export-tile-icon">✉️</span><span>Emails des référents d'activité</span></button>
-        <button id="btn-copy-emails-referent-jo" class="export-tile" style="background:var(--c13)"><span class="export-tile-icon">✉️</span><span>Emails des référents jeunes officiels</span></button>
+        <button id="btn-export-backup-json" class="export-tile" style="background:var(--c4)"><span class="export-tile-icon">💾</span><span>Exporter une sauvegarde complète (JSON)</span></button>
       </div>
     </div>
   </section>
@@ -706,9 +706,8 @@
   <!-- ONGLET CALENDRIER DISTRICT -->
   <section id="tab-calendrier" class="tab-panel">
     <div class="panel-header">
-      <h2>Calendrier</h2>
       <div class="actions">
-        <a href="https://docs.google.com/spreadsheets/d/1ivVXdL8o3HhvRLlkSNTj-3XBMXYmD6QhlfyBW884Hb0/edit?gid=10027405#gid=10027405" target="_blank" rel="noopener" class="btn-link secondary" style="text-decoration:none;">Calendrier départemental</a>
+        <a href="https://docs.google.com/spreadsheets/d/1ivVXdL8o3HhvRLlkSNTj-3XBMXYmD6QhlfyBW884Hb0/edit?gid=10027405#gid=10027405" target="_blank" rel="noopener" class="btn-link" style="text-decoration:none; background:var(--c5); font-size:1.05rem; padding:13px 22px;">📅 Calendrier départemental</a>
       </div>
     </div>
     <div id="calendrier-container"></div>
