@@ -111,6 +111,11 @@
   .table-wrap{ overflow-x:auto; border-radius:var(--radius); box-shadow:var(--shadow); background:#fff; }
   table{ border-collapse:collapse; width:100%; min-width:900px; }
   .calendrier-table{ table-layout:fixed; min-width:0; width:auto; }
+  .calendrier-scroll{ max-height:70vh; overflow:auto; border-radius:var(--radius); box-shadow:var(--shadow); }
+  .calendrier-table thead th{ position:sticky; top:0; z-index:2; background:#fff; }
+  .cal-check-label{ display:inline-flex; align-items:center; gap:6px; cursor:pointer; width:100%; }
+  .cal-check-label input{ flex:0 0 auto; cursor:pointer; }
+  .cal-check-label span{ flex:1 1 auto; min-width:0; }
   thead th{
     color:#fff; padding:7px 10px; text-align:left; font-size:.74rem;
     text-transform:uppercase; letter-spacing:.4px; white-space:nowrap;
@@ -4110,6 +4115,7 @@ ${innerHtml}
     if(s.bg && s.bg.toLowerCase() !== "#ffffff") css += "background:" + s.bg + ";";
     if(s.color) css += "color:" + s.color + ";";
     if(s.align) css += "text-align:" + s.align + ";";
+    if(s.valign) css += "vertical-align:" + s.valign + ";";
     css += s.wrap ? "white-space:normal; word-break:break-word;" : "white-space:nowrap; overflow:hidden; text-overflow:ellipsis;";
     return css;
   }
@@ -4123,7 +4129,7 @@ ${innerHtml}
     }
     let html = "";
     if(cal.title){ html += "<h3>" + escapeHtml(cal.title) + "</h3>"; }
-    html += '<table class="calendrier-table">';
+    html += '<div class="calendrier-scroll"><table class="calendrier-table">';
     if(cal.colWidths && cal.colWidths.length){
       html += "<colgroup>";
       cal.colWidths.forEach(w=>{ html += '<col style="width:' + w + 'px;">'; });
@@ -4144,18 +4150,35 @@ ${innerHtml}
       html += '<th' + spanAttrs(m) + ' style="' + calendrierCellStyle(s) + '">' + escapeHtml(h) + "</th>";
     });
     html += "</tr></thead><tbody>";
+    if(!state.calendrierChecks) state.calendrierChecks = {};
     (cal.rows || []).forEach((row, ri)=>{
       html += "<tr>";
       cal.headers.forEach((h, ci)=>{
         const m = cal.rowMerges && cal.rowMerges[ri] && cal.rowMerges[ri][ci];
         if(m === "covered") return;
         const s = cal.rowStyles && cal.rowStyles[ri] && cal.rowStyles[ri][ci];
-        html += '<td' + spanAttrs(m) + ' style="' + calendrierCellStyle(s) + '">' + escapeHtml(row[ci] != null ? row[ci] : "") + "</td>";
+        const text = row[ci] != null ? String(row[ci]) : "";
+        const isMerged = m && typeof m === "object";
+        let cellContent = escapeHtml(text);
+        if(text.trim() !== "" && !isMerged){
+          const key = ri + "_" + ci + "_" + text.trim();
+          const checked = state.calendrierChecks[key] ? "checked" : "";
+          cellContent = '<label class="cal-check-label"><input type="checkbox" class="cal-check" data-key="' + escapeHtml(key) + '" ' + checked + '><span>' + cellContent + "</span></label>";
+        }
+        html += '<td' + spanAttrs(m) + ' style="' + calendrierCellStyle(s) + '">' + cellContent + "</td>";
       });
       html += "</tr>";
     });
-    html += "</tbody></table>";
+    html += "</tbody></table></div>";
     container.innerHTML = html;
+    container.querySelectorAll(".cal-check").forEach(cb=>{
+      cb.addEventListener("change", ()=>{
+        const key = cb.dataset.key;
+        if(cb.checked) state.calendrierChecks[key] = true;
+        else delete state.calendrierChecks[key];
+        saveState();
+      });
+    });
   }
 
   function renderAll(){
