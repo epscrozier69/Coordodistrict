@@ -654,6 +654,13 @@
     </div>
 
     <div class="export-row">
+      <h3 class="export-row-title">🗄️ Sauvegarde</h3>
+      <div class="export-tiles">
+        <button id="btn-export-backup-json" class="export-tile" style="background:var(--c4)"><span class="export-tile-icon">💾</span><span>Exporter une sauvegarde complète (JSON)</span></button>
+      </div>
+    </div>
+
+    <div class="export-row">
       <h3 class="export-row-title">📱 Téléphones</h3>
       <div class="export-tiles">
         <button id="btn-copy-phones" class="export-tile" style="background:var(--c6)"><span class="export-tile-icon">📱</span><span>Téléphones par établissement</span></button>
@@ -1230,6 +1237,10 @@
   // Laisse vide ("") pour désactiver la synchro et rester en stockage local uniquement.
   const SYNC_URL = "https://script.google.com/macros/s/AKfycbwgeNZyCDe11Fj-j2yGTgDp35b5tvEP7l4Doju3MuNa6D5DLBGlFo1oODTGI7TJzp3DOw/exec";
   const SYNC_TOKEN = "C@sPer1977"; // doit correspondre au TOKEN défini dans le script Apps Script
+  // Ouvrir la page avec ?nosync=1 affiche uniquement les données déjà en mémoire sur cet
+  // appareil (localStorage) sans jamais contacter le serveur, ni en lecture ni en écriture —
+  // utile pour récupérer une sauvegarde locale avant qu'elle ne soit écrasée par une synchro.
+  const NOSYNC = new URLSearchParams(location.search).get("nosync") === "1";
 
   const syncStatusEl = { current: null };
   function setSyncStatus(text){
@@ -1364,7 +1375,7 @@
     }
   }
   function pushRemoteState(){
-    if(!SYNC_URL) return;
+    if(!SYNC_URL || NOSYNC) return;
     // L'état complet est stocké comme fichier Google Drive côté Apps Script
     // (et non plus dans une cellule Google Sheets, limitée à ~50000
     // caractères) : plus de limite de taille pratique à vérifier ici.
@@ -2948,6 +2959,11 @@
       window.prompt(label+" — sélectionnez et copiez (Ctrl+C) :", text);
     }
   }
+  document.getElementById("btn-export-backup-json").addEventListener("click", ()=>{
+    const d = new Date();
+    const stamp = d.toISOString().slice(0,16).replace(/[-:T]/g,"");
+    downloadFile("sauvegarde_district_" + stamp + ".json", JSON.stringify(state, null, 2), "application/json");
+  });
   document.getElementById("btn-copy-phones").addEventListener("click", ()=>{
     openSelectContactModal("telephone");
   });
@@ -4090,6 +4106,10 @@ ${innerHtml}
 
   // Au lancement : si la synchro est configurée, on récupère la version la plus
   // à jour depuis Google Sheets et on ré-affiche avec ces données fraîches.
+  // (sauf en mode ?nosync=1, voir définition de NOSYNC plus haut)
+  if(NOSYNC){
+    setSyncStatus("Mode hors-synchro (?nosync=1) : données locales affichées sans contact avec le serveur.");
+  } else {
   fetchRemoteState().then(remote=>{
     if(!remote) return;
     const localTime = state.lastModified ? new Date(state.lastModified).getTime() : 0;
@@ -4107,6 +4127,7 @@ ${innerHtml}
     }
     autoMigratePhotosIfNeeded();
   });
+  }
 
   // Rafraîchissement automatique en arrière-plan : relit le Google Sheet
   // toutes les 60 secondes et met à jour l'affichage si une version plus
@@ -4114,7 +4135,7 @@ ${innerHtml}
   // avoir besoin de recharger la page manuellement. Ne pousse jamais de
   // données locales ici (contrairement au fetch de lancement) — l'envoi se
   // fait uniquement via saveState().
-  if(SYNC_URL){
+  if(SYNC_URL && !NOSYNC){
     setInterval(()=>{
       fetchRemoteState().then(remote=>{
         if(!remote) return;
