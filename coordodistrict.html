@@ -1838,7 +1838,7 @@
     }
     etabs.forEach(etab=>{
       const tr = document.createElement("tr");
-      let rowHtml = `<td><span class="etab-dot" style="background:${etabColorVar(etab)}"></span><strong>${escapeHtml(etab.nom)}</strong></td>`;
+      let rowHtml = `<td><span class="etab-dot" style="background:${etabColorVar(etab)}"></span><strong>${escapeHtml(etabShort(etab))}</strong></td>`;
       activesCols.forEach(col=>{
         const on = etabHasActiviteCol(etab, col, dimension);
         const cls = on ? (dimension==="pratiquee" ? "state-pratique" : "state-competition") : "state-off";
@@ -2224,7 +2224,7 @@
       const color = `var(--${PALETTE[i % PALETTE.length]})`;
       const entry = ensureInterdistrictRows(act, etabs);
       const rowsHtml = entry.rows.map((row,rIdx)=>{
-        const lieuOptions = `<option value="">— Choisir —</option>` + sortedEtabs().map(e=>`<option value="${escapeAttr(e.id)}" ${row.lieu===e.id?"selected":""}>${escapeHtml(e.nom)}</option>`).join("");
+        const lieuOptions = `<option value="">— Choisir —</option>` + sortedEtabs().map(e=>`<option value="${escapeAttr(e.id)}" ${row.lieu===e.id?"selected":""}>${escapeHtml(etabShort(e))}</option>`).join("");
         const lieuManuelHtml = (row.lieuManuel && !row.lieu) ? `<span class="hint" style="margin-left:6px;">📍 ${escapeHtml(row.lieuManuel)}</span>` : "";
         const pillsHtml = row.etabIds.map(id=>{
           const e = etabs.find(x=>x.id===id);
@@ -2232,7 +2232,7 @@
           const isExternal = externalIds.includes(e.id);
           const removeBtn = isExternal ? `<button type="button" class="icon-btn interdistrict-pill-remove" data-interdistrict-remove-external data-act="${escapeAttr(act)}" data-etab="${escapeAttr(e.id)}" title="Retirer cet établissement hors district">✕</button>` : "";
           return `<span class="interdistrict-pill-wrap">
-            <button type="button" class="interdistrict-pill${isExternal?" is-external":""}" data-interdistrict-pill data-act="${escapeAttr(act)}" data-etab="${escapeAttr(e.id)}" title="${isExternal?"Établissement hors district — cliquer pour déplacer vers le lieu suivant":"Cliquer pour déplacer vers le lieu suivant"}">✓ ${escapeHtml(e.nom)}${isExternal?" 🌐":""}</button>${removeBtn}
+            <button type="button" class="interdistrict-pill${isExternal?" is-external":""}" data-interdistrict-pill data-act="${escapeAttr(act)}" data-etab="${escapeAttr(e.id)}" title="${isExternal?"Établissement hors district — cliquer pour déplacer vers le lieu suivant":"Cliquer pour déplacer vers le lieu suivant"}">✓ ${escapeHtml(etabShort(e))}${isExternal?" 🌐":""}</button>${removeBtn}
           </span>`;
         }).join("");
         return `
@@ -2343,7 +2343,7 @@
     actSelect.innerHTML = activiteOptions.map(a=>`<option value="${escapeAttr(a)}">${escapeHtml(a)}</option>`).join("");
     const etabSelect = document.getElementById("add-lieu-etab");
     etabSelect.innerHTML = `<option value="">— Choisir —</option>`
-      + sortedEtabs().map(e=>`<option value="${escapeAttr(e.id)}">${escapeHtml(e.nom)}</option>`).join("")
+      + sortedEtabs().map(e=>`<option value="${escapeAttr(e.id)}">${escapeHtml(etabShort(e))}</option>`).join("")
       + `<option value="__manuel__">+ Autre lieu (saisie manuelle)…</option>`;
     document.getElementById("add-lieu-manuel-row").classList.add("hidden");
     document.getElementById("add-lieu-manuel").value = "";
@@ -2382,7 +2382,7 @@
     }
     const pratique = practicingEtabs(act);
     const competition = competitionEtabs(act);
-    const chip = e=>`<span class="tag"><span class="etab-dot" style="background:${etabColorVar(e)}"></span>${escapeHtml(e.nom)}</span>`;
+    const chip = e=>`<span class="tag"><span class="etab-dot" style="background:${etabColorVar(e)}"></span>${escapeHtml(etabShort(e))}</span>`;
     result.innerHTML = `
       <div class="activite-card">
         <h4>${escapeHtml(act)} <span class="count-badge">${pratique.length} loisir / ${competition.length} compét.</span></h4>
@@ -2456,7 +2456,7 @@
       const historique = etab.cartes.slice().sort((a,b)=>b.date.localeCompare(a.date))
         .map(c=>`<div class="histo-entry distribution">${formatDateFR(c.date)} — ${c.nombre} cartes <button class="icon-btn" data-del-carte="${c.id}" data-etab-carte="${etab.id}" title="Supprimer">🗑</button></div>`).join("");
       tr.innerHTML = `
-        <td><span class="etab-dot" style="background:${etabColorVar(etab)}"></span><strong>${escapeHtml(etab.nom)}</strong></td>
+        <td><span class="etab-dot" style="background:${etabColorVar(etab)}"></span><strong>${escapeHtml(etabShort(etab))}</strong></td>
         <td>${totalCartesFor(etab)}</td>
         <td>${historiqueDemandes||"—"}</td>
         <td>${historique||"—"}</td>
@@ -2648,7 +2648,7 @@
         .join("");
       tr.innerHTML = `
         <td><strong>${escapeHtml(r.activite || "— Non précisée —")}</strong></td>
-        <td>${escapeHtml(etab.nom)}</td>
+        <td>${escapeHtml(etabShort(etab))}</td>
         <td>${totalRecompensesFor(etab,"or")||""}</td>
         <td>${totalRecompensesFor(etab,"argent")||""}</td>
         <td>${totalRecompensesFor(etab,"bronze")||""}</td>
@@ -2766,7 +2766,7 @@
     const manualOption = '<option value="__manuel__">+ Autre (saisie manuelle)…</option>';
     if(!list.length) return '<option value="">— Choisir —</option>' + manualOption;
     return '<option value="">— Choisir —</option>' +
-      list.map(({p,etab})=>`<option value="${escapeAttr(p.id)}" ${p.id===selectedId?"selected":""}>${escapeHtml(p.nom)} — ${escapeHtml(etab.nom)}</option>`).join("")
+      list.map(({p,etab})=>`<option value="${escapeAttr(p.id)}" ${p.id===selectedId?"selected":""}>${escapeHtml(p.nom)} — ${escapeHtml(etabShort(etab))}</option>`).join("")
       + manualOption;
   }
 
@@ -2782,7 +2782,7 @@
     document.getElementById("demande-recompense-manuel-row").classList.toggle("hidden", !isManuel);
     document.getElementById("demande-recompense-prof-manuel").value = existing ? (existing.profNomManuel||"") : "";
     document.getElementById("demande-recompense-manuel-etab").innerHTML =
-      sortedEtabs().map(e=>`<option value="${escapeAttr(e.id)}" ${existingEtab && e.id===existingEtab.id?"selected":""}>${escapeHtml(e.nom)}</option>`).join("");
+      sortedEtabs().map(e=>`<option value="${escapeAttr(e.id)}" ${existingEtab && e.id===existingEtab.id?"selected":""}>${escapeHtml(etabShort(e))}</option>`).join("");
     document.getElementById("demande-recompense-date").value = existing ? existing.date : new Date().toISOString().slice(0,10);
     document.getElementById("demande-recompense-date-souhaitee").value = existing ? (existing.dateSouhaitee||"") : "";
     document.getElementById("demande-recompense-or").value = existing ? (existing.or||"") : "";
@@ -2875,7 +2875,7 @@
     const select = document.getElementById("finance-prof");
     const previousValue = select.value;
     select.innerHTML = '<option value="">— Choisir un collègue —</option>' +
-      getAllProfs().map(({prof, etab})=>`<option value="${prof.id}">${escapeHtml(prof.nom)} — ${escapeHtml(etab.nom)}</option>`).join("");
+      getAllProfs().map(({prof, etab})=>`<option value="${prof.id}">${escapeHtml(prof.nom)} — ${escapeHtml(etabShort(etab))}</option>`).join("");
     if(previousValue) select.value = previousValue;
 
     const total = state.remboursements.reduce((s,r)=>s+Number(r.montant||0),0);
@@ -2893,7 +2893,7 @@
       tr.innerHTML = `
         <td>${formatDateFR(r.date)}</td>
         <td>${escapeHtml(prof ? prof.nom : "—")}</td>
-        <td>${escapeHtml(etab ? etab.nom : "—")}</td>
+        <td>${escapeHtml(etab ? etabShort(etab) : "—")}</td>
         <td>${Number(r.montant||0).toFixed(2)} €</td>
         <td>${escapeHtml(r.motif)}</td>
         <td><button class="icon-btn" data-del-finance="${r.id}" title="Supprimer">🗑</button></td>
@@ -2930,6 +2930,14 @@
     return String(str==null?"":str).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   }
   function escapeAttr(str){ return escapeHtml(str); }
+  // Le nom d'établissement importé depuis le Sheet peut porter un numéro en
+  // fin de cellule (ex: "LES IRIS 13415"). On le garde tel quel dans la
+  // donnée (nécessaire pour l'Annuaire et les Effectifs par activité), mais
+  // on l'enlève à l'affichage ailleurs pour alléger le visuel.
+  function etabBaseName(nom){
+    return String(nom||"").replace(/\s+\d{4,6}[a-zA-Z]?\s*$/, "").trim();
+  }
+  function etabShort(etab){ return etabBaseName(etab && etab.nom); }
 
   // Reformate un numéro de téléphone français en groupes de 2 chiffres
   // séparés par des espaces ("06 62 44 13 87"), quel que soit le séparateur
@@ -3016,7 +3024,7 @@
         <div class="select-contact-etab" data-etab-id="${escapeAttr(etab.id)}">
           <label class="select-contact-etab-head">
             <input type="checkbox" data-etab-check checked>
-            <span>${escapeHtml(etab.nom)}</span>
+            <span>${escapeHtml(etabShort(etab))}</span>
           </label>
           <div class="select-contact-profs">${profsHtml}</div>
         </div>
@@ -3098,7 +3106,7 @@
         <div class="select-contact-etab" data-etab-id="${escapeAttr(etab.id)}">
           <label class="select-contact-etab-head">
             <input type="checkbox" data-etab-check checked>
-            <span>${escapeHtml(etab.nom)}</span>
+            <span>${escapeHtml(etabShort(etab))}</span>
           </label>
           <div class="select-contact-profs">${profsHtml}</div>
         </div>
@@ -3384,10 +3392,10 @@ ${innerHtml}
       const rows = (entry && entry.rows && entry.rows.length) ? entry.rows : [{ lieu:"", etabIds: etabs.map(e=>e.id) }];
       const rowsHtml = rows.map(row=>{
         const lieuEtab = row.lieu ? getEtab(row.lieu) : null;
-        const lieuLabel = lieuEtab ? lieuEtab.nom : (row.lieuManuel || "— Choisir —");
+        const lieuLabel = lieuEtab ? etabShort(lieuEtab) : (row.lieuManuel || "— Choisir —");
         const names = row.etabIds.map(id=>{
           const e = etabs.find(x=>x.id===id);
-          return e ? `<div>${escapeHtml(e.nom)}</div>` : "";
+          return e ? `<div>${escapeHtml(etabShort(e))}</div>` : "";
         }).join("") || "<div>—</div>";
         return `<div class="interdistrict-print-row">
           <div class="interdistrict-print-lieu">${escapeHtml(lieuLabel)}</div>
@@ -3554,7 +3562,7 @@ ${innerHtml}
     const header = ["Établissement"];
     for(let i=1;i<=maxProfs;i++) header.push("Collègue " + i);
     const rows = etabs.map(e=>{
-      const row = [e.etab.nom];
+      const row = [etabShort(e.etab)];
       e.profs.forEach(p=>row.push(p.nom));
       return row;
     });
@@ -3585,7 +3593,7 @@ ${innerHtml}
       return [
         formatDateFR(r.date),
         prof ? prof.nom : "—",
-        etab ? etab.nom : "—",
+        etab ? etabShort(etab) : "—",
         Number(r.montant||0).toFixed(2) + " €",
         r.motif || ""
       ];
@@ -3612,7 +3620,7 @@ ${innerHtml}
       }).join("\n");
       const distributions = etab.cartes.slice().sort((a,b)=>b.date.localeCompare(a.date))
         .map(c=>formatDateFR(c.date) + " — " + c.nombre + " cartes").join("\n");
-      return [etab.nom, totalCartesFor(etab), demandes, distributions];
+      return [etabShort(etab), totalCartesFor(etab), demandes, distributions];
     });
     downloadXlsx("Cartes_TCL_District_Villeurbanne.xlsx", [
       {
@@ -3639,7 +3647,7 @@ ${innerHtml}
         .map(h=>formatDateFR(h.date) + " — Or:"+(h.or||0)+" Argent:"+(h.argent||0)+" Bronze:"+(h.bronze||0)+" Coupes:"+(h.coupes||0)).join("\n");
       return [
         r.activite || "— Non précisée —",
-        etab.nom,
+        etabShort(etab),
         totalRecompensesFor(etab,"or"),
         totalRecompensesFor(etab,"argent"),
         totalRecompensesFor(etab,"bronze"),
@@ -3849,7 +3857,7 @@ ${innerHtml}
     const activesCols = standardCols.concat(autreCols).filter(col => etabs.some(etab => etabHasActiviteCol(etab, col, dimension)));
     const header = ["Établissement"].concat(activesCols.map(c=>c.label));
     const headerColors = [PALETTE_HEX.c1].concat(activesCols.map((c,i)=>PALETTE_HEX[PALETTE[(i+1) % PALETTE.length]]));
-    const rows = etabs.map(etab=>[etab.nom].concat(activesCols.map(col=>etabHasActiviteCol(etab, col, dimension) ? "✓" : "—")));
+    const rows = etabs.map(etab=>[etabShort(etab)].concat(activesCols.map(col=>etabHasActiviteCol(etab, col, dimension) ? "✓" : "—")));
     const markColor = dimension === "pratiquee" ? "FF2E8FA3" : "FFC9435C";
     return {
       name: sheetName, header, rows, headerColors,
@@ -3912,14 +3920,14 @@ ${innerHtml}
           entryRows.forEach((r,cIdx)=>{
             const lieuEtab = r.lieu ? getEtab(r.lieu) : null;
             const cell = ws.getCell(rowStart+1, col+cIdx);
-            cell.value = lieuEtab ? lieuEtab.nom : (r.lieuManuel || "— Choisir —");
+            cell.value = lieuEtab ? etabShort(lieuEtab) : (r.lieuManuel || "— Choisir —");
             cell.font = { bold:true, color:{ argb:"FF1F2430" } };
             cell.fill = { type:"pattern", pattern:"solid", fgColor:{ argb:"FF"+lightColor } };
             for(let r2=0; r2<maxEtabs; r2++){
               const etabId = r.etabIds[r2];
               const e = etabId ? etabs.find(x=>x.id===etabId) : null;
               const etabCell = ws.getCell(rowStart+2+r2, col+cIdx);
-              if(e) etabCell.value = e.nom;
+              if(e) etabCell.value = etabShort(e);
               etabCell.font = { color:{ argb:"FF1F2430" } };
             }
           });
@@ -3963,7 +3971,7 @@ ${innerHtml}
     sortedEtabs().forEach(etab=>{
       const tr = document.createElement("tr");
       tr.innerHTML = `
-        <td><span class="etab-dot" style="background:${etabColorVar(etab)}"></span><strong>${escapeHtml(etab.nom)}</strong></td>
+        <td><span class="etab-dot" style="background:${etabColorVar(etab)}"></span><strong>${escapeHtml(etabShort(etab))}</strong></td>
         <td class="cross-check"><input type="checkbox" data-cross-etab="${etab.id}" ${etab.crossDistrict ? "checked" : ""}></td>
       `;
       tbody.appendChild(tr);
@@ -4060,7 +4068,7 @@ ${innerHtml}
       return `
         <div class="etab-block">
           <div class="etab-block-head" style="background:${color}; color:${textColor};">
-            <div><h3>${escapeHtml(etab.nom)}</h3></div>
+            <div><h3>${escapeHtml(etabShort(etab))}</h3></div>
           </div>
           <div class="prof-grid">${profsHtml}</div>
         </div>
@@ -4159,7 +4167,7 @@ ${innerHtml}
         const s = cal.rowStyles && cal.rowStyles[ri] && cal.rowStyles[ri][ci];
         const text = row[ci] != null ? String(row[ci]) : "";
         const isMerged = m && typeof m === "object";
-        const isChampionnat = /ch\s*dpt|ch\s*acad|ch\s*inter-?acad/i.test(text);
+        const isChampionnat = /\bcd\b|ch\s*dpt|ch\s*acad|ch\s*inter-?acad|\bacad\b|\bdpt\b/i.test(text);
         let cellContent = escapeHtml(text).replace(/\n/g,"<br>");
         if(text.trim() !== "" && !isMerged && ci !== 0 && !isChampionnat){
           const key = ri + "_" + ci + "_" + text.trim();
