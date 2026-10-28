@@ -110,6 +110,7 @@
 
   .table-wrap{ overflow-x:auto; border-radius:var(--radius); box-shadow:var(--shadow); background:#fff; }
   table{ border-collapse:collapse; width:100%; min-width:900px; }
+  .calendrier-table{ table-layout:fixed; min-width:0; width:auto; }
   thead th{
     color:#fff; padding:7px 10px; text-align:left; font-size:.74rem;
     text-transform:uppercase; letter-spacing:.4px; white-space:nowrap;
@@ -4103,6 +4104,15 @@ ${innerHtml}
   });
 
   // ---------- INIT ----------
+  function calendrierCellStyle(s){
+    if(!s) return "";
+    let css = "";
+    if(s.bg && s.bg.toLowerCase() !== "#ffffff") css += "background:" + s.bg + ";";
+    if(s.color) css += "color:" + s.color + ";";
+    if(s.align) css += "text-align:" + s.align + ";";
+    css += s.wrap ? "white-space:normal; word-break:break-word;" : "white-space:nowrap; overflow:hidden; text-overflow:ellipsis;";
+    return css;
+  }
   function renderCalendrier(){
     const container = document.getElementById("calendrier-container");
     if(!container) return;
@@ -4111,12 +4121,26 @@ ${innerHtml}
       container.innerHTML = '<p class="hint">Aucun calendrier importé pour le moment. Ajoutez un onglet "Calendrier" dans le Google Sheet.</p>';
       return;
     }
-    let html = '<table><thead><tr>';
-    cal.headers.forEach(h=>{ html += "<th>" + escapeHtml(h) + "</th>"; });
+    let html = "";
+    if(cal.title){ html += "<h3>" + escapeHtml(cal.title) + "</h3>"; }
+    html += '<table class="calendrier-table">';
+    if(cal.colWidths && cal.colWidths.length){
+      html += "<colgroup>";
+      cal.colWidths.forEach(w=>{ html += '<col style="width:' + w + 'px;">'; });
+      html += "</colgroup>";
+    }
+    html += "<thead><tr>";
+    cal.headers.forEach((h, i)=>{
+      const s = cal.headerStyles && cal.headerStyles[i];
+      html += '<th style="' + calendrierCellStyle(s) + '">' + escapeHtml(h) + "</th>";
+    });
     html += "</tr></thead><tbody>";
-    (cal.rows || []).forEach(row=>{
+    (cal.rows || []).forEach((row, ri)=>{
       html += "<tr>";
-      cal.headers.forEach((h, i)=>{ html += "<td>" + escapeHtml(row[i] != null ? row[i] : "") + "</td>"; });
+      cal.headers.forEach((h, ci)=>{
+        const s = cal.rowStyles && cal.rowStyles[ri] && cal.rowStyles[ri][ci];
+        html += '<td style="' + calendrierCellStyle(s) + '">' + escapeHtml(row[ci] != null ? row[ci] : "") + "</td>";
+      });
       html += "</tr>";
     });
     html += "</tbody></table>";
