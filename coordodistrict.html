@@ -4147,7 +4147,7 @@ ${innerHtml}
       const m = cal.headerMerges && cal.headerMerges[i];
       if(m === "covered") return;
       const s = cal.headerStyles && cal.headerStyles[i];
-      html += '<th' + spanAttrs(m) + ' style="' + calendrierCellStyle(s) + '">' + escapeHtml(h) + "</th>";
+      html += '<th' + spanAttrs(m) + ' style="' + calendrierCellStyle(s) + '">' + escapeHtml(h).replace(/\n/g,"<br>") + "</th>";
     });
     html += "</tr></thead><tbody>";
     if(!state.calendrierChecks) state.calendrierChecks = {};
@@ -4160,7 +4160,7 @@ ${innerHtml}
         const text = row[ci] != null ? String(row[ci]) : "";
         const isMerged = m && typeof m === "object";
         const isChampionnat = /ch\s*dpt|ch\s*acad|ch\s*inter-?acad/i.test(text);
-        let cellContent = escapeHtml(text);
+        let cellContent = escapeHtml(text).replace(/\n/g,"<br>");
         if(text.trim() !== "" && !isMerged && ci !== 0 && !isChampionnat){
           const key = ri + "_" + ci + "_" + text.trim();
           const checked = state.calendrierChecks[key] ? "checked" : "";
