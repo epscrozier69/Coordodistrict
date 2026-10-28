@@ -707,6 +707,7 @@
   <section id="tab-calendrier" class="tab-panel">
     <div class="panel-header">
       <div class="actions">
+        <button id="btn-export-calendrier-pdf" class="secondary">📄 Export PDF</button>
         <a href="https://docs.google.com/spreadsheets/d/1ivVXdL8o3HhvRLlkSNTj-3XBMXYmD6QhlfyBW884Hb0/edit?gid=10027405#gid=10027405" target="_blank" rel="noopener" class="btn-link" style="text-decoration:none; background:var(--c5); font-size:1.05rem; padding:13px 22px;">📅 Calendrier départemental</a>
       </div>
     </div>
@@ -4167,7 +4168,7 @@ ${innerHtml}
         const s = cal.rowStyles && cal.rowStyles[ri] && cal.rowStyles[ri][ci];
         const text = row[ci] != null ? String(row[ci]) : "";
         const isMerged = m && typeof m === "object";
-        const isChampionnat = /\bcd\b|ch\s*dpt|ch\s*acad|ch\s*inter-?acad|\bacad\b|\bdpt\b/i.test(text);
+        const isChampionnat = /\bcd\b|ch\s*dpt|ch\s*acad|ch\s*inter-?acad|\bacad\b|\bdpt\b|festival\s*hip\s*hop|jeux\s*du\s*sport\s*partag/i.test(text);
         let cellContent = escapeHtml(text).replace(/\n/g,"<br>");
         if(text.trim() !== "" && !isMerged && ci !== 0 && !isChampionnat){
           const key = ri + "_" + ci + "_" + text.trim();
@@ -4189,6 +4190,59 @@ ${innerHtml}
       });
     });
   }
+
+  // Export PDF du Calendrier : les largeurs de colonnes viennent du Sheet
+  // (pensées pour un écran large) et dépasseraient une page A4 portrait si
+  // on les reprenait telles quelles. On les convertit donc en largeurs
+  // proportionnelles (%) qui totalisent toujours 100% de la page, avec une
+  // police réduite et un retour à la ligne forcé, pour que toutes les
+  // colonnes tiennent systématiquement sur une page portrait.
+  function buildCalendrierPrintHtml(){
+    const cal = state.calendrier;
+    if(!cal || !cal.headers || !cal.headers.length){
+      return buildPrintDocument("District de Villeurbanne — Calendrier", '<p class="hint">Aucun calendrier importé pour le moment.</p>');
+    }
+    function spanAttrs(m){
+      if(!m || typeof m !== "object") return "";
+      let a = "";
+      if(m.rowspan > 1) a += ' rowspan="' + m.rowspan + '"';
+      if(m.colspan > 1) a += ' colspan="' + m.colspan + '"';
+      return a;
+    }
+    const widths = (cal.colWidths && cal.colWidths.length) ? cal.colWidths : cal.headers.map(()=>100);
+    const totalW = widths.reduce((s,w)=>s+(w||0),0) || 1;
+    let body = cal.title ? `<h2 class="section-title" style="text-align:center;">${escapeHtml(cal.title)}</h2>` : "";
+    body += '<table class="calendrier-print-table"><colgroup>';
+    widths.forEach(w=>{ body += '<col style="width:' + (((w||0)/totalW)*100).toFixed(3) + '%;">'; });
+    body += '</colgroup><thead><tr>';
+    cal.headers.forEach((h,i)=>{
+      const m = cal.headerMerges && cal.headerMerges[i];
+      if(m === "covered") return;
+      const s = cal.headerStyles && cal.headerStyles[i];
+      body += '<th' + spanAttrs(m) + ' style="' + calendrierCellStyle(s) + '">' + escapeHtml(h).replace(/\n/g,"<br>") + "</th>";
+    });
+    body += "</tr></thead><tbody>";
+    (cal.rows || []).forEach((row, ri)=>{
+      body += "<tr>";
+      cal.headers.forEach((h, ci)=>{
+        const m = cal.rowMerges && cal.rowMerges[ri] && cal.rowMerges[ri][ci];
+        if(m === "covered") return;
+        const s = cal.rowStyles && cal.rowStyles[ri] && cal.rowStyles[ri][ci];
+        const text = row[ci] != null ? String(row[ci]) : "";
+        body += '<td' + spanAttrs(m) + ' style="' + calendrierCellStyle(s) + '">' + escapeHtml(text).replace(/\n/g,"<br>") + "</td>";
+      });
+      body += "</tr>";
+    });
+    body += "</tbody></table>";
+    return buildPrintDocument("District de Villeurbanne — Calendrier", body, `
+      @page{ size: A4 portrait; margin:8mm; }
+      .calendrier-print-table{ table-layout:fixed; width:100%; border-collapse:collapse; font-size:.56rem; }
+      .calendrier-print-table th, .calendrier-print-table td{ border:1px solid #ccc; padding:2px 3px; overflow:hidden; word-break:break-word; white-space:normal !important; }
+    `);
+  }
+  document.getElementById("btn-export-calendrier-pdf").addEventListener("click", ()=>{
+    openPrintPreview(buildCalendrierPrintHtml());
+  });
 
   function renderAll(){
     renderProfs();
