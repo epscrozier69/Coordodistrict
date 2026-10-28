@@ -4129,17 +4129,28 @@ ${innerHtml}
       cal.colWidths.forEach(w=>{ html += '<col style="width:' + w + 'px;">'; });
       html += "</colgroup>";
     }
+    function spanAttrs(m){
+      if(!m || typeof m !== "object") return "";
+      let a = "";
+      if(m.rowspan > 1) a += ' rowspan="' + m.rowspan + '"';
+      if(m.colspan > 1) a += ' colspan="' + m.colspan + '"';
+      return a;
+    }
     html += "<thead><tr>";
     cal.headers.forEach((h, i)=>{
+      const m = cal.headerMerges && cal.headerMerges[i];
+      if(m === "covered") return;
       const s = cal.headerStyles && cal.headerStyles[i];
-      html += '<th style="' + calendrierCellStyle(s) + '">' + escapeHtml(h) + "</th>";
+      html += '<th' + spanAttrs(m) + ' style="' + calendrierCellStyle(s) + '">' + escapeHtml(h) + "</th>";
     });
     html += "</tr></thead><tbody>";
     (cal.rows || []).forEach((row, ri)=>{
       html += "<tr>";
       cal.headers.forEach((h, ci)=>{
+        const m = cal.rowMerges && cal.rowMerges[ri] && cal.rowMerges[ri][ci];
+        if(m === "covered") return;
         const s = cal.rowStyles && cal.rowStyles[ri] && cal.rowStyles[ri][ci];
-        html += '<td style="' + calendrierCellStyle(s) + '">' + escapeHtml(row[ci] != null ? row[ci] : "") + "</td>";
+        html += '<td' + spanAttrs(m) + ' style="' + calendrierCellStyle(s) + '">' + escapeHtml(row[ci] != null ? row[ci] : "") + "</td>";
       });
       html += "</tr>";
     });
