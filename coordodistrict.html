@@ -2002,6 +2002,19 @@
     });
     return total;
   }
+  // "Équipes" est un champ texte libre (ex: "2 SS") : on additionne le
+  // nombre en tête de chaque valeur, en ignorant celles qui n'en ont pas.
+  function computeCatEquipesTotal(act, cat){
+    let total = 0;
+    const addCell = (entry)=>{
+      const v = entry && entry.categories && entry.categories[cat] && entry.categories[cat].equipes;
+      const n = parseFloat(v);
+      if(!isNaN(n)) total += n;
+    };
+    competitionEtabsAny(act).forEach(etab=> addCell(getEffectifEntry(act, etab.id, false)));
+    getManualEffectifRows(act).forEach(m=> addCell(getEffectifEntry(act, m.id, false)));
+    return total;
+  }
   let expandedEffectifActs = new Set();
   // Activités pour lesquelles les champs "2e référent" sont actuellement
   // dépliés (bouton + cliqué) — état d'affichage local, non persisté : si un
@@ -2077,11 +2090,13 @@
           </tr>
         `;
       }).join("");
-      const catHeaders = EFFECTIF_CATEGORIES.map(cat=>{
-        const total = computeCatTotal(act, cat);
-        return `<th colspan="2">${cat} <span class="cat-total" data-cat-total="${cat}" data-act-total="${escapeAttr(act)}">${total ? `(${total})` : ""}</span></th>`;
+      const catHeaders = EFFECTIF_CATEGORIES.map(cat=>`<th colspan="2">${cat}</th>`).join("");
+      const catSubHeaders = EFFECTIF_CATEGORIES.map(cat=>{
+        const effTotal = computeCatTotal(act, cat);
+        const eqTotal = computeCatEquipesTotal(act, cat);
+        return `<th>Effectif <span class="cat-total" data-cat-total-eff="${cat}" data-act-total="${escapeAttr(act)}">${effTotal ? `(${effTotal})` : ""}</span></th>`
+          + `<th>Équipes <span class="cat-total" data-cat-total-eq="${cat}" data-act-total="${escapeAttr(act)}">${eqTotal ? `(${eqTotal})` : ""}</span></th>`;
       }).join("");
-      const catSubHeaders = EFFECTIF_CATEGORIES.map(()=>`<th>Effectif</th><th>Équipes</th>`).join("");
       return `
         <div class="effectif-card"${expanded ? ` style="grid-column:1 / -1;"` : ""}>
           <div class="effectif-card-head" style="background:${color};" data-effectif-toggle="${escapeAttr(act)}">
@@ -2143,11 +2158,17 @@
         entry.categories[input.dataset.cat][input.dataset.field] =
           input.dataset.field === "effectif" ? Math.max(0, Number(input.value)||0) : input.value.trim();
         saveState();
-        // Met à jour le total affiché entre parenthèses dans l'en-tête de la
-        // catégorie sans tout re-rendre (perdrait le focus en cours de saisie).
+        // Met à jour le total affiché entre parenthèses dans le sous-en-tête
+        // (Effectif / Équipes) sans tout re-rendre (perdrait le focus en
+        // cours de saisie).
+        const act = input.dataset.act, cat = input.dataset.cat;
         if(input.dataset.field === "effectif"){
-          const total = computeCatTotal(input.dataset.act, input.dataset.cat);
-          const span = container.querySelector(`[data-cat-total="${CSS.escape(input.dataset.cat)}"][data-act-total="${CSS.escape(input.dataset.act)}"]`);
+          const total = computeCatTotal(act, cat);
+          const span = container.querySelector(`[data-cat-total-eff="${CSS.escape(cat)}"][data-act-total="${CSS.escape(act)}"]`);
+          if(span) span.textContent = total ? `(${total})` : "";
+        } else {
+          const total = computeCatEquipesTotal(act, cat);
+          const span = container.querySelector(`[data-cat-total-eq="${CSS.escape(cat)}"][data-act-total="${CSS.escape(act)}"]`);
           if(span) span.textContent = total ? `(${total})` : "";
         }
       });
@@ -3886,11 +3907,12 @@ ${innerHtml}
       // Classe "cat-sep" sur la 1re colonne de chaque catégorie (en-tête et
       // cellules) pour tracer un trait vertical qui sépare visuellement
       // BF / BG / MF / MG.
-      const catHeaders = EFFECTIF_CATEGORIES.map((cat,ci)=>{
-        const total = rows.reduce((sum,r)=>sum + (Number(r.cats[ci][0])||0), 0);
-        return `<th colspan="2" class="cat-sep">${cat}${total ? ` (${total})` : ""}</th>`;
+      const catHeaders = EFFECTIF_CATEGORIES.map(cat=>`<th colspan="2" class="cat-sep">${cat}</th>`).join("");
+      const catSubHeaders = EFFECTIF_CATEGORIES.map((cat,ci)=>{
+        const effTotal = rows.reduce((sum,r)=>sum + (Number(r.cats[ci][0])||0), 0);
+        const eqTotal = rows.reduce((sum,r)=>sum + (parseFloat(r.cats[ci][1])||0), 0);
+        return `<th class="cat-sep">Eff.${effTotal ? ` (${effTotal})` : ""}</th><th>Éq.${eqTotal ? ` (${eqTotal})` : ""}</th>`;
       }).join("");
-      const catSubHeaders = EFFECTIF_CATEGORIES.map(()=>`<th class="cat-sep">Eff.</th><th>Éq.</th>`).join("");
       const rowsHtml = rows.map(r=>{
         const catCells = r.cats.map(c=>`<td class="cat-sep">${c[0]}</td><td>${c[1]}</td>`).join("");
         const secondCells = (hasSecond ? `<td>${r.secondProfNom ? escapeHtml(r.secondProfNom) : "—"}</td>` : "")
