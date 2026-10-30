@@ -1654,9 +1654,15 @@
     const metaParts = [];
     if(etab.gymnaseNom || etab.gymnaseAdresse){
       // Gymnase (colonne J de l'onglet Annuaire) : remplace entièrement
-      // l'affichage de l'adresse/téléphone/email de l'établissement.
-      if(etab.gymnaseNom) metaParts.push(metaCopyLine(etab.gymnaseNom, "Cliquer pour copier le nom du gymnase"));
-      if(etab.gymnaseAdresse) metaParts.push(metaCopyLine(etab.gymnaseAdresse, "Cliquer pour copier l'adresse du gymnase"));
+      // l'affichage de l'adresse/téléphone/email de l'établissement. Nom et
+      // adresse sont copiés ensemble (un seul clic sur le bloc copie les deux
+      // lignes), plutôt que chacun séparément.
+      const gymLines = [etab.gymnaseNom, etab.gymnaseAdresse].filter(Boolean);
+      const gymText = gymLines.join("\n");
+      const gymHtml = gymLines.map(l=>escapeHtml(l)).join("<br>");
+      metaParts.push(opts.editable
+        ? `<div class="copy-text" title="Cliquer pour copier le nom et l'adresse du gymnase" data-copy-text="${escapeAttr(gymText)}">${gymHtml}</div>`
+        : `<div>${gymHtml}</div>`);
     } else if(etab.infoLines && etab.infoLines.length){
       // Ordre exact des lignes tel que saisi dans le Google Sheet (colonne
       // Info établissement), plutôt qu'un ordre fixe adresse/téléphone/email.
