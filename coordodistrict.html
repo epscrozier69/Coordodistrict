@@ -1917,7 +1917,10 @@
   // Pour les sélecteurs de référent (Effectifs par activité) : uniquement
   // les collègues notés "prof. responsable" d'un établissement pour CETTE
   // activité (et non tous les collègues de l'établissement), pour ne pas
-  // proposer des personnes qui ne pratiquent pas l'activité.
+  // proposer des personnes qui ne pratiquent pas l'activité. Les lignes
+  // ajoutées manuellement (établissement hors annuaire) comptent aussi :
+  // leur collègue saisi en texte libre est le seul "responsable" possible
+  // pour cette ligne, son id (ligne manuelle) sert de valeur.
   function responsableProfsForActivite(act, etabs){
     const seen = new Set();
     const options = [];
@@ -1931,8 +1934,25 @@
       seen.add(profResponsableId);
       options.push({ id:p.id, nom:p.nom, etabNom:etab.nom });
     });
+    getManualEffectifRows(act).forEach(m=>{
+      if(!m.profNom || seen.has(m.id)) return;
+      seen.add(m.id);
+      options.push({ id:m.id, nom:m.profNom, etabNom:m.etabNom });
+    });
     options.sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}));
     return options;
+  }
+  // Résout le nom affiché d'un référent, qu'il s'agisse d'un vrai collègue
+  // (id d'annuaire) ou d'une ligne manuelle ("manual:..." — voir
+  // getManualEffectifRows), pour l'affichage comme pour les exports.
+  function referentDisplayName(act, id){
+    if(!id) return null;
+    if(String(id).indexOf("manual:") === 0){
+      const m = getManualEffectifRows(act).find(x=>x.id===id);
+      return m ? m.profNom : null;
+    }
+    const p = findProfById(id);
+    return p ? p.nom : null;
   }
   function profOptionsAcrossEtabsHtml(act, etabs, selectedId){
     const options = responsableProfsForActivite(act, etabs);
@@ -1942,8 +1962,8 @@
     // activité (ex: changé entre-temps), on le garde quand même dans la
     // liste pour ne pas perdre silencieusement la sélection enregistrée.
     if(selectedId && !options.some(o=>o.id===selectedId)){
-      const p = findProfById(selectedId);
-      if(p) html += `<option value="${escapeAttr(selectedId)}" selected>${escapeHtml(p.nom)} (n'est plus prof. responsable)</option>`;
+      const nom = referentDisplayName(act, selectedId);
+      if(nom) html += `<option value="${escapeAttr(selectedId)}" selected>${escapeHtml(nom)} (n'est plus prof. responsable)</option>`;
     }
     return html;
   }
@@ -1957,6 +1977,10 @@
     return (state.activiteEffectifsManuels[act]) || [];
   }
   let expandedEffectifActs = new Set();
+  // Activités pour lesquelles les champs "2e référent" sont actuellement
+  // dépliés (bouton + cliqué) — état d'affichage local, non persisté : si un
+  // 2e référent est déjà enregistré, les champs restent affichés d'office.
+  let referent2OpenActs = new Set();
   function renderEffectifs(){
     const container = document.getElementById("effectifs-container");
     if(!container) return;
@@ -2043,12 +2067,17 @@
             <label>Référent jeune officiel
               <select data-effectif-referent-jo-activite data-act="${escapeAttr(act)}">${profOptionsAcrossEtabsHtml(act, etabs, referents.referentJoId)}</select>
             </label>
+            ${(referent2OpenActs.has(act) || referents.referent2Id || referents.referent2Cat) ? `
             <label>2e référent
               <select data-effectif-referent2-activite data-act="${escapeAttr(act)}">${profOptionsAcrossEtabsHtml(act, etabs, referents.referent2Id)}</select>
             </label>
             <label style="max-width:160px;">Catégorie (2e référent)
               <input type="text" data-effectif-referent2-cat data-act="${escapeAttr(act)}" value="${escapeAttr(referents.referent2Cat||"")}" placeholder="ex: Filles, Niveau 2">
             </label>
+            <button type="button" class="icon-btn" data-effectif-referent2-remove data-act="${escapeAttr(act)}" title="Retirer le 2e référent" style="align-self:center;">✕</button>
+            ` : `
+            <button type="button" class="secondary" data-effectif-referent2-add="${escapeAttr(act)}" style="align-self:center;">➕ 2e référent</button>
+            `}
             <label style="flex:1 1 220px;">Remarque
               <input type="text" data-effectif-remarque data-act="${escapeAttr(act)}" value="${escapeAttr(referents.remarque||"")}" placeholder="Note facultative">
             </label>
@@ -2147,6 +2176,22 @@
       input.addEventListener("change", ()=>{
         getActiviteReferents(input.dataset.act, true).referent2Cat = input.value.trim();
         saveState();
+      });
+    });
+    container.querySelectorAll("[data-effectif-referent2-add]").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        referent2OpenActs.add(btn.dataset.effectifReferent2Add);
+        renderEffectifs();
+      });
+    });
+    container.querySelectorAll("[data-effectif-referent2-remove]").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        const r = getActiviteReferents(btn.dataset.act, true);
+        r.referent2Id = "";
+        r.referent2Cat = "";
+        referent2OpenActs.delete(btn.dataset.act);
+        saveState();
+        renderEffectifs();
       });
     });
     container.querySelectorAll("[data-effectif-remarque]").forEach(input=>{
@@ -3736,10 +3781,14 @@ ${innerHtml}
   // getActiviteReferents), affichée une fois par activité dans les exports.
   function effectifReferentsFor(act){
     const r = getActiviteReferents(act, false);
+    // referentDisplayName gère aussi bien un vrai collègue qu'une ligne
+    // manuelle ; on ne garde que le nom (.nom) pour rester compatible avec
+    // le reste du code qui lit referent.nom.
+    const resolve = id => { const nom = id ? referentDisplayName(act, id) : null; return nom ? { nom } : null; };
     return {
-      referent: r.referentId ? findProfById(r.referentId) : null,
-      referentJo: r.referentJoId ? findProfById(r.referentJoId) : null,
-      referent2: r.referent2Id ? findProfById(r.referent2Id) : null,
+      referent: resolve(r.referentId),
+      referentJo: resolve(r.referentJoId),
+      referent2: resolve(r.referent2Id),
       referent2Cat: r.referent2Cat || "",
       remarque: r.remarque || ""
     };
