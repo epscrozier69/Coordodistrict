@@ -4140,6 +4140,9 @@ ${innerHtml}
   function renderCalendrier(){
     const container = document.getElementById("calendrier-container");
     if(!container) return;
+    const prevScroll = container.querySelector(".calendrier-scroll");
+    const scrollTop = prevScroll ? prevScroll.scrollTop : 0;
+    const scrollLeft = prevScroll ? prevScroll.scrollLeft : 0;
     const cal = state.calendrier;
     if(!cal || !cal.headers || !cal.headers.length){
       container.innerHTML = '<p class="hint">Aucun calendrier importé pour le moment. Ajoutez un onglet "Calendrier" dans le Google Sheet.</p>';
@@ -4190,6 +4193,8 @@ ${innerHtml}
     });
     html += "</tbody></table></div>";
     container.innerHTML = html;
+    const newScroll = container.querySelector(".calendrier-scroll");
+    if(newScroll){ newScroll.scrollTop = scrollTop; newScroll.scrollLeft = scrollLeft; }
     container.querySelectorAll(".cal-check").forEach(cb=>{
       cb.addEventListener("change", ()=>{
         const key = cb.dataset.key;
