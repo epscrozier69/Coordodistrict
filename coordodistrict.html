@@ -1651,12 +1651,17 @@
       // l'affichage de l'adresse/téléphone/email de l'établissement. Nom et
       // adresse sont copiés ensemble (un seul clic sur le bloc copie les deux
       // lignes), plutôt que chacun séparément.
+      // Un vrai lien <a> (vers Google Maps) plutôt qu'un simple <div> : dans
+      // l'appli, le clic est intercepté pour copier (comportement existant),
+      // mais comme c'est un href réel, le lien reste cliquable une fois
+      // exporté en PDF (impression navigateur), où aucun JS ne tourne.
       const gymLines = [etab.gymnaseNom, etab.gymnaseAdresse].filter(Boolean);
       const gymText = gymLines.join("\n");
       const gymHtml = gymLines.map(l=>escapeHtml(l)).join("<br>");
+      const gymMapsUrl = "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(gymLines.join(", "));
       metaParts.push(opts.editable
-        ? `<div class="copy-text" title="Cliquer pour copier le nom et l'adresse du gymnase" data-copy-text="${escapeAttr(gymText)}">${gymHtml}</div>`
-        : `<div>${gymHtml}</div>`);
+        ? `<a href="${escapeAttr(gymMapsUrl)}" target="_blank" rel="noopener" class="copy-text" style="color:inherit;text-decoration:none;" title="Cliquer pour copier le nom et l'adresse du gymnase" data-copy-text="${escapeAttr(gymText)}">${gymHtml}</a>`
+        : `<a href="${escapeAttr(gymMapsUrl)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">${gymHtml}</a>`);
     } else if(etab.infoLines && etab.infoLines.length){
       // Ordre exact des lignes tel que saisi dans le Google Sheet (colonne
       // Info établissement), plutôt qu'un ordre fixe adresse/téléphone/email.
@@ -1734,6 +1739,11 @@
     });
     container.querySelectorAll("[data-copy-text]").forEach(el=>{
       el.addEventListener("click", e=>{
+        // preventDefault : certains de ces éléments sont maintenant de vrais
+        // <a href>(ex: gymnase → Google Maps), gardés cliquables dans le PDF
+        // exporté ; dans l'appli on garde le comportement existant (copier),
+        // donc on empêche la navigation.
+        e.preventDefault();
         e.stopPropagation();
         copyToClipboard(el.dataset.copyText, "L'information");
       });
