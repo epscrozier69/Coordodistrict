@@ -1652,7 +1652,12 @@
       ? `<div class="copy-text" title="${escapeAttr(title)}" data-copy-text="${escapeAttr(value)}">${escapeHtml(value)}</div>`
       : `<div>${escapeHtml(value)}</div>`;
     const metaParts = [];
-    if(etab.infoLines && etab.infoLines.length){
+    if(etab.gymnaseNom || etab.gymnaseAdresse){
+      // Gymnase (colonne J de l'onglet Annuaire) : remplace entièrement
+      // l'affichage de l'adresse/téléphone/email de l'établissement.
+      if(etab.gymnaseNom) metaParts.push(metaCopyLine(etab.gymnaseNom, "Cliquer pour copier le nom du gymnase"));
+      if(etab.gymnaseAdresse) metaParts.push(metaCopyLine(etab.gymnaseAdresse, "Cliquer pour copier l'adresse du gymnase"));
+    } else if(etab.infoLines && etab.infoLines.length){
       // Ordre exact des lignes tel que saisi dans le Google Sheet (colonne
       // Info établissement), plutôt qu'un ordre fixe adresse/téléphone/email.
       // formatPhone() ne touche pas aux lignes qui ne sont pas un numéro
