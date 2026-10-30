@@ -435,10 +435,6 @@
   <section id="tab-activites" class="tab-panel">
     <div class="panel-header">
       <h2>Activités</h2>
-      <div class="actions">
-        <button id="btn-export-activites-pdf" class="secondary">📄 Export PDF (tout)</button>
-        <button id="btn-export-activites-excel" class="secondary">📊 Export Excel (tout)</button>
-      </div>
     </div>
 
     <!-- 1. Compétition -->
@@ -718,27 +714,6 @@
 
 </main>
 
-
-<!-- MODAL EXPORT PDF -->
-<div class="modal-overlay hidden" id="modal-overlay-export-pdf">
-  <div class="modal">
-    <h3>Choisir le contenu à exporter</h3>
-    <div class="form-row">
-      <label style="display:flex; align-items:center; gap:6px; font-weight:500; color:var(--text);">
-        <input type="checkbox" id="export-pdf-annuaire" checked> Annuaire (établissements et collègues)
-      </label>
-    </div>
-    <div class="form-row">
-      <label style="display:flex; align-items:center; gap:6px; font-weight:500; color:var(--text);">
-        <input type="checkbox" id="export-pdf-activites" checked> Tableaux d'activités
-      </label>
-    </div>
-    <div class="modal-footer">
-      <button type="button" class="secondary" data-close="modal-overlay-export-pdf">Annuler</button>
-      <button type="button" id="btn-export-pdf-generate">Générer le PDF</button>
-    </div>
-  </div>
-</div>
 
 <!-- MODAL AJOUT ETABLISSEMENT HORS DISTRICT (Organisation District Villeurbanne) -->
 <div class="modal-overlay hidden" id="modal-overlay-add-external-etab">
@@ -1928,22 +1903,49 @@
     }
     return state.activiteEffectifs[act][etabId];
   }
-  // Un seul référent et un seul référent jeune officiel par ACTIVITÉ (pas un
-  // par établissement) : stockés séparément des effectifs par établissement.
+  // Un référent, un référent jeune officiel et (optionnel) un 2e référent
+  // par ACTIVITÉ (pas un par établissement) : stockés séparément des
+  // effectifs par établissement. Le 2e référent sert par exemple à séparer
+  // filles/garçons ou une autre catégorie, d'où le champ catégorie associé.
   function getActiviteReferents(act, create){
     if(!state.activiteReferents[act]){
-      if(!create) return { referentId:"", referentJoId:"", remarque:"" };
-      state.activiteReferents[act] = { referentId:"", referentJoId:"", remarque:"" };
+      if(!create) return { referentId:"", referentJoId:"", referent2Id:"", referent2Cat:"", remarque:"" };
+      state.activiteReferents[act] = { referentId:"", referentJoId:"", referent2Id:"", referent2Cat:"", remarque:"" };
     }
     return state.activiteReferents[act];
   }
-  function profOptionsAcrossEtabsHtml(etabs, selectedId){
+  // Pour les sélecteurs de référent (Effectifs par activité) : uniquement
+  // les collègues notés "prof. responsable" d'un établissement pour CETTE
+  // activité (et non tous les collègues de l'établissement), pour ne pas
+  // proposer des personnes qui ne pratiquent pas l'activité.
+  function responsableProfsForActivite(act, etabs){
+    const seen = new Set();
     const options = [];
     etabs.forEach(etab=>{
-      etab.profs.filter(p=>!p.virtual).sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}))
-        .forEach(p=>options.push(`<option value="${escapeAttr(p.id)}" ${p.id===selectedId?"selected":""}>${escapeHtml(p.nom)} — ${escapeHtml(etab.nom)}</option>`));
+      const entry = getEffectifEntry(act, etab.id, false);
+      const profResponsableId = (entry && entry.profResponsableId !== null && entry.profResponsableId !== undefined)
+        ? entry.profResponsableId : defaultResponsableId(act, etab);
+      if(!profResponsableId || seen.has(profResponsableId)) return;
+      const p = etab.profs.find(x=>x.id===profResponsableId);
+      if(!p) return;
+      seen.add(profResponsableId);
+      options.push({ id:p.id, nom:p.nom, etabNom:etab.nom });
     });
-    return '<option value="">— Non précisé —</option>' + options.join("");
+    options.sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}));
+    return options;
+  }
+  function profOptionsAcrossEtabsHtml(act, etabs, selectedId){
+    const options = responsableProfsForActivite(act, etabs);
+    let html = '<option value="">— Non précisé —</option>' +
+      options.map(o=>`<option value="${escapeAttr(o.id)}" ${o.id===selectedId?"selected":""}>${escapeHtml(o.nom)} — ${escapeHtml(o.etabNom)}</option>`).join("");
+    // Si le référent déjà enregistré n'est plus prof. responsable de cette
+    // activité (ex: changé entre-temps), on le garde quand même dans la
+    // liste pour ne pas perdre silencieusement la sélection enregistrée.
+    if(selectedId && !options.some(o=>o.id===selectedId)){
+      const p = findProfById(selectedId);
+      if(p) html += `<option value="${escapeAttr(selectedId)}" selected>${escapeHtml(p.nom)} (n'est plus prof. responsable)</option>`;
+    }
+    return html;
   }
   // Lignes ajoutées manuellement dans Effectifs par activité, pour un
   // établissement (et son collègue) absent de l'annuaire — ex: futsal
@@ -2036,10 +2038,16 @@
           ${expanded ? `
           <div class="effectif-referents-row">
             <label>Référent d'activité
-              <select data-effectif-referent-activite data-act="${escapeAttr(act)}">${profOptionsAcrossEtabsHtml(etabs, referents.referentId)}</select>
+              <select data-effectif-referent-activite data-act="${escapeAttr(act)}">${profOptionsAcrossEtabsHtml(act, etabs, referents.referentId)}</select>
             </label>
             <label>Référent jeune officiel
-              <select data-effectif-referent-jo-activite data-act="${escapeAttr(act)}">${profOptionsAcrossEtabsHtml(etabs, referents.referentJoId)}</select>
+              <select data-effectif-referent-jo-activite data-act="${escapeAttr(act)}">${profOptionsAcrossEtabsHtml(act, etabs, referents.referentJoId)}</select>
+            </label>
+            <label>2e référent
+              <select data-effectif-referent2-activite data-act="${escapeAttr(act)}">${profOptionsAcrossEtabsHtml(act, etabs, referents.referent2Id)}</select>
+            </label>
+            <label style="max-width:160px;">Catégorie (2e référent)
+              <input type="text" data-effectif-referent2-cat data-act="${escapeAttr(act)}" value="${escapeAttr(referents.referent2Cat||"")}" placeholder="ex: Filles, Niveau 2">
             </label>
             <label style="flex:1 1 220px;">Remarque
               <input type="text" data-effectif-remarque data-act="${escapeAttr(act)}" value="${escapeAttr(referents.remarque||"")}" placeholder="Note facultative">
@@ -2126,6 +2134,18 @@
     container.querySelectorAll("[data-effectif-referent-jo-activite]").forEach(sel=>{
       sel.addEventListener("change", ()=>{
         getActiviteReferents(sel.dataset.act, true).referentJoId = sel.value;
+        saveState();
+      });
+    });
+    container.querySelectorAll("[data-effectif-referent2-activite]").forEach(sel=>{
+      sel.addEventListener("change", ()=>{
+        getActiviteReferents(sel.dataset.act, true).referent2Id = sel.value;
+        saveState();
+      });
+    });
+    container.querySelectorAll("[data-effectif-referent2-cat]").forEach(input=>{
+      input.addEventListener("change", ()=>{
+        getActiviteReferents(input.dataset.act, true).referent2Cat = input.value.trim();
         saveState();
       });
     });
@@ -3485,17 +3505,9 @@ ${innerHtml}
   });
 
   document.getElementById("btn-export-annuaire-pdf").addEventListener("click", ()=>{
-    openModal("modal-overlay-export-pdf");
-  });
-  document.getElementById("btn-export-pdf-generate").addEventListener("click", ()=>{
-    const includeAnnuaire = document.getElementById("export-pdf-annuaire").checked;
-    const includeActivites = document.getElementById("export-pdf-activites").checked;
-    if(!includeAnnuaire && !includeActivites){ alert("Sélectionnez au moins une section à exporter."); return; }
-    closeModal("modal-overlay-export-pdf");
-    openPrintPreview(buildConsultationPrintHtml({includeAnnuaire, includeActivites}));
-  });
-  document.getElementById("btn-export-activites-pdf").addEventListener("click", ()=>{
-    openPrintPreview(buildConsultationPrintHtml({includeAnnuaire:false, includeActivites:true}));
+    // Le tableau des activités n'est plus proposé ici : chaque tableau
+    // (pratiquées, compétition...) a son propre export dans l'onglet Activités.
+    openPrintPreview(buildConsultationPrintHtml({includeAnnuaire:true, includeActivites:false}));
   });
 
   // ---------- EXPORT EXCEL (.xlsx) ----------
@@ -3727,6 +3739,8 @@ ${innerHtml}
     return {
       referent: r.referentId ? findProfById(r.referentId) : null,
       referentJo: r.referentJoId ? findProfById(r.referentJoId) : null,
+      referent2: r.referent2Id ? findProfById(r.referent2Id) : null,
+      referent2Cat: r.referent2Cat || "",
       remarque: r.remarque || ""
     };
   }
@@ -3741,14 +3755,14 @@ ${innerHtml}
     // Colonne "Collège" ajoutée seulement si au moins une ligne la renseigne
     // (elle n'existe de toute façon que pour les activités individuelles).
     const hasAnyCollege = activites.some(act => effectifRowsFor(act).some(r=>r.college));
-    const header = ["Activité","Référent","Référent JO","Remarque","Établissement","Prof. responsable","2e responsable","Catégorie (2e responsable)"];
+    const header = ["Activité","Référent","Référent JO","2e référent","Catégorie (2e référent)","Remarque","Établissement","Prof. responsable","2e responsable","Catégorie (2e responsable)"];
     if(hasAnyCollege) header.push("Collège");
     EFFECTIF_CATEGORIES.forEach(cat=>{ header.push("Effectif "+cat, "Équipes "+cat); });
     const rows = [];
     activites.forEach(act=>{
-      const { referent, referentJo, remarque } = effectifReferentsFor(act);
+      const { referent, referentJo, referent2, referent2Cat, remarque } = effectifReferentsFor(act);
       effectifRowsFor(act).forEach(r=>{
-        const row = [act, referent ? referent.nom : "", referentJo ? referentJo.nom : "", remarque, r.etabNom, r.profNom, r.secondProfNom, r.secondCat];
+        const row = [act, referent ? referent.nom : "", referentJo ? referentJo.nom : "", referent2 ? referent2.nom : "", referent2Cat, remarque, r.etabNom, r.profNom, r.secondProfNom, r.secondCat];
         if(hasAnyCollege) row.push(r.college||"");
         r.cats.forEach(c=>{ row.push(c[0], c[1]); });
         rows.push(row);
@@ -3770,7 +3784,7 @@ ${innerHtml}
     const body = activites.map((act,i)=>{
       const color = `var(--${PALETTE[i % PALETTE.length]})`;
       const rows = effectifRowsFor(act);
-      const { referent, referentJo, remarque } = effectifReferentsFor(act);
+      const { referent, referentJo, referent2, referent2Cat, remarque } = effectifReferentsFor(act);
       // Colonnes "2e responsable" et "Catégorie" masquées indépendamment
       // l'une de l'autre pour cette activité, si rien n'a été renseigné
       // (un 2e responsable peut exister sans catégorie précisée) — pour
@@ -3814,7 +3828,7 @@ ${innerHtml}
       return `
         <div class="effectif-card" style="page-break-inside:avoid; margin-bottom:14px;">
           <div class="effectif-card-head" style="background:${color};"><h4>${escapeHtml(act)}</h4></div>
-          <p class="hint" style="padding:6px 12px; margin:0;">Référent : ${referent ? escapeHtml(referent.nom) : '<strong class="date-souhaitee">Non précisé</strong>'} — Référent JO : ${referentJo ? escapeHtml(referentJo.nom) : '<strong class="date-souhaitee">Non précisé</strong>'}</p>
+          <p class="hint" style="padding:6px 12px; margin:0;">Référent : ${referent ? escapeHtml(referent.nom) : '<strong class="date-souhaitee">Non précisé</strong>'} — Référent JO : ${referentJo ? escapeHtml(referentJo.nom) : '<strong class="date-souhaitee">Non précisé</strong>'}${referent2 ? ` — 2e référent : ${escapeHtml(referent2.nom)}${referent2Cat ? ` (${escapeHtml(referent2Cat)})` : ""}` : ""}</p>
           ${remarque ? `<p class="hint" style="padding:0 12px 6px; margin:0;"><strong>Remarque :</strong> ${escapeHtml(remarque)}</p>` : ""}
           <div class="effectif-table-wrap">
             <table class="effectif-table">
@@ -3959,15 +3973,6 @@ ${innerHtml}
     };
   }
 
-  function exportActivitesExcel(){
-    downloadXlsx("Activites_District_Villeurbanne.xlsx", [
-      buildActiviteTableSheet("competition", "Compétition"),
-      buildInterdistrictSheet(),
-      buildActiviteTableSheet("pratiquee", "Pratiquées (loisir)")
-    ]);
-  }
-
-  document.getElementById("btn-export-activites-excel").addEventListener("click", exportActivitesExcel);
   document.getElementById("btn-export-competition-excel").addEventListener("click", ()=>{
     downloadXlsx("Activites_competition.xlsx", [buildActiviteTableSheet("competition", "Compétition")]);
   });
