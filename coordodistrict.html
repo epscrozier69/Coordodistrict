@@ -1213,6 +1213,7 @@
     if(!parsed.activiteEffectifs) parsed.activiteEffectifs = {};
     if(!parsed.activiteReferents) parsed.activiteReferents = {};
     if(!parsed.activiteEffectifsManuels) parsed.activiteEffectifsManuels = {};
+    if(!parsed.deletedManualRowIds) parsed.deletedManualRowIds = [];
     return parsed;
   }
 
@@ -1344,10 +1345,23 @@
   // local juste avant d'envoyer, sans jamais écraser une saisie locale.
   function mergeEffectifsFromRemote(remote){
     if(!remote) return;
+    // Tombstones : un établissement manuel supprimé localement (bouton ✕)
+    // n'existe plus dans state.activiteEffectifsManuels, donc la fusion
+    // additive ci-dessous le reprenait depuis le serveur à chaque
+    // sauvegarde — la suppression ne "tenait" jamais. On mémorise les id
+    // supprimés (et on les fusionne avec ceux déjà connus du serveur) pour
+    // que ces lignes ne soient plus jamais recréées par la fusion.
+    if(!state.deletedManualRowIds) state.deletedManualRowIds = [];
+    if(remote.deletedManualRowIds){
+      const known = new Set(state.deletedManualRowIds);
+      remote.deletedManualRowIds.forEach(id=>{ if(!known.has(id)){ known.add(id); state.deletedManualRowIds.push(id); } });
+    }
+    const deletedIds = new Set(state.deletedManualRowIds);
     if(remote.activiteEffectifs){
       Object.keys(remote.activiteEffectifs).forEach(act=>{
         if(!state.activiteEffectifs[act]) state.activiteEffectifs[act] = {};
         Object.keys(remote.activiteEffectifs[act]).forEach(etabId=>{
+          if(deletedIds.has(etabId)) return;
           if(!state.activiteEffectifs[act][etabId]){
             state.activiteEffectifs[act][etabId] = remote.activiteEffectifs[act][etabId];
           }
@@ -1359,7 +1373,7 @@
         const remoteRows = remote.activiteEffectifsManuels[act] || [];
         if(!state.activiteEffectifsManuels[act]) state.activiteEffectifsManuels[act] = [];
         const localIds = new Set(state.activiteEffectifsManuels[act].map(r=>r.id));
-        remoteRows.forEach(r=>{ if(!localIds.has(r.id)) state.activiteEffectifsManuels[act].push(r); });
+        remoteRows.forEach(r=>{ if(!localIds.has(r.id) && !deletedIds.has(r.id)) state.activiteEffectifsManuels[act].push(r); });
       });
     }
     if(remote.activiteReferents){
@@ -1976,6 +1990,18 @@
   function getManualEffectifRows(act){
     return (state.activiteEffectifsManuels[act]) || [];
   }
+  function computeCatTotal(act, cat){
+    let total = 0;
+    competitionEtabsAny(act).forEach(etab=>{
+      const entry = getEffectifEntry(act, etab.id, false);
+      if(entry && entry.categories && entry.categories[cat]) total += Number(entry.categories[cat].effectif)||0;
+    });
+    getManualEffectifRows(act).forEach(m=>{
+      const entry = getEffectifEntry(act, m.id, false);
+      if(entry && entry.categories && entry.categories[cat]) total += Number(entry.categories[cat].effectif)||0;
+    });
+    return total;
+  }
   let expandedEffectifActs = new Set();
   // Activités pour lesquelles les champs "2e référent" sont actuellement
   // dépliés (bouton + cliqué) — état d'affichage local, non persisté : si un
@@ -2051,7 +2077,10 @@
           </tr>
         `;
       }).join("");
-      const catHeaders = EFFECTIF_CATEGORIES.map(cat=>`<th colspan="2">${cat}</th>`).join("");
+      const catHeaders = EFFECTIF_CATEGORIES.map(cat=>{
+        const total = computeCatTotal(act, cat);
+        return `<th colspan="2">${cat} <span class="cat-total" data-cat-total="${cat}" data-act-total="${escapeAttr(act)}">${total ? `(${total})` : ""}</span></th>`;
+      }).join("");
       const catSubHeaders = EFFECTIF_CATEGORIES.map(()=>`<th>Effectif</th><th>Équipes</th>`).join("");
       return `
         <div class="effectif-card"${expanded ? ` style="grid-column:1 / -1;"` : ""}>
@@ -2114,6 +2143,13 @@
         entry.categories[input.dataset.cat][input.dataset.field] =
           input.dataset.field === "effectif" ? Math.max(0, Number(input.value)||0) : input.value.trim();
         saveState();
+        // Met à jour le total affiché entre parenthèses dans l'en-tête de la
+        // catégorie sans tout re-rendre (perdrait le focus en cours de saisie).
+        if(input.dataset.field === "effectif"){
+          const total = computeCatTotal(input.dataset.act, input.dataset.cat);
+          const span = container.querySelector(`[data-cat-total="${CSS.escape(input.dataset.cat)}"][data-act-total="${CSS.escape(input.dataset.act)}"]`);
+          if(span) span.textContent = total ? `(${total})` : "";
+        }
       });
       // Valider avec Entrée enregistre la valeur et passe directement à la
       // case suivante, pour saisir toute une ligne sans toucher la souris.
@@ -2217,11 +2253,16 @@
     });
     container.querySelectorAll("[data-effectif-remove-manual]").forEach(btn=>{
       btn.addEventListener("click", ()=>{
+        if(!confirm("Retirer cet établissement ajouté manuellement ?")) return;
         const act = btn.dataset.act, rowId = btn.dataset.row;
         if(state.activiteEffectifsManuels[act]){
           state.activiteEffectifsManuels[act] = state.activiteEffectifsManuels[act].filter(m=>m.id!==rowId);
         }
         if(state.activiteEffectifs[act]) delete state.activiteEffectifs[act][rowId];
+        // Mémorise la suppression pour que la fusion avec le serveur
+        // (mergeEffectifsFromRemote) ne recrée pas cette ligne.
+        if(!state.deletedManualRowIds) state.deletedManualRowIds = [];
+        if(!state.deletedManualRowIds.includes(rowId)) state.deletedManualRowIds.push(rowId);
         saveState();
         renderEffectifs();
       });
@@ -3845,7 +3886,10 @@ ${innerHtml}
       // Classe "cat-sep" sur la 1re colonne de chaque catégorie (en-tête et
       // cellules) pour tracer un trait vertical qui sépare visuellement
       // BF / BG / MF / MG.
-      const catHeaders = EFFECTIF_CATEGORIES.map(cat=>`<th colspan="2" class="cat-sep">${cat}</th>`).join("");
+      const catHeaders = EFFECTIF_CATEGORIES.map((cat,ci)=>{
+        const total = rows.reduce((sum,r)=>sum + (Number(r.cats[ci][0])||0), 0);
+        return `<th colspan="2" class="cat-sep">${cat}${total ? ` (${total})` : ""}</th>`;
+      }).join("");
       const catSubHeaders = EFFECTIF_CATEGORIES.map(()=>`<th class="cat-sep">Eff.</th><th>Éq.</th>`).join("");
       const rowsHtml = rows.map(r=>{
         const catCells = r.cats.map(c=>`<td class="cat-sep">${c[0]}</td><td>${c[1]}</td>`).join("");
