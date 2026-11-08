@@ -889,11 +889,12 @@
 <!-- MODAL DEMANDE DE CARTES -->
 <div class="modal-overlay hidden" id="modal-overlay-demande-carte">
   <div class="modal">
-    <h3>Ajouter une demande de cartes</h3>
+    <h3 id="modal-demande-carte-titre">Ajouter une demande de cartes</h3>
     <form id="form-demande-carte">
       <input type="hidden" id="demande-carte-etab-id">
       <div class="form-row"><label>Collègue demandeur</label><select id="demande-carte-prof"></select></div>
       <div class="form-row"><label>Date de la demande</label><input type="date" id="demande-carte-date" required></div>
+      <div class="form-row"><label>Utilisation ?</label><input type="text" id="demande-carte-utilisation" placeholder="ex : sortie piscine, compétition..."></div>
       <div class="form-row"><label>Nombre de cartes demandées</label><input type="number" id="demande-carte-nombre" min="1" required></div>
       <div class="modal-footer">
         <button type="button" class="secondary" data-close="modal-overlay-demande-carte">Annuler</button>
@@ -2610,7 +2611,7 @@
       const historiqueDemandes = etab.cartesDemandes.slice().sort((a,b)=>b.date.localeCompare(a.date))
         .map(c=>{
           const prof = c.profId ? getProf(etab, c.profId) : null;
-          return `<div class="histo-entry demande">${formatDateFR(c.date)} — ${c.nombre} cartes${prof ? " ("+escapeHtml(prof.nom)+")" : ""} <button class="icon-btn" data-del-demande-carte="${c.id}" data-etab-demande-carte="${etab.id}" title="Supprimer">🗑</button></div>`;
+          return `<div class="histo-entry demande">${formatDateFR(c.date)} — ${c.nombre} cartes${prof ? " ("+escapeHtml(prof.nom)+")" : ""}${c.utilisation ? " — "+escapeHtml(c.utilisation) : ""} <button class="icon-btn" data-edit-demande-carte="${c.id}" data-etab-demande-carte="${etab.id}" title="Modifier">✏️</button> <button class="icon-btn" data-del-demande-carte="${c.id}" data-etab-demande-carte="${etab.id}" title="Supprimer">🗑</button></div>`;
         }).join("");
       const historique = etab.cartes.slice().sort((a,b)=>b.date.localeCompare(a.date))
         .map(c=>`<div class="histo-entry distribution">${formatDateFR(c.date)} — ${c.nombre} cartes <button class="icon-btn" data-del-carte="${c.id}" data-etab-carte="${etab.id}" title="Supprimer">🗑</button></div>`).join("");
@@ -2647,6 +2648,13 @@
         saveState(); renderAll();
       });
     });
+    tbody.querySelectorAll("[data-edit-demande-carte]").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        const etab = getEtab(btn.dataset.etabDemandeCarte);
+        const entry = etab && etab.cartesDemandes.find(c=>c.id===btn.dataset.editDemandeCarte);
+        if(entry) openDemandeCarteModal(etab.id, entry);
+      });
+    });
   }
 
   // Remplit un <select> avec les collègues (non virtuels) d'un établissement,
@@ -2658,24 +2666,40 @@
       profs.map(p=>`<option value="${escapeAttr(p.id)}">${escapeHtml(p.nom)}</option>`).join("");
   }
 
-  function openDemandeCarteModal(etabId){
+  // existing fourni = mode modification (préremplit le formulaire et
+  // remplace l'entrée au lieu d'en créer une nouvelle).
+  let editingDemandeCarte = null;
+  function openDemandeCarteModal(etabId, existing){
     const etab = getEtab(etabId);
     populateProfSelect(document.getElementById("demande-carte-prof"), etab);
     document.getElementById("demande-carte-etab-id").value = etabId;
-    document.getElementById("demande-carte-date").value = new Date().toISOString().slice(0,10);
-    document.getElementById("demande-carte-nombre").value = "";
+    document.getElementById("demande-carte-prof").value = existing ? (existing.profId||"") : "";
+    document.getElementById("demande-carte-date").value = existing ? existing.date : new Date().toISOString().slice(0,10);
+    document.getElementById("demande-carte-utilisation").value = existing ? (existing.utilisation||"") : "";
+    document.getElementById("demande-carte-nombre").value = existing ? existing.nombre : "";
+    editingDemandeCarte = existing ? { id: existing.id } : null;
+    document.getElementById("modal-demande-carte-titre").textContent =
+      existing ? "Modifier la demande de cartes" : "Ajouter une demande de cartes";
     openModal("modal-overlay-demande-carte");
   }
 
   document.getElementById("form-demande-carte").addEventListener("submit", e=>{
     e.preventDefault();
     const etab = getEtab(document.getElementById("demande-carte-etab-id").value);
-    etab.cartesDemandes.push({
-      id: uid(),
+    const entry = {
+      id: editingDemandeCarte ? editingDemandeCarte.id : uid(),
       profId: document.getElementById("demande-carte-prof").value || "",
       date: document.getElementById("demande-carte-date").value,
+      utilisation: document.getElementById("demande-carte-utilisation").value.trim(),
       nombre: Number(document.getElementById("demande-carte-nombre").value)
-    });
+    };
+    if(editingDemandeCarte){
+      const idx = etab.cartesDemandes.findIndex(c=>c.id===editingDemandeCarte.id);
+      if(idx !== -1) etab.cartesDemandes[idx] = entry;
+      editingDemandeCarte = null;
+    }else{
+      etab.cartesDemandes.push(entry);
+    }
     saveState();
     closeModal("modal-overlay-demande-carte");
     renderAll();
@@ -3794,7 +3818,7 @@ ${innerHtml}
     const rows = sortedEtabs().map(etab=>{
       const demandes = etab.cartesDemandes.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(c=>{
         const prof = c.profId ? getProf(etab, c.profId) : null;
-        return formatDateFR(c.date) + " — " + c.nombre + " cartes" + (prof ? " ("+prof.nom+")" : "");
+        return formatDateFR(c.date) + " — " + c.nombre + " cartes" + (prof ? " ("+prof.nom+")" : "") + (c.utilisation ? " — "+c.utilisation : "");
       }).join("\n");
       const distributions = etab.cartes.slice().sort((a,b)=>b.date.localeCompare(a.date))
         .map(c=>formatDateFR(c.date) + " — " + c.nombre + " cartes").join("\n");
