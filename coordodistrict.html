@@ -685,6 +685,8 @@
       <h3 class="export-row-title">🗄️ Sauvegarde</h3>
       <div class="export-tiles">
         <button id="btn-export-backup-json" class="export-tile" style="background:var(--c4)"><span class="export-tile-icon">💾</span><span>Exporter une sauvegarde complète (JSON)</span></button>
+        <button id="btn-restore-backup-json" class="export-tile" style="background:var(--c10)"><span class="export-tile-icon">📂</span><span>Restaurer une sauvegarde (JSON)</span></button>
+        <input type="file" id="input-restore-backup-json" accept="application/json,.json" style="display:none">
       </div>
     </div>
   </section>
@@ -3144,6 +3146,33 @@
     const d = new Date();
     const stamp = d.toISOString().slice(0,16).replace(/[-:T]/g,"");
     downloadFile("sauvegarde_district_" + stamp + ".json", JSON.stringify(state, null, 2), "application/json");
+  });
+  document.getElementById("btn-restore-backup-json").addEventListener("click", ()=>{
+    document.getElementById("input-restore-backup-json").click();
+  });
+  document.getElementById("input-restore-backup-json").addEventListener("change", (e)=>{
+    const file = e.target.files[0];
+    e.target.value = "";
+    if(!file) return;
+    if(!confirm("Restaurer cette sauvegarde va remplacer toutes les données actuelles (sur cet appareil, puis sur tous les appareils après synchronisation). Cette action est irréversible. Continuer ?")) return;
+    const reader = new FileReader();
+    reader.onload = (ev)=>{
+      let parsed;
+      try{
+        parsed = JSON.parse(ev.target.result);
+        if(!parsed || !Array.isArray(parsed.etablissements)) throw new Error("fichier incomplet (établissements manquants)");
+      }catch(err){
+        alert("Fichier de sauvegarde invalide ou illisible : " + err.message);
+        return;
+      }
+      migrateEtablissements(parsed.etablissements);
+      state = migrateStocks(parsed);
+      renderAll();
+      saveState(true, true);
+      showToast("Sauvegarde restaurée.");
+    };
+    reader.onerror = ()=>{ alert("Impossible de lire ce fichier."); };
+    reader.readAsText(file);
   });
   document.getElementById("btn-copy-phones").addEventListener("click", ()=>{
     openSelectContactModal("telephone");
