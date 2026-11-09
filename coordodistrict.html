@@ -1839,24 +1839,30 @@
     resultEl.innerHTML = '<p class="hint">Calcul des trajets en cours…</p>';
     const rows = [];
     for(const [a,b] of pairs){
-      let dureeTxt = "—", distTxt = "—";
+      let dureeTxt = "—", distTxt = "—", dureeTclTxt = "—";
       try{
         const url = "https://router.project-osrm.org/route/v1/driving/"+a.lng+","+a.lat+";"+b.lng+","+b.lat+"?overview=false";
         const res = await fetch(url);
         const data = await res.json();
         if(data.routes && data.routes[0]){
-          dureeTxt = Math.round(data.routes[0].duration/60)+" min";
+          const dureeVoitureMin = data.routes[0].duration/60;
+          dureeTxt = Math.round(dureeVoitureMin)+" min";
           distTxt = (data.routes[0].distance/1000).toFixed(1).replace(".",",")+" km";
+          // Estimation approximative (pas un vrai calcul d'itinéraire TCL) : on
+          // majore le temps de trajet voiture pour tenir compte de la marche
+          // jusqu'aux arrêts, de l'attente et d'éventuelles correspondances.
+          dureeTclTxt = "~"+Math.round(dureeVoitureMin*1.5 + 10)+" min";
         }
       }catch(err){ /* laisse les tirets par défaut */ }
       const gmapsUrl = "https://www.google.com/maps/dir/?api=1&origin="+encodeURIComponent(fullAddressFor(a))+"&destination="+encodeURIComponent(fullAddressFor(b))+"&travelmode=transit";
-      rows.push({ a, b, dureeTxt, distTxt, gmapsUrl });
+      rows.push({ a, b, dureeTxt, distTxt, dureeTclTxt, gmapsUrl });
     }
     resultEl.innerHTML = '<div class="table-wrap"><table><thead><tr>'
-      + '<th>Trajet</th><th>Durée estimée (voiture/car)</th><th>Distance</th><th>Itinéraire TCL</th>'
+      + '<th>Trajet</th><th>Transport en commun (estimation)</th><th>Voiture/car</th><th>Distance</th><th>Itinéraire TCL</th>'
       + '</tr></thead><tbody>'
       + rows.map(r=>'<tr>'
         + '<td>'+escapeHtml(r.a.nom)+' ↔ '+escapeHtml(r.b.nom)+'</td>'
+        + '<td>'+r.dureeTclTxt+'</td>'
         + '<td>'+r.dureeTxt+'</td>'
         + '<td>'+r.distTxt+'</td>'
         + '<td>'
@@ -1865,7 +1871,7 @@
         + '</td>'
       + '</tr>').join("")
       + '</tbody></table></div>'
-      + '<p class="hint">Durées « voiture/car » fournies par un service de calcul d\'itinéraire public (OSRM), à titre indicatif uniquement. « Google Maps » ouvre l\'itinéraire en transport en commun déjà pré-rempli. « Site TCL » copie les deux adresses dans le presse-papiers puis ouvre le site tcl.fr (à coller dans les champs départ/arrivée).</p>';
+      + '<p class="hint">« Transport en commun » est une <strong>estimation approximative</strong> (temps de trajet voiture × 1,5 + 10 min, pour tenir compte de la marche, de l\'attente et des correspondances) — ce n\'est pas un vrai calcul d\'itinéraire TCL. « Voiture/car » est fourni par un service de calcul d\'itinéraire public (OSRM), à titre indicatif. Pour un horaire réel, utilisez « Google Maps » (itinéraire transport en commun déjà pré-rempli) ou « Site TCL » (copie les deux adresses dans le presse-papiers puis ouvre tcl.fr).</p>';
     resultEl.querySelectorAll(".btn-plan-tcl").forEach(btn=>{
       btn.addEventListener("click", ()=>{
         copyToClipboard("Départ : "+btn.dataset.depart+"\nArrivée : "+btn.dataset.arrivee, "Les adresses de départ et d'arrivée");
