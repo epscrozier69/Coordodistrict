@@ -665,6 +665,7 @@
       <h2>Carte des établissements</h2>
       <p class="hint">Localisation automatique à partir de l'adresse enregistrée dans l'Annuaire. Sélectionnez plusieurs établissements (sur la carte ou dans la liste) pour estimer les trajets entre eux.</p>
       <div class="actions">
+        <button id="btn-plan-ajouter-destination" class="secondary">➕ Ajouter une destination</button>
         <button id="btn-plan-recalculer" class="secondary">🔄 Recalculer les positions</button>
       </div>
     </div>
@@ -674,6 +675,10 @@
       <h2 style="font-size:1.05rem;">Établissements à comparer</h2>
     </div>
     <div id="plan-checkbox-list" class="checkbox-grid" style="grid-template-columns:repeat(auto-fill,minmax(230px,1fr));"></div>
+    <div class="panel-header" style="margin-top:14px;">
+      <h2 style="font-size:1.05rem;">Autres destinations (gymnase, stade, salle…)</h2>
+    </div>
+    <div id="plan-destinations-list" class="checkbox-grid" style="grid-template-columns:repeat(auto-fill,minmax(230px,1fr));"><p class="hint" style="margin:0;">Aucune destination ajoutée pour l'instant.</p></div>
     <div class="panel-header" style="margin-top:18px;">
       <h2 style="font-size:1.05rem;">Trajets entre établissements sélectionnés</h2>
       <div class="actions">
@@ -907,6 +912,21 @@
       <div class="form-row"><label>Nombre de cartes données</label><input type="number" id="carte-nombre" min="1" required></div>
       <div class="modal-footer">
         <button type="button" class="secondary" data-close="modal-overlay-carte">Annuler</button>
+        <button type="submit">Ajouter</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL AJOUT DESTINATION (onglet Carte) -->
+<div class="modal-overlay hidden" id="modal-overlay-plan-destination">
+  <div class="modal">
+    <h3>Ajouter une destination</h3>
+    <form id="form-plan-destination">
+      <div class="form-row"><label>Nom</label><input type="text" id="plan-destination-nom" placeholder="ex : Gymnase du Tonkin" required></div>
+      <div class="form-row"><label>Adresse</label><input type="text" id="plan-destination-adresse" placeholder="ex : 12 rue du Tonkin, Villeurbanne" required></div>
+      <div class="modal-footer">
+        <button type="button" class="secondary" data-close="modal-overlay-plan-destination">Annuler</button>
         <button type="submit">Ajouter</button>
       </div>
     </form>
@@ -1250,6 +1270,7 @@
     if(!parsed.activiteReferents) parsed.activiteReferents = {};
     if(!parsed.activiteEffectifsManuels) parsed.activiteEffectifsManuels = {};
     if(!parsed.deletedManualRowIds) parsed.deletedManualRowIds = [];
+    if(!parsed.lieuxCarte) parsed.lieuxCarte = [];
     return parsed;
   }
 
@@ -1537,7 +1558,7 @@
   // Google Maps (itinéraire transport en commun pré-rempli) et/ou le site TCL.
   let planMap = null;
   let planMarkers = {};
-  let planSelection = new Set();
+  let planSelection = new Set(); // clés "etab:<id>" ou "lieu:<id>"
 
   function etabColorHex(etab){
     if(isJoliotCurie(etab)) return "#FFD500";
@@ -1545,11 +1566,25 @@
     return "#"+PALETTE_HEX[PALETTE[idx % PALETTE.length]];
   }
 
-  function fullAddressFor(etab){
-    const a = (etab.adresse||"").trim();
+  function fullAddressFor(target){
+    const a = (target.adresse||"").trim();
     if(!a) return "";
     const hasCityHint = /\b\d{5}\b/.test(a) || /bron|villeurbanne/i.test(a);
     return hasCityHint ? a+", France" : a+", Villeurbanne, France";
+  }
+
+  // En cas d'échec, on retente avec une adresse simplifiée : les numéros en
+  // plage ("17-19 rue X", "26 à 36 rue Y") ne sont pas reconnus tels quels
+  // par le service de géocodage, donc on réessaie avec le premier numéro
+  // puis, en dernier recours, sans numéro du tout (localisation approximative
+  // sur la rue).
+  function geocodeVariantsFor(addr){
+    const variants = [addr];
+    const firstNumberOnly = addr.replace(/^(\d+)\s*(?:-|à)\s*\d+\b\s*/i, "$1 ");
+    if(firstNumberOnly !== addr) variants.push(firstNumberOnly);
+    const withoutNumber = addr.replace(/^\d+(\s*(?:-|à)\s*\d+)?\s*,?\s*/i, "");
+    if(withoutNumber && withoutNumber !== addr && !variants.includes(withoutNumber)) variants.push(withoutNumber);
+    return variants;
   }
 
   async function geocodeAddress(adresse){
@@ -1561,37 +1596,58 @@
     return { lat:Number(data[0].lat), lng:Number(data[0].lon) };
   }
 
+  async function geocodeWithDelay(adresse){
+    let result = null;
+    try{ result = await geocodeAddress(adresse); }catch(err){ result = null; }
+    await new Promise(r=>setTimeout(r, 1100));
+    return result;
+  }
+
+  function planGeocodableTargets(){
+    return sortedEtabs().filter(e=>e.adresse && e.adresse.trim()).concat(state.lieuxCarte);
+  }
+
   async function ensurePlanGeocoded(forceAll){
     const statusEl = document.getElementById("plan-geocode-status");
-    const todo = sortedEtabs().filter(e=>{
-      if(!e.adresse || !e.adresse.trim()) return false;
-      const addr = fullAddressFor(e);
-      return forceAll || typeof e.lat !== "number" || e.geocodedAddress !== addr;
+    const todo = planGeocodableTargets().filter(target=>{
+      const addr = fullAddressFor(target);
+      return forceAll || typeof target.lat !== "number" || target.geocodedAddress !== addr;
     });
     if(!todo.length){ if(statusEl) statusEl.textContent = ""; return; }
     for(let i=0;i<todo.length;i++){
-      const etab = todo[i];
-      if(statusEl) statusEl.textContent = "Localisation en cours… ("+(i+1)+"/"+todo.length+") "+etab.nom;
-      try{
-        const coords = await geocodeAddress(fullAddressFor(etab));
-        if(coords){
-          etab.lat = coords.lat; etab.lng = coords.lng;
-          etab.geocodedAddress = fullAddressFor(etab); etab.geocodeFailed = false;
-        } else {
-          etab.geocodeFailed = true;
-        }
-      }catch(err){ etab.geocodeFailed = true; }
-      if(i < todo.length-1) await new Promise(r=>setTimeout(r, 1100));
+      const target = todo[i];
+      if(statusEl) statusEl.textContent = "Localisation en cours… ("+(i+1)+"/"+todo.length+") "+target.nom;
+      const addr = fullAddressFor(target);
+      let coords = null;
+      for(const variant of geocodeVariantsFor(addr)){
+        coords = await geocodeWithDelay(variant);
+        if(coords) break;
+      }
+      if(coords){
+        target.lat = coords.lat; target.lng = coords.lng;
+        target.geocodedAddress = addr; target.geocodeFailed = false;
+      } else {
+        target.geocodeFailed = true;
+      }
     }
     if(statusEl) statusEl.textContent = "";
     saveState();
   }
 
-  function togglePlanSelection(etabId){
-    if(planSelection.has(etabId)) planSelection.delete(etabId);
-    else planSelection.add(etabId);
+  function planResolve(key){
+    const sep = key.indexOf(":");
+    const kind = key.slice(0, sep), id = key.slice(sep+1);
+    if(kind === "etab") return getEtab(id);
+    if(kind === "lieu") return state.lieuxCarte.find(l=>l.id===id);
+    return null;
+  }
+
+  function togglePlanSelection(key){
+    if(planSelection.has(key)) planSelection.delete(key);
+    else planSelection.add(key);
     renderPlanMap();
     renderPlanChecklist();
+    renderPlanDestinations();
   }
 
   function renderPlanMap(){
@@ -1608,16 +1664,27 @@
     const bounds = [];
     sortedEtabs().forEach(etab=>{
       if(typeof etab.lat !== "number" || typeof etab.lng !== "number") return;
-      const selected = planSelection.has(etab.id);
+      const key = "etab:"+etab.id;
+      const selected = planSelection.has(key);
       const marker = L.circleMarker([etab.lat, etab.lng], {
         radius: selected ? 11 : 8,
         color:"#222", weight: selected ? 3 : 1,
         fillColor: etabColorHex(etab), fillOpacity:.9
       }).addTo(planMap);
       marker.bindTooltip(etab.nom);
-      marker.on("click", ()=>togglePlanSelection(etab.id));
-      planMarkers[etab.id] = marker;
+      marker.on("click", ()=>togglePlanSelection(key));
+      planMarkers[key] = marker;
       bounds.push([etab.lat, etab.lng]);
+    });
+    state.lieuxCarte.forEach(lieu=>{
+      if(typeof lieu.lat !== "number" || typeof lieu.lng !== "number") return;
+      const key = "lieu:"+lieu.id;
+      const selected = planSelection.has(key);
+      const marker = L.marker([lieu.lat, lieu.lng], { opacity: selected ? 1 : .75 }).addTo(planMap);
+      marker.bindTooltip(lieu.nom);
+      marker.on("click", ()=>togglePlanSelection(key));
+      planMarkers[key] = marker;
+      bounds.push([lieu.lat, lieu.lng]);
     });
     if(bounds.length) planMap.fitBounds(bounds, { padding:[30,30], maxZoom:15 });
     else planMap.setView([45.7667,4.8874], 13);
@@ -1628,25 +1695,59 @@
     const container = document.getElementById("plan-checkbox-list");
     if(!container) return;
     container.innerHTML = sortedEtabs().map(etab=>{
+      const key = "etab:"+etab.id;
       const hasCoords = typeof etab.lat === "number";
       const warn = !etab.adresse || !etab.adresse.trim()
         ? " <span class=\"hint\">(aucune adresse renseignée)</span>"
         : (!hasCoords ? " <span class=\"hint\">(localisation impossible)</span>" : "");
       return '<label style="display:flex; align-items:center; gap:6px;">'
-        + '<input type="checkbox" data-plan-etab="'+etab.id+'" '+(planSelection.has(etab.id)?"checked":"")+' '+(hasCoords?"":"disabled")+'>'
+        + '<input type="checkbox" data-plan-key="'+key+'" '+(planSelection.has(key)?"checked":"")+' '+(hasCoords?"":"disabled")+'>'
         + '<span>'+escapeHtml(etab.nom)+warn+'</span></label>';
     }).join("");
-    container.querySelectorAll("[data-plan-etab]").forEach(cb=>{
-      cb.addEventListener("change", ()=>togglePlanSelection(cb.dataset.planEtab));
+    container.querySelectorAll("[data-plan-key]").forEach(cb=>{
+      cb.addEventListener("change", ()=>togglePlanSelection(cb.dataset.planKey));
+    });
+  }
+
+  function renderPlanDestinations(){
+    const container = document.getElementById("plan-destinations-list");
+    if(!container) return;
+    if(!state.lieuxCarte.length){
+      container.innerHTML = '<p class="hint" style="margin:0;">Aucune destination ajoutée pour l\'instant.</p>';
+      return;
+    }
+    container.innerHTML = state.lieuxCarte.map(lieu=>{
+      const key = "lieu:"+lieu.id;
+      const hasCoords = typeof lieu.lat === "number";
+      const warn = !hasCoords ? " <span class=\"hint\">(localisation impossible)</span>" : "";
+      return '<div style="display:flex; align-items:center; gap:6px;">'
+        + '<label style="display:flex; align-items:center; gap:6px; flex:1;">'
+        + '<input type="checkbox" data-plan-key="'+key+'" '+(planSelection.has(key)?"checked":"")+' '+(hasCoords?"":"disabled")+'>'
+        + '<span>'+escapeHtml(lieu.nom)+warn+'</span>'
+        + '</label>'
+        + '<button type="button" class="icon-btn" data-del-plan-destination="'+lieu.id+'" title="Supprimer">🗑</button>'
+        + '</div>';
+    }).join("");
+    container.querySelectorAll("[data-plan-key]").forEach(cb=>{
+      cb.addEventListener("change", ()=>togglePlanSelection(cb.dataset.planKey));
+    });
+    container.querySelectorAll("[data-del-plan-destination]").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        const id = btn.dataset.delPlanDestination;
+        state.lieuxCarte = state.lieuxCarte.filter(l=>l.id!==id);
+        planSelection.delete("lieu:"+id);
+        saveState();
+        renderPlanMap(); renderPlanChecklist(); renderPlanDestinations();
+      });
     });
   }
 
   async function renderPlanTrajets(){
     const resultEl = document.getElementById("plan-trajets-result");
     if(!resultEl) return;
-    const etabs = Array.from(planSelection).map(id=>getEtab(id)).filter(e=>e && typeof e.lat === "number");
+    const etabs = Array.from(planSelection).map(key=>planResolve(key)).filter(e=>e && typeof e.lat === "number");
     if(etabs.length < 2){
-      resultEl.innerHTML = '<p class="hint">Sélectionnez au moins deux établissements localisés sur la carte.</p>';
+      resultEl.innerHTML = '<p class="hint">Sélectionnez au moins deux établissements/destinations localisés sur la carte.</p>';
       return;
     }
     const pairs = [];
@@ -1693,14 +1794,35 @@
     await ensurePlanGeocoded(false);
     renderPlanMap();
     renderPlanChecklist();
+    renderPlanDestinations();
   }
 
   document.getElementById("btn-plan-recalculer").addEventListener("click", async ()=>{
     await ensurePlanGeocoded(true);
     renderPlanMap();
     renderPlanChecklist();
+    renderPlanDestinations();
   });
   document.getElementById("btn-plan-calculer-trajets").addEventListener("click", renderPlanTrajets);
+
+  document.getElementById("btn-plan-ajouter-destination").addEventListener("click", ()=>{
+    document.getElementById("plan-destination-nom").value = "";
+    document.getElementById("plan-destination-adresse").value = "";
+    openModal("modal-overlay-plan-destination");
+  });
+  document.getElementById("form-plan-destination").addEventListener("submit", async e=>{
+    e.preventDefault();
+    const nom = document.getElementById("plan-destination-nom").value.trim();
+    const adresse = document.getElementById("plan-destination-adresse").value.trim();
+    if(!nom || !adresse) return;
+    state.lieuxCarte.push({ id:uid(), nom, adresse });
+    saveState();
+    closeModal("modal-overlay-plan-destination");
+    renderPlanDestinations();
+    await ensurePlanGeocoded(false);
+    renderPlanMap();
+    renderPlanDestinations();
+  });
 
   // ---------- TABS ----------
   document.querySelectorAll(".tab-btn").forEach(btn=>{
