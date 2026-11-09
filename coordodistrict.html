@@ -1573,30 +1573,63 @@
     return hasCityHint ? a+", France" : a+", Villeurbanne, France";
   }
 
-  // En cas d'échec, on retente avec une adresse simplifiée : les numéros en
-  // plage ("17-19 rue X", "26 à 36 rue Y") ne sont pas reconnus tels quels
-  // par le service de géocodage, donc on réessaie avec le premier numéro
-  // puis, en dernier recours, sans numéro du tout (localisation approximative
-  // sur la rue).
-  function geocodeVariantsFor(addr){
-    const variants = [addr];
-    const firstNumberOnly = addr.replace(/^(\d+)\s*(?:-|à)\s*\d+\b\s*/i, "$1 ");
-    if(firstNumberOnly !== addr) variants.push(firstNumberOnly);
-    const withoutNumber = addr.replace(/^\d+(\s*(?:-|à)\s*\d+)?\s*,?\s*/i, "");
-    if(withoutNumber && withoutNumber !== addr && !variants.includes(withoutNumber)) variants.push(withoutNumber);
+  // De nombreuses rues françaises (Jean Jaurès, Gambetta…) existent dans des
+  // centaines de communes, y compris à Lyon même (ex: rue Jean Jaurès du 7e
+  // arrondissement) : une simple contrainte de zone géographique (viewbox)
+  // ne suffit pas à les départager. On privilégie donc une recherche
+  // "structurée" (rue + commune + code postal séparément), qui demande au
+  // service de géocodage de chercher la rue PRÉCISÉMENT dans la commune
+  // indiquée plutôt que de deviner depuis un texte libre. Le texte libre
+  // (avec puis sans contrainte de zone) ne sert qu'en tout dernier recours.
+  const DISTRICT_VIEWBOX = "4.78,45.81,4.97,45.70"; // gauche,haut,droite,bas (lon,lat)
+  const COMMUNES_DISTRICT = ["Villeurbanne","Bron","Vaulx-en-Velin"];
+
+  function communeFor(target){
+    const a = target.adresse||"";
+    const found = COMMUNES_DISTRICT.find(c=>new RegExp("\\b"+c+"\\b","i").test(a));
+    return found || "Villeurbanne";
+  }
+  function postalCodeFor(target){
+    const m = (target.adresse||"").match(/\b(\d{5})\b/);
+    return m ? m[1] : "";
+  }
+  function streetOnlyFor(target){
+    let s = (target.adresse||"").trim();
+    s = s.replace(/\b\d{5}\b/g, "");
+    COMMUNES_DISTRICT.forEach(c=>{ s = s.replace(new RegExp("\\b"+c+"\\b","ig"), ""); });
+    return s.replace(/,\s*,/g, ",").replace(/,\s*$/, "").replace(/^\s*,\s*/, "").trim();
+  }
+  // Variantes du numéro de rue : les plages ("17-19 rue X", "26 à 36 rue Y")
+  // ne sont pas reconnues telles quelles, donc on réessaie avec le premier
+  // numéro puis, en dernier recours, sans numéro du tout.
+  function streetVariants(street){
+    const variants = [street];
+    const firstNumberOnly = street.replace(/^(\d+)\s*(?:-|à)\s*\d+\b\s*/i, "$1 ");
+    if(firstNumberOnly !== street) variants.push(firstNumberOnly);
+    const withoutNumber = street.replace(/^\d+(\s*(?:-|à)\s*\d+)?\s*,?\s*/i, "");
+    if(withoutNumber && withoutNumber !== street && !variants.includes(withoutNumber)) variants.push(withoutNumber);
     return variants;
   }
 
-  // De nombreuses rues françaises (Jean Jaurès, Gambetta…) existent dans des
-  // centaines de communes : sans contrainte géographique, Nominatim retourne
-  // parfois une correspondance ailleurs en France plutôt qu'à Villeurbanne/
-  // Bron. On restreint donc d'abord la recherche à la zone du district
-  // (viewbox + bounded=1), avec un repli sans contrainte si rien n'y est
-  // trouvé (utile pour une destination personnalisée hors district).
-  const DISTRICT_VIEWBOX = "4.78,45.81,4.97,45.70"; // gauche,haut,droite,bas (lon,lat)
+  function geocodeCandidatesFor(target){
+    const street = streetOnlyFor(target);
+    if(!street) return [{ structured:false, q:fullAddressFor(target) }];
+    const city = communeFor(target);
+    const postalcode = postalCodeFor(target);
+    const candidates = streetVariants(street).map(s=>({ structured:true, street:s, city, postalcode }));
+    candidates.push({ structured:false, q:fullAddressFor(target) });
+    return candidates;
+  }
 
-  async function geocodeAddress(adresse, strict){
-    const params = new URLSearchParams({ format:"json", limit:"1", q:adresse, countrycodes:"fr" });
+  async function geocodeCandidate(candidate, strict){
+    const params = new URLSearchParams({ format:"json", limit:"1", countrycodes:"fr" });
+    if(candidate.structured){
+      params.set("street", candidate.street);
+      params.set("city", candidate.city);
+      if(candidate.postalcode) params.set("postalcode", candidate.postalcode);
+    } else {
+      params.set("q", candidate.q);
+    }
     if(strict){ params.set("viewbox", DISTRICT_VIEWBOX); params.set("bounded", "1"); }
     const url = "https://nominatim.openstreetmap.org/search?"+params.toString();
     const res = await fetch(url, { headers:{ "Accept":"application/json" } });
@@ -1606,9 +1639,9 @@
     return { lat:Number(data[0].lat), lng:Number(data[0].lon) };
   }
 
-  async function geocodeWithDelay(adresse, strict){
+  async function geocodeWithDelay(candidate, strict){
     let result = null;
-    try{ result = await geocodeAddress(adresse, strict); }catch(err){ result = null; }
+    try{ result = await geocodeCandidate(candidate, strict); }catch(err){ result = null; }
     await new Promise(r=>setTimeout(r, 1100));
     return result;
   }
@@ -1628,14 +1661,15 @@
       const target = todo[i];
       if(statusEl) statusEl.textContent = "Localisation en cours… ("+(i+1)+"/"+todo.length+") "+target.nom;
       const addr = fullAddressFor(target);
+      const candidates = geocodeCandidatesFor(target);
       let coords = null;
-      for(const variant of geocodeVariantsFor(addr)){
-        coords = await geocodeWithDelay(variant, true);
+      for(const candidate of candidates){
+        coords = await geocodeWithDelay(candidate, true);
         if(coords) break;
       }
       if(!coords){
-        for(const variant of geocodeVariantsFor(addr)){
-          coords = await geocodeWithDelay(variant, false);
+        for(const candidate of candidates){
+          coords = await geocodeWithDelay(candidate, false);
           if(coords) break;
         }
       }
