@@ -1611,6 +1611,38 @@
     return variants;
   }
 
+  // Service prioritaire : la Base Adresse Nationale (BAN, api-adresse.data.gouv.fr)
+  // est la base officielle des adresses françaises (La Poste/IGN/DGFiP), gratuite et
+  // sans clé — nettement plus complète et fiable qu'OpenStreetMap pour la France,
+  // ce qui règle la plupart des mauvaises localisations malgré une adresse correcte.
+  // OpenStreetMap/Nominatim ne sert plus qu'en repli (adresse introuvable dans la BAN,
+  // ou destination personnalisée hors de France).
+  async function geocodeBAN(street, postalcode){
+    const params = new URLSearchParams({ q:street, limit:"1" });
+    if(postalcode) params.set("postcode", postalcode);
+    else { params.set("lat", "45.7667"); params.set("lon", "4.8874"); } // centre Villeurbanne, en indication seulement
+    try{
+      const res = await fetch("https://api-adresse.data.gouv.fr/search/?"+params.toString());
+      if(!res.ok) return null;
+      const data = await res.json();
+      const feat = data.features && data.features[0];
+      if(!feat) return null;
+      const [lng, lat] = feat.geometry.coordinates;
+      return { lat, lng };
+    }catch(err){ return null; }
+  }
+
+  async function geocodeViaBAN(target){
+    const street = streetOnlyFor(target);
+    if(!street) return null;
+    const postalcode = postalCodeFor(target);
+    for(const s of streetVariants(street)){
+      const coords = await geocodeBAN(s, postalcode);
+      if(coords) return coords;
+    }
+    return null;
+  }
+
   function geocodeCandidatesFor(target){
     const street = streetOnlyFor(target);
     if(!street) return [{ structured:false, q:fullAddressFor(target) }];
@@ -1661,16 +1693,18 @@
       const target = todo[i];
       if(statusEl) statusEl.textContent = "Localisation en cours… ("+(i+1)+"/"+todo.length+") "+target.nom;
       const addr = fullAddressFor(target);
-      const candidates = geocodeCandidatesFor(target);
-      let coords = null;
-      for(const candidate of candidates){
-        coords = await geocodeWithDelay(candidate, true);
-        if(coords) break;
-      }
+      let coords = await geocodeViaBAN(target);
       if(!coords){
+        const candidates = geocodeCandidatesFor(target);
         for(const candidate of candidates){
-          coords = await geocodeWithDelay(candidate, false);
+          coords = await geocodeWithDelay(candidate, true);
           if(coords) break;
+        }
+        if(!coords){
+          for(const candidate of candidates){
+            coords = await geocodeWithDelay(candidate, false);
+            if(coords) break;
+          }
         }
       }
       if(coords){
