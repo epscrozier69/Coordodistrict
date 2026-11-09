@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>District de Villeurbanne - 2026-2027</title>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <style>
   #app-toast{
     position:fixed; bottom:22px; left:50%; transform:translateX(-50%) translateY(12px);
@@ -407,6 +409,7 @@
     <button class="tab-btn" data-tab="recompenses">Gestion récompenses</button>
     <button class="tab-btn" data-tab="finances">Finances</button>
     <button class="tab-btn" data-tab="cross">Cross District</button>
+    <button class="tab-btn" data-tab="plan">Carte</button>
     <button class="tab-btn" data-tab="export">Export</button>
     <button class="tab-btn" data-tab="ag">AG</button>
   </nav>
@@ -654,6 +657,30 @@
         <tbody id="tbody-cross"></tbody>
       </table>
     </div>
+  </section>
+
+  <!-- ONGLET CARTE -->
+  <section id="tab-plan" class="tab-panel">
+    <div class="panel-header">
+      <h2>Carte des établissements</h2>
+      <p class="hint">Localisation automatique à partir de l'adresse enregistrée dans l'Annuaire. Sélectionnez plusieurs établissements (sur la carte ou dans la liste) pour estimer les trajets entre eux.</p>
+      <div class="actions">
+        <button id="btn-plan-recalculer" class="secondary">🔄 Recalculer les positions</button>
+      </div>
+    </div>
+    <p id="plan-geocode-status" class="hint"></p>
+    <div id="plan-map" style="height:440px; border-radius:var(--radius); overflow:hidden; margin-bottom:16px; background:#e2e6f0;"></div>
+    <div class="panel-header" style="margin-top:0;">
+      <h2 style="font-size:1.05rem;">Établissements à comparer</h2>
+    </div>
+    <div id="plan-checkbox-list" class="checkbox-grid" style="grid-template-columns:repeat(auto-fill,minmax(230px,1fr));"></div>
+    <div class="panel-header" style="margin-top:18px;">
+      <h2 style="font-size:1.05rem;">Trajets entre établissements sélectionnés</h2>
+      <div class="actions">
+        <button id="btn-plan-calculer-trajets" class="secondary">🚌 Estimer les trajets</button>
+      </div>
+    </div>
+    <div id="plan-trajets-result"><p class="hint">Sélectionnez au moins deux établissements puis cliquez sur « Estimer les trajets ».</p></div>
   </section>
 
   <!-- ONGLET EXPORT -->
@@ -1501,6 +1528,180 @@
     return state.etablissements.reduce((s,e)=>s+totalRecompensesFor(e,type),0);
   }
 
+  // ---------- ONGLET CARTE (localisation + estimation de trajets) ----------
+  // Localisation : les adresses texte de l'Annuaire sont géocodées (une seule
+  // fois, puis mises en cache dans etab.lat/lng) via Nominatim (OpenStreetMap,
+  // gratuit, sans clé). Les trajets "en car" sont estimés via OSRM (routage
+  // routier public, gratuit, sans clé, à titre indicatif). Pour le TCL, pas
+  // de calcul d'itinéraire maison (nécessiterait une API payante) : on ouvre
+  // Google Maps (itinéraire transport en commun pré-rempli) et/ou le site TCL.
+  let planMap = null;
+  let planMarkers = {};
+  let planSelection = new Set();
+
+  function etabColorHex(etab){
+    if(isJoliotCurie(etab)) return "#FFD500";
+    const idx = sortedEtabs().findIndex(e=>e.id===etab.id);
+    return "#"+PALETTE_HEX[PALETTE[idx % PALETTE.length]];
+  }
+
+  function fullAddressFor(etab){
+    const a = (etab.adresse||"").trim();
+    if(!a) return "";
+    const hasCityHint = /\b\d{5}\b/.test(a) || /bron|villeurbanne/i.test(a);
+    return hasCityHint ? a+", France" : a+", Villeurbanne, France";
+  }
+
+  async function geocodeAddress(adresse){
+    const url = "https://nominatim.openstreetmap.org/search?format=json&limit=1&q="+encodeURIComponent(adresse);
+    const res = await fetch(url, { headers:{ "Accept":"application/json" } });
+    if(!res.ok) return null;
+    const data = await res.json();
+    if(!data.length) return null;
+    return { lat:Number(data[0].lat), lng:Number(data[0].lon) };
+  }
+
+  async function ensurePlanGeocoded(forceAll){
+    const statusEl = document.getElementById("plan-geocode-status");
+    const todo = sortedEtabs().filter(e=>{
+      if(!e.adresse || !e.adresse.trim()) return false;
+      const addr = fullAddressFor(e);
+      return forceAll || typeof e.lat !== "number" || e.geocodedAddress !== addr;
+    });
+    if(!todo.length){ if(statusEl) statusEl.textContent = ""; return; }
+    for(let i=0;i<todo.length;i++){
+      const etab = todo[i];
+      if(statusEl) statusEl.textContent = "Localisation en cours… ("+(i+1)+"/"+todo.length+") "+etab.nom;
+      try{
+        const coords = await geocodeAddress(fullAddressFor(etab));
+        if(coords){
+          etab.lat = coords.lat; etab.lng = coords.lng;
+          etab.geocodedAddress = fullAddressFor(etab); etab.geocodeFailed = false;
+        } else {
+          etab.geocodeFailed = true;
+        }
+      }catch(err){ etab.geocodeFailed = true; }
+      if(i < todo.length-1) await new Promise(r=>setTimeout(r, 1100));
+    }
+    if(statusEl) statusEl.textContent = "";
+    saveState();
+  }
+
+  function togglePlanSelection(etabId){
+    if(planSelection.has(etabId)) planSelection.delete(etabId);
+    else planSelection.add(etabId);
+    renderPlanMap();
+    renderPlanChecklist();
+  }
+
+  function renderPlanMap(){
+    if(typeof L === "undefined" || !document.getElementById("plan-map")) return;
+    if(!planMap){
+      planMap = L.map("plan-map");
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom:19,
+        attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'
+      }).addTo(planMap);
+    }
+    Object.values(planMarkers).forEach(m=>planMap.removeLayer(m));
+    planMarkers = {};
+    const bounds = [];
+    sortedEtabs().forEach(etab=>{
+      if(typeof etab.lat !== "number" || typeof etab.lng !== "number") return;
+      const selected = planSelection.has(etab.id);
+      const marker = L.circleMarker([etab.lat, etab.lng], {
+        radius: selected ? 11 : 8,
+        color:"#222", weight: selected ? 3 : 1,
+        fillColor: etabColorHex(etab), fillOpacity:.9
+      }).addTo(planMap);
+      marker.bindTooltip(etab.nom);
+      marker.on("click", ()=>togglePlanSelection(etab.id));
+      planMarkers[etab.id] = marker;
+      bounds.push([etab.lat, etab.lng]);
+    });
+    if(bounds.length) planMap.fitBounds(bounds, { padding:[30,30], maxZoom:15 });
+    else planMap.setView([45.7667,4.8874], 13);
+    setTimeout(()=>planMap && planMap.invalidateSize(), 50);
+  }
+
+  function renderPlanChecklist(){
+    const container = document.getElementById("plan-checkbox-list");
+    if(!container) return;
+    container.innerHTML = sortedEtabs().map(etab=>{
+      const hasCoords = typeof etab.lat === "number";
+      const warn = !etab.adresse || !etab.adresse.trim()
+        ? " <span class=\"hint\">(aucune adresse renseignée)</span>"
+        : (!hasCoords ? " <span class=\"hint\">(localisation impossible)</span>" : "");
+      return '<label style="display:flex; align-items:center; gap:6px;">'
+        + '<input type="checkbox" data-plan-etab="'+etab.id+'" '+(planSelection.has(etab.id)?"checked":"")+' '+(hasCoords?"":"disabled")+'>'
+        + '<span>'+escapeHtml(etab.nom)+warn+'</span></label>';
+    }).join("");
+    container.querySelectorAll("[data-plan-etab]").forEach(cb=>{
+      cb.addEventListener("change", ()=>togglePlanSelection(cb.dataset.planEtab));
+    });
+  }
+
+  async function renderPlanTrajets(){
+    const resultEl = document.getElementById("plan-trajets-result");
+    if(!resultEl) return;
+    const etabs = Array.from(planSelection).map(id=>getEtab(id)).filter(e=>e && typeof e.lat === "number");
+    if(etabs.length < 2){
+      resultEl.innerHTML = '<p class="hint">Sélectionnez au moins deux établissements localisés sur la carte.</p>';
+      return;
+    }
+    const pairs = [];
+    for(let i=0;i<etabs.length;i++) for(let j=i+1;j<etabs.length;j++) pairs.push([etabs[i],etabs[j]]);
+    resultEl.innerHTML = '<p class="hint">Calcul des trajets en cours…</p>';
+    const rows = [];
+    for(const [a,b] of pairs){
+      let dureeTxt = "—", distTxt = "—";
+      try{
+        const url = "https://router.project-osrm.org/route/v1/driving/"+a.lng+","+a.lat+";"+b.lng+","+b.lat+"?overview=false";
+        const res = await fetch(url);
+        const data = await res.json();
+        if(data.routes && data.routes[0]){
+          dureeTxt = Math.round(data.routes[0].duration/60)+" min";
+          distTxt = (data.routes[0].distance/1000).toFixed(1).replace(".",",")+" km";
+        }
+      }catch(err){ /* laisse les tirets par défaut */ }
+      const gmapsUrl = "https://www.google.com/maps/dir/?api=1&origin="+encodeURIComponent(fullAddressFor(a))+"&destination="+encodeURIComponent(fullAddressFor(b))+"&travelmode=transit";
+      rows.push({ a, b, dureeTxt, distTxt, gmapsUrl });
+    }
+    resultEl.innerHTML = '<div class="table-wrap"><table><thead><tr>'
+      + '<th>Trajet</th><th>Durée estimée (voiture/car)</th><th>Distance</th><th>Itinéraire TCL</th>'
+      + '</tr></thead><tbody>'
+      + rows.map(r=>'<tr>'
+        + '<td>'+escapeHtml(r.a.nom)+' ↔ '+escapeHtml(r.b.nom)+'</td>'
+        + '<td>'+r.dureeTxt+'</td>'
+        + '<td>'+r.distTxt+'</td>'
+        + '<td>'
+          + '<a href="'+escapeAttr(r.gmapsUrl)+'" target="_blank" rel="noopener" class="btn-link secondary" style="text-decoration:none; margin-right:6px;">Google Maps</a>'
+          + '<button type="button" class="secondary btn-plan-tcl" data-depart="'+escapeAttr(fullAddressFor(r.a))+'" data-arrivee="'+escapeAttr(fullAddressFor(r.b))+'">Site TCL</button>'
+        + '</td>'
+      + '</tr>').join("")
+      + '</tbody></table></div>'
+      + '<p class="hint">Durées « voiture/car » fournies par un service de calcul d\'itinéraire public (OSRM), à titre indicatif uniquement. « Google Maps » ouvre l\'itinéraire en transport en commun déjà pré-rempli. « Site TCL » copie les deux adresses dans le presse-papiers puis ouvre le site tcl.fr (à coller dans les champs départ/arrivée).</p>';
+    resultEl.querySelectorAll(".btn-plan-tcl").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        copyToClipboard("Départ : "+btn.dataset.depart+"\nArrivée : "+btn.dataset.arrivee, "Les adresses de départ et d'arrivée");
+        window.open("https://www.tcl.fr/itineraires", "_blank", "noopener");
+      });
+    });
+  }
+
+  async function renderPlanTab(){
+    await ensurePlanGeocoded(false);
+    renderPlanMap();
+    renderPlanChecklist();
+  }
+
+  document.getElementById("btn-plan-recalculer").addEventListener("click", async ()=>{
+    await ensurePlanGeocoded(true);
+    renderPlanMap();
+    renderPlanChecklist();
+  });
+  document.getElementById("btn-plan-calculer-trajets").addEventListener("click", renderPlanTrajets);
+
   // ---------- TABS ----------
   document.querySelectorAll(".tab-btn").forEach(btn=>{
     btn.addEventListener("click", ()=>{
@@ -1508,6 +1709,7 @@
       document.querySelectorAll(".tab-panel").forEach(p=>p.classList.remove("active"));
       btn.classList.add("active");
       document.getElementById("tab-"+btn.dataset.tab).classList.add("active");
+      if(btn.dataset.tab === "plan") renderPlanTab();
     });
   });
 
