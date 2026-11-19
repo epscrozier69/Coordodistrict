@@ -240,7 +240,7 @@
   .etab-block{ display:flex; align-items:stretch; background:#fff; border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; }
   .etab-block-head{
     display:flex; flex-direction:column; justify-content:space-between; flex:0 0 190px;
-    gap:8px; padding:10px 12px;
+    gap:8px; padding:10px 12px; position:relative;
     color:#fff; cursor:pointer;
   }
   .etab-block-head h3{ margin:0 0 4px; font-size:1.15rem; font-weight:700; }
@@ -2128,6 +2128,7 @@
     return `
       <div class="etab-block"${blockStyle}>
         <div class="etab-block-head" style="background:${color}; color:${textColor};">
+          ${opts.editable ? `<button type="button" class="icon-btn" data-del-etab="${escapeAttr(etab.id)}" title="Supprimer cet établissement" style="position:absolute; top:6px; right:6px; background:rgba(255,255,255,.85);">🗑</button>` : ""}
           <div>
             <h3>${escapeHtml(etab.nom)}</h3>
             <div class="etab-head-meta">${metaLines}${lien ? `<div>${lien}</div>` : ""}</div>
@@ -2149,6 +2150,17 @@
 
     container.querySelectorAll(".etab-block-head a").forEach(a=>{
       a.addEventListener("click", e=>e.stopPropagation());
+    });
+    container.querySelectorAll("[data-del-etab]").forEach(btn=>{
+      btn.addEventListener("click", e=>{
+        e.stopPropagation();
+        const etab = getEtab(btn.dataset.delEtab);
+        if(!etab) return;
+        if(!confirm("Supprimer définitivement l'établissement « "+etab.nom+" » et toutes ses données (collègues, cartes, récompenses, remboursements…) ? Cette action est irréversible et sera synchronisée sur tous les appareils.")) return;
+        state.etablissements = state.etablissements.filter(e=>e.id!==etab.id);
+        saveState();
+        renderAll();
+      });
     });
     container.querySelectorAll("[data-copy-email]").forEach(el=>{
       el.addEventListener("click", ()=>{
