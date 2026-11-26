@@ -69,6 +69,7 @@
   .collapsible-header h2:hover{ opacity:.8; }
   .collapse-chevron{ display:inline-block; width:14px; }
   .effectifs-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; margin-top:12px; }
+  .recap-etab-list{ display:flex; flex-direction:column; gap:14px; margin-top:12px; }
   .effectif-card{ border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; background:#fff; box-shadow:var(--shadow); }
   .effectif-card-head{ padding:10px 12px; color:#fff; cursor:pointer; user-select:none; display:flex; align-items:center; justify-content:space-between; gap:8px; }
   .effectif-card-head h4{ margin:0; font-size:1rem; }
@@ -5513,7 +5514,11 @@ ${innerHtml}
       container.innerHTML = '<p class="hint">Aucun effectif saisi pour le moment (sous-onglet « Effectifs par journée »).</p>';
       return;
     }
-    container.innerHTML = `<div class="effectifs-grid">` + etabNoms.map((nom,i)=>{
+    // Pleine largeur, empilé (pas de grille multi-colonnes) : avec 3
+    // colonnes seulement (Date/Activité/Effectif), une carte étroite forçait
+    // un défilement horizontal pour voir l'Effectif — en pleine largeur tout
+    // tient sans avoir à faire défiler quoi que ce soit.
+    container.innerHTML = `<div class="recap-etab-list">` + etabNoms.map((nom,i)=>{
       const color = `var(--${PALETTE[i % PALETTE.length]})`;
       const { rows, total } = data[nom];
       const rowsHtml = rows.map(r=>`<tr><td>${escapeHtml(r.date)}</td><td>${escapeHtml(r.activite)}</td><td>${r.effectif}</td></tr>`).join("");
@@ -5523,12 +5528,10 @@ ${innerHtml}
             <h4>${escapeHtml(nom)}</h4>
             <span class="count">Total : ${total}</span>
           </div>
-          <div class="effectif-table-wrap">
-            <table class="effectif-table">
-              <thead><tr><th>Date</th><th>Activité</th><th>Effectif</th></tr></thead>
-              <tbody>${rowsHtml}</tbody>
-            </table>
-          </div>
+          <table class="effectif-table">
+            <thead><tr><th>Date</th><th>Activité</th><th>Effectif</th></tr></thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
         </div>`;
     }).join("") + `</div>`;
   }
