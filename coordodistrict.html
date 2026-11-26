@@ -89,6 +89,7 @@
   .ej-etab-row{ display:flex; align-items:center; gap:8px; padding:5px 0; border-bottom:1px solid var(--border); flex-wrap:wrap; }
   .ej-etab-row:last-of-type{ border-bottom:none; }
   .ej-etab-nom{ flex:1 1 140px; font-weight:600; font-size:.85rem; }
+  .ej-etab-nom-missing{ color:#c0392b; }
   .ej-etab-row input[type=number]{ width:70px; padding:4px 6px; border:1px solid var(--border); border-radius:6px; text-align:center; }
   .ej-etab-row label.icon-btn{ display:inline-flex; align-items:center; justify-content:center; }
   .ej-add-row select{ padding:5px 8px; border:1px solid var(--border); border-radius:6px; }
@@ -5156,8 +5157,13 @@ ${innerHtml}
       ? `<a href="${escapeAttr(entry.photoUrl)}" target="_blank" rel="noopener" title="Voir la photo jointe">🖼️</a>
          <button type="button" class="icon-btn" data-ej-remove-photo data-date="${escapeAttr(dateKey)}" data-act="${escapeAttr(actKey)}" data-etab="${escapeAttr(etabKey)}" title="Retirer la photo">✕📷</button>`
       : `<label class="icon-btn" title="Joindre une photo (ex: liste papier), à défaut d'une saisie immédiate">📷<input type="file" accept="image/*" style="display:none" data-ej-photo-input data-date="${escapeAttr(dateKey)}" data-act="${escapeAttr(actKey)}" data-etab="${escapeAttr(etabKey)}" data-etab-nom="${escapeAttr(etabNom)}"></label>`;
+    // Un établissement sans effectif saisi est mis en rouge, pour repérer
+    // d'un coup d'œil ce qu'il reste à compléter (même si une photo a déjà
+    // été jointe : elle ne remplace pas le chiffre tant qu'il n'est pas
+    // reporté).
+    const missing = entry.effectif == null;
     return `
-        <span class="ej-etab-nom">${escapeHtml(etabNom)}</span>
+        <span class="ej-etab-nom${missing ? " ej-etab-nom-missing" : ""}">${escapeHtml(etabNom)}</span>
         <input type="number" min="0" placeholder="Effectif" value="${entry.effectif!=null?entry.effectif:""}" data-ej-effectif data-date="${escapeAttr(dateKey)}" data-act="${escapeAttr(actKey)}" data-etab="${escapeAttr(etabKey)}" data-etab-nom="${escapeAttr(etabNom)}">
         ${photoHtml}
         <button type="button" class="icon-btn" data-ej-remove-row data-suggested="${wasSuggested?"1":"0"}" data-date="${escapeAttr(dateKey)}" data-act="${escapeAttr(actKey)}" data-etab="${escapeAttr(etabKey)}" title="Cet établissement n'est pas concerné ce jour-là">✕</button>`;
