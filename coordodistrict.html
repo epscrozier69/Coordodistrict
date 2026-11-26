@@ -366,18 +366,6 @@
     background:#f7f9fd;
   }
 
-  #activite-filter{
-    padding:9px 14px; border:1px solid var(--border); border-radius:9px; font-size:.85rem; font-weight:600;
-    background:#fff; color:var(--text); cursor:pointer;
-  }
-  .activite-card{
-    background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:16px;
-    box-shadow:var(--shadow); max-width:640px;
-  }
-  .activite-card h4{ margin:0 0 10px; font-size:1rem; display:flex; align-items:center; justify-content:space-between; gap:8px; }
-  .activite-card .count-badge{ font-size:.72rem; font-weight:700; color:var(--muted); }
-  .activite-card .group-label{ font-size:.7rem; text-transform:uppercase; color:var(--muted); font-weight:700; margin:10px 0 4px; }
-  .activite-card .none{ color:#c7cbd8; font-size:.8rem; }
   .activite-filter-empty{ color:var(--muted); font-size:.88rem; }
 
   /* Tickets */
@@ -589,16 +577,6 @@
         <div id="recap-effectifs-etab-container"></div>
       </div>
     </div>
-
-    <div class="panel-header" style="margin-top:22px;">
-      <h2>Filtrer par activité</h2>
-      <div class="actions">
-        <select id="activite-filter">
-          <option value="">— Choisir une activité —</option>
-        </select>
-      </div>
-    </div>
-    <div id="activite-filter-result"></div>
   </section>
 
   <!-- ONGLET CARTES TCL -->
@@ -2058,11 +2036,15 @@
   });
 
   // ---------- SOUS-ONGLETS ACTIVITÉS (Compétition / Effectifs / Organisation / Loisir / Compétitions) ----------
+  // Un clic sur le sous-onglet déjà actif le masque (aucun affiché), plutôt
+  // que de forcer en permanence un sous-onglet visible.
   document.querySelectorAll("#activites-subtabs .ag-tab-btn").forEach(btn=>{
     btn.addEventListener("click", ()=>{
+      const wasActive = btn.classList.contains("active");
       document.querySelectorAll("#activites-subtabs .ag-tab-btn").forEach(b=>b.classList.remove("active"));
-      btn.classList.add("active");
       document.querySelectorAll(".act-subtab-panel").forEach(p=>p.classList.add("hidden"));
+      if(wasActive) return;
+      btn.classList.add("active");
       document.getElementById("activites-subtab-"+btn.dataset.actSubtab).classList.remove("hidden");
       if(btn.dataset.actSubtab === "competitions") renderEffectifsJournee();
     });
@@ -2071,9 +2053,11 @@
   // ---------- SOUS-SOUS-ONGLETS COMPÉTITIONS (Effectifs par journée / Récap) ----------
   document.querySelectorAll("#competitions-subtabs .ag-tab-btn").forEach(btn=>{
     btn.addEventListener("click", ()=>{
+      const wasActive = btn.classList.contains("active");
       document.querySelectorAll("#competitions-subtabs .ag-tab-btn").forEach(b=>b.classList.remove("active"));
-      btn.classList.add("active");
       document.querySelectorAll(".comp-subtab-panel").forEach(p=>p.classList.add("hidden"));
+      if(wasActive) return;
+      btn.classList.add("active");
       document.getElementById("competitions-subtab-"+btn.dataset.compSubtab).classList.remove("hidden");
       if(btn.dataset.compSubtab === "effectifs") renderEffectifsJournee();
       if(btn.dataset.compSubtab === "recap") renderRecapEffectifsEtab();
@@ -2429,7 +2413,6 @@
   function renderActivites(){
     renderActiviteTable("thead-activites-pratiquees-row", "tbody-activites-pratiquees", "pratiquee");
     renderActiviteTable("thead-activites-competition-row", "tbody-activites-competition", "competition");
-    renderActiviteFilterResult();
     renderEffectifs();
     renderInterdistrict();
   }
@@ -3087,35 +3070,6 @@
     closeModal("modal-overlay-add-lieu");
   });
 
-  function renderActiviteFilterResult(){
-    const select = document.getElementById("activite-filter");
-    const result = document.getElementById("activite-filter-result");
-    const act = select.value;
-    if(!act){
-      result.innerHTML = `<p class="activite-filter-empty">Choisissez une activité pour voir les établissements concernés.</p>`;
-      return;
-    }
-    const pratique = practicingEtabs(act);
-    const competition = competitionEtabs(act);
-    const chip = e=>`<span class="tag"><span class="etab-dot" style="background:${etabColorVar(e)}"></span>${escapeHtml(etabShort(e))}</span>`;
-    result.innerHTML = `
-      <div class="activite-card">
-        <h4>${escapeHtml(act)} <span class="count-badge">${pratique.length} loisir / ${competition.length} compét.</span></h4>
-        <div class="group-label">Loisir</div>
-        <div>${pratique.length ? pratique.map(chip).join("") : '<span class="none">Aucun établissement</span>'}</div>
-        <div class="group-label">Compétition</div>
-        <div>${competition.length ? competition.map(chip).join("") : '<span class="none">Aucun établissement</span>'}</div>
-      </div>
-    `;
-  }
-
-  document.getElementById("activite-filter").insertAdjacentHTML("beforeend",
-    ACTIVITES.map(a=>`<option value="${escapeAttr(a)}">${escapeHtml(a)}</option>`).join(""));
-  document.getElementById("activite-filter").addEventListener("change", renderActiviteFilterResult);
-
-  function practicingEtabs(activite){
-    return sortedEtabs().filter(etab=>practicesFlag(etab, activite) || competesFlag(etab, activite));
-  }
   function competitionEtabs(activite){
     return sortedEtabs().filter(etab=>competesFlag(etab, activite));
   }
