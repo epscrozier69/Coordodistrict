@@ -4927,20 +4927,34 @@ ${innerHtml}
     return [...seen.values()];
   }
   // Quand une activité se joue ce jour-là sur plusieurs sites (ex: cellule
-  // calendrier "J1 BG MF / Chabroux / Iris"), on propose ces noms de lieux en
-  // suggestion pour répartir les établissements — en filtrant les tokens qui
-  // ressemblent à un code de catégorie (J1, BG, Benjamines...) plutôt qu'à un
-  // nom de lieu. Reste une aide à la saisie : l'utilisateur garde la main pour
+  // calendrier "J1 BG MF\nChabroux / Iris"), on propose des noms de lieux en
+  // suggestion pour répartir les établissements. Deux règles tirées de
+  // l'usage réel du calendrier :
+  // 1) la 1re ligne d'une cellule multi-lignes est toujours la ligne de
+  //    catégorie(s) (ex. "J1 BG MF", "J1 Benjamines") : on ne la regarde
+  //    jamais pour y chercher un lieu, sinon des codes comme "BF"/"BG"/"MF"/
+  //    "MG" (écrits à la suite, sans "/" ni ",", donc indécoupables comme
+  //    des tokens isolés) remonteraient comme de faux lieux.
+  // 2) sur les lignes suivantes, quand des noms tout en MAJUSCULES côtoient
+  //    des noms en casse normale (ex. "LAMARTINE / JJ / Rosset"), seuls les
+  //    noms tout en majuscules désignent un vrai lieu d'accueil ; les autres
+  //    sont des équipes visiteuses/mentions diverses. S'il n'y a aucune
+  //    majuscule (ex. "Chabroux / Iris"), tous les noms sont gardés.
+  // Reste une aide à la saisie : l'utilisateur garde la main pour
   // renommer/ajouter un lieu si la détection automatique se trompe.
   const CAL_CATEGORY_TOKEN_RE = /^(j\d+|bf|bg|mf|mg|ss|benjamin(e)?s?|minime(e)?s?|cadet(te)?s?|junior(e)?s?|senior(e)?s?|f[ée]minin(e)?s?|masculin(e)?s?|\d+)$/i;
   function parseLieuxCandidates(cellText){
+    const lines = (cellText||"").split(/\n/).map(l=>l.trim()).filter(Boolean);
+    const venueLines = lines.length > 1 ? lines.slice(1) : [];
     const tokens = [];
-    (cellText||"").split(/\n/).forEach(line=>{
+    venueLines.forEach(line=>{
       line.split(/[\/,]/).map(t=>t.trim()).filter(Boolean).forEach(t=>{
         if(!CAL_CATEGORY_TOKEN_RE.test(t)) tokens.push(t);
       });
     });
-    return [...new Set(tokens)];
+    const isAllCaps = (t)=> /[A-Za-zÀ-ÿ]/.test(t) && t === t.toUpperCase();
+    const capsOnly = tokens.filter(isAllCaps);
+    return [...new Set(capsOnly.length ? capsOnly : tokens)];
   }
   // Une ligne du calendrier compte comme "journée de compétition" si au
   // moins une colonne (hors date) contient du texte qui n'est pas juste
