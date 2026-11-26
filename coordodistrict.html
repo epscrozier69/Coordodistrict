@@ -5248,10 +5248,15 @@ ${innerHtml}
           if(!groups.has(lieu)) groups.set(lieu, []);
           groups.get(lieu).push(k);
         });
-        const order = [...groups.keys()].sort((x,y)=>{
-          if(!x) return 1; if(!y) return -1;
-          return x.localeCompare(y,"fr",{sensitivity:"base"});
-        });
+        // Le bloc "Lieu non précisé" ne s'affiche que s'il contient
+        // effectivement un établissement non classé ; vide, il n'apporte
+        // rien et encombre l'écran.
+        const order = [...groups.keys()]
+          .filter(l=> l || groups.get(l).length > 0)
+          .sort((x,y)=>{
+            if(!x) return 1; if(!y) return -1;
+            return x.localeCompare(y,"fr",{sensitivity:"base"});
+          });
         bodyHtml = `<div class="ej-lieu-columns">` + order.map(lieu=>{
           const keys = groups.get(lieu);
           const total = keys.reduce((s,k)=> s + (Number(saved[k] && saved[k].effectif) || 0), 0);
