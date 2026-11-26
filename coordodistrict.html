@@ -4946,6 +4946,36 @@ ${innerHtml}
     keys.forEach(k=> competitionEtabsAny(k).forEach(e=> seen.set(e.id, e)));
     return [...seen.values()];
   }
+  // Source plus fiable que le texte libre du calendrier pour savoir qui joue
+  // où : l'onglet Activités > Organisation District Villeurbanne répartit
+  // déjà, pour chaque activité en compétition, les établissements réellement
+  // engagés par lieu/poule (state.interdistrict[activité].rows). Quand cette
+  // répartition existe, on l'utilise à la fois pour restreindre la liste des
+  // établissements proposés (et non le roster complet "engagé sur la
+  // saison") et pour leur lieu par défaut.
+  function interdistrictInfoForCalActivite(headerText){
+    const keys = CALENDRIER_ACTIVITE_ALIASES[calActNormalize(headerText)] || [];
+    const allEtabs = new Map();
+    const lieuByEtabId = new Map();
+    keys.forEach(key=>{
+      const entry = state.interdistrict[key];
+      if(!entry || !entry.rows) return;
+      const externalEtabs = entry.externalEtabs || [];
+      entry.rows.forEach(row=>{
+        if(!row.etabIds || !row.etabIds.length) return;
+        let lieuName = "";
+        if(row.lieu){ const host = getEtab(row.lieu); if(host) lieuName = etabShort(host); }
+        else if(row.lieuManuel) lieuName = row.lieuManuel;
+        row.etabIds.forEach(id=>{
+          const e = getEtab(id) || externalEtabs.find(x=>x.id===id);
+          if(!e) return;
+          allEtabs.set(id, e);
+          if(lieuName) lieuByEtabId.set(id, lieuName);
+        });
+      });
+    });
+    return { etabs: [...allEtabs.values()], lieuByEtabId };
+  }
   // Quand une activité se joue ce jour-là sur plusieurs sites (ex: cellule
   // calendrier "J1 BG MF\nChabroux / Iris"), on propose des noms de lieux en
   // suggestion pour répartir les établissements. Deux règles tirées de
@@ -5039,11 +5069,24 @@ ${innerHtml}
     }
   }
   let selectedJourneeDate = "";
+  // Par défaut, sélectionne la dernière journée passée (la plus proche
+  // d'aujourd'hui, sans dépasser aujourd'hui) — c'est en général celle dont
+  // il faut saisir les effectifs juste après qu'elle a eu lieu. S'il n'y a
+  // encore aucune journée passée (début de saison), on prend la plus proche
+  // à venir.
+  function defaultJourneeDate(dates){
+    if(!dates.length) return "";
+    const now = new Date();
+    const todayKey = String(now.getFullYear()) + String(now.getMonth()+1).padStart(2,"0") + String(now.getDate()).padStart(2,"0");
+    const past = dates.filter(d=> calDateSortKey(d) <= todayKey);
+    if(past.length) return past.reduce((a,b)=> calDateSortKey(b) > calDateSortKey(a) ? b : a);
+    return dates.reduce((a,b)=> calDateSortKey(b) < calDateSortKey(a) ? b : a);
+  }
   function renderEffectifsJourneeSelect(){
     const row = document.getElementById("effectifs-journee-select-row");
     if(!row) return;
     const dates = calendrierJourneeDates();
-    if(!selectedJourneeDate && dates.length) selectedJourneeDate = dates[0];
+    if(!selectedJourneeDate && dates.length) selectedJourneeDate = defaultJourneeDate(dates);
     if(!dates.length){
       row.innerHTML = '<p class="hint">Aucune journée de compétition trouvée dans le calendrier importé.</p>';
       return;
@@ -5102,7 +5145,14 @@ ${innerHtml}
       const color = `var(--${PALETTE[i % PALETTE.length]})`;
       const actKey = a.header;
       const saved = (state.effectifsJournee[dateKey] && state.effectifsJournee[dateKey][actKey]) || {};
-      const suggestedIds = new Set(candidateEtabsForCalActivite(actKey).map(e=>e.id));
+      // L'onglet Activités > Organisation District Villeurbanne tient déjà,
+      // pour chaque activité en compétition, la répartition réelle des
+      // établissements par lieu/poule : quand elle existe, elle prime sur le
+      // roster complet "engagé sur la saison" (plus large) et sur la
+      // détection depuis le texte du calendrier (moins fiable).
+      const orgInfo = interdistrictInfoForCalActivite(actKey);
+      const suggestedEtabs = orgInfo.etabs.length ? orgInfo.etabs : candidateEtabsForCalActivite(actKey);
+      const suggestedIds = new Set(suggestedEtabs.map(e=>e.id));
       const rowKeys = new Set(Object.keys(saved).filter(k=> !saved[k].excluded));
       suggestedIds.forEach(id=>{ if(!(saved[id] && saved[id].excluded)) rowKeys.add(id); });
       const etabNomFor = (k)=>{
@@ -5110,13 +5160,16 @@ ${innerHtml}
         const e = getEtab(k);
         return e ? e.nom : k;
       };
+      const lieuFor = (k)=> (saved[k] && saved[k].lieu) || orgInfo.lieuByEtabId.get(k) || "";
       // Une même activité peut se jouer ce jour-là sur plusieurs sites (ex:
-      // deux poules, chacune dans un gymnase différent). Les lieux détectés
-      // dans la cellule du calendrier, ceux déjà choisis, et ceux ajoutés à
-      // la main ("+ Lieu") sont tous proposés comme colonnes de dépôt.
+      // deux poules, chacune dans un gymnase différent). Les lieux déjà
+      // choisis (saisie ou Organisation District Villeurbanne), ceux
+      // détectés dans le texte du calendrier (seulement si Organisation
+      // District Villeurbanne n'a rien à proposer), et ceux ajoutés à la
+      // main ("+ Lieu") sont tous proposés comme blocs de dépôt.
       const usedLieux = new Set();
-      rowKeys.forEach(k=>{ if(saved[k] && saved[k].lieu) usedLieux.add(saved[k].lieu); });
-      parseLieuxCandidates(a.cellText).forEach(l=> usedLieux.add(l));
+      rowKeys.forEach(k=>{ const l = lieuFor(k); if(l) usedLieux.add(l); });
+      if(!orgInfo.etabs.length) parseLieuxCandidates(a.cellText).forEach(l=> usedLieux.add(l));
       (ejExtraLieux[ejExtraLieuKey(dateKey,actKey)]||[]).forEach(l=> usedLieux.add(l));
       const lieuxOptions = [...usedLieux].sort((x,y)=>x.localeCompare(y,"fr",{sensitivity:"base"}));
       // Le classement par lieu (glisser-déposer) n'a d'intérêt que si
@@ -5129,7 +5182,7 @@ ${innerHtml}
         lieuxOptions.forEach(l=> groups.set(l, []));
         groups.set("", []);
         [...rowKeys].sort((x,y)=>etabNomFor(x).localeCompare(etabNomFor(y),"fr",{sensitivity:"base"})).forEach(k=>{
-          const lieu = (saved[k] && saved[k].lieu) || "";
+          const lieu = lieuFor(k);
           if(!groups.has(lieu)) groups.set(lieu, []);
           groups.get(lieu).push(k);
         });
