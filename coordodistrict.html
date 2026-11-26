@@ -5153,7 +5153,17 @@ ${innerHtml}
       const orgInfo = interdistrictInfoForCalActivite(actKey);
       const suggestedEtabs = orgInfo.etabs.length ? orgInfo.etabs : candidateEtabsForCalActivite(actKey);
       const suggestedIds = new Set(suggestedEtabs.map(e=>e.id));
-      const rowKeys = new Set(Object.keys(saved).filter(k=> !saved[k].excluded));
+      // Un établissement qui n'est plus suggéré (ex: pas/plus organisé pour
+      // cette activité dans Organisation District Villeurbanne) ne doit pas
+      // traîner indéfiniment ici une fois qu'il n'a plus rien à y faire —
+      // sauf s'il porte déjà une vraie saisie (effectif ou photo), qu'on ne
+      // veut jamais faire disparaître silencieusement.
+      const rowKeys = new Set(Object.keys(saved).filter(k=>{
+        const e = saved[k];
+        if(e.excluded) return false;
+        if(suggestedIds.has(k)) return true;
+        return e.effectif != null || !!e.photoUrl;
+      }));
       suggestedIds.forEach(id=>{ if(!(saved[id] && saved[id].excluded)) rowKeys.add(id); });
       const etabNomFor = (k)=>{
         if(saved[k] && saved[k].etabNom) return saved[k].etabNom;
