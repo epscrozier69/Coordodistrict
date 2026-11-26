@@ -5278,10 +5278,15 @@ ${innerHtml}
           || '<p class="hint" style="margin:6px 0;">Aucun établissement proposé automatiquement : ajoutez-en un ci-dessous.</p>';
       }
       const availableEtabs = sortedEtabs().filter(e=> !rowKeys.has(e.id));
+      // Total de l'activité ce jour-là, toutes lieux confondus — en plus du
+      // total par lieu déjà affiché dans chaque bloc quand il y en a
+      // plusieurs.
+      const actTotal = [...rowKeys].reduce((s,k)=> s + (Number(saved[k] && saved[k].effectif) || 0), 0);
       return `
         <div class="effectif-card">
           <div class="effectif-card-head" style="background:${color};">
             <h4>${escapeHtml(a.header)}</h4>
+            <span class="count">Total : ${actTotal}</span>
           </div>
           <div style="padding:10px 12px;">
             <p class="hint" style="margin:0 0 8px;">${escapeHtml(a.cellText).replace(/\n/g,", ")}</p>
