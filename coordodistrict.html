@@ -94,9 +94,14 @@
   .ej-etab-row label.icon-btn{ display:inline-flex; align-items:center; justify-content:center; }
   .ej-add-row select{ padding:5px 8px; border:1px solid var(--border); border-radius:6px; }
   .ej-lieu-total{ font-weight:600; font-size:.75rem; color:var(--muted); }
-  .ej-lieu-columns{ display:flex; gap:10px; overflow-x:auto; padding-bottom:6px; -webkit-overflow-scrolling:touch; }
+  /* Empilés verticalement (et non en colonnes côte à côte) : sur tablette,
+     un défilement horizontal pour atteindre un lieu caché rendrait le
+     glisser-déposer impraticable (on l'a eu en pratique). Chaque lieu prend
+     toute la largeur disponible ; on glisse une ligne vers le bloc au-dessus
+     ou en dessous, toujours visible sans scroller latéralement. */
+  .ej-lieu-columns{ display:flex; flex-direction:column; gap:8px; }
   .ej-lieu-column{
-    flex:0 0 220px; border:1px dashed var(--border); border-radius:8px; padding:6px;
+    border:1px dashed var(--border); border-radius:8px; padding:6px 8px;
     background:#fafbfe; transition:background .12s, border-color .12s;
   }
   .ej-lieu-column.ej-drop-hover{ background:#eaf0ff; border-color:var(--c1); border-style:solid; }
@@ -107,7 +112,7 @@
   }
   .ej-lieu-empty{ margin:6px 2px; font-size:.72rem; }
   .ej-lieu-add-btn{
-    flex:0 0 90px; align-self:flex-start; background:#eef0f7; color:var(--text);
+    width:100%; background:#eef0f7; color:var(--text);
     border:1px dashed var(--border); border-radius:8px; padding:8px; font-size:.78rem; font-weight:600; cursor:pointer;
   }
   .ej-etab-row-draggable{ padding:5px 2px; }
