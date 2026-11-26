@@ -1327,7 +1327,7 @@
     if(!parsed.deletedManualRowIds) parsed.deletedManualRowIds = [];
     if(!parsed.lieuxCarte) parsed.lieuxCarte = [];
     if(!parsed.effectifsJournee) parsed.effectifsJournee = {};
-    cleanupBogusEffectifLieux(parsed.effectifsJournee);
+    cleanupBogusEffectifLieux(parsed.effectifsJournee, parsed.etablissements);
     return parsed;
   }
   // Avant la correction du 26/11/2026, la ligne de catégorie d'une cellule du
@@ -1340,11 +1340,20 @@
     const tokens = (s||"").trim().split(/\s+/).filter(Boolean);
     return tokens.length > 0 && tokens.every(t=> CAL_CATEGORY_TOKEN_RE_EARLY.test(t));
   }
-  function cleanupBogusEffectifLieux(effectifsJournee){
+  function cleanupBogusEffectifLieux(effectifsJournee, etablissements){
+    // On compare à parsed.etablissements (et non à la variable globale
+    // `state`, pas encore assignée lors du tout premier chargement) pour
+    // repérer les entrées dont la clé n'est ni un vrai id d'établissement
+    // de cet état, ni une entrée manuelle nommée (préfixe "manuel:" avec
+    // etabNom renseigné) — résidu d'un ancien bug qui s'affichait comme un
+    // faux établissement au nom technique incompréhensible.
+    const etabIds = new Set((etablissements||[]).map(e=>e.id));
     Object.values(effectifsJournee || {}).forEach(byAct=>{
       Object.values(byAct).forEach(byEtab=>{
-        Object.values(byEtab).forEach(entry=>{
+        Object.keys(byEtab).forEach(etabKey=>{
+          const entry = byEtab[etabKey];
           if(entry.lieu && looksLikeCategoryPhrase(entry.lieu)) entry.lieu = "";
+          if(!entry.etabNom && !etabIds.has(etabKey)) delete byEtab[etabKey];
         });
       });
     });
@@ -5157,10 +5166,15 @@ ${innerHtml}
       // cette activité dans Organisation District Villeurbanne) ne doit pas
       // traîner indéfiniment ici une fois qu'il n'a plus rien à y faire —
       // sauf s'il porte déjà une vraie saisie (effectif ou photo), qu'on ne
-      // veut jamais faire disparaître silencieusement.
+      // veut jamais faire disparaître silencieusement. On écarte aussi par
+      // sécurité toute clé illisible (résidu d'un ancien bug : ni un vrai
+      // établissement, ni une entrée manuelle nommée), qui s'afficherait
+      // sinon comme un faux établissement au nom technique incompréhensible.
       const rowKeys = new Set(Object.keys(saved).filter(k=>{
         const e = saved[k];
         if(e.excluded) return false;
+        const resolvable = !!e.etabNom || k.indexOf("manuel:")===0 || !!getEtab(k);
+        if(!resolvable) return false;
         if(suggestedIds.has(k)) return true;
         return e.effectif != null || !!e.photoUrl;
       }));
