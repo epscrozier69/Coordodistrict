@@ -5173,17 +5173,21 @@ ${innerHtml}
       // Un établissement qui n'est plus suggéré (ex: pas/plus organisé pour
       // cette activité dans Organisation District Villeurbanne) ne doit pas
       // traîner indéfiniment ici une fois qu'il n'a plus rien à y faire —
-      // sauf s'il porte déjà une vraie saisie (effectif ou photo), qu'on ne
-      // veut jamais faire disparaître silencieusement. On écarte aussi par
-      // sécurité toute clé illisible (résidu d'un ancien bug : ni un vrai
-      // établissement, ni une entrée manuelle nommée), qui s'afficherait
-      // sinon comme un faux établissement au nom technique incompréhensible.
+      // sauf s'il a été ajouté délibérément à la main (manuallyAdded), ou
+      // s'il porte déjà une vraie saisie (effectif ou photo) : dans ces deux
+      // cas on ne le fait jamais disparaître silencieusement, sinon un
+      // établissement tout juste ajouté manuellement (pas encore rempli, et
+      // par définition absent de la suggestion automatique) disparaîtrait
+      // aussitôt. On écarte aussi par sécurité toute clé illisible (résidu
+      // d'un ancien bug : ni un vrai établissement, ni une entrée manuelle
+      // nommée), qui s'afficherait sinon comme un faux établissement au nom
+      // technique incompréhensible.
       const rowKeys = new Set(Object.keys(saved).filter(k=>{
         const e = saved[k];
         if(e.excluded) return false;
         const resolvable = !!getEtab(k) || (!!e.etabNom && !looksLikeUid(e.etabNom));
         if(!resolvable) return false;
-        if(suggestedIds.has(k)) return true;
+        if(suggestedIds.has(k) || e.manuallyAdded) return true;
         return e.effectif != null || !!e.photoUrl;
       }));
       suggestedIds.forEach(id=>{ if(!(saved[id] && saved[id].excluded)) rowKeys.add(id); });
@@ -5357,6 +5361,7 @@ ${innerHtml}
             const entry = getEffectifJourneeEntry(date, act, key, true);
             entry.etabNom = nom.trim();
             entry.excluded = false;
+            entry.manuallyAdded = true;
             saveState();
             renderEffectifsJourneeBody();
           }
@@ -5367,6 +5372,7 @@ ${innerHtml}
         const entry = getEffectifJourneeEntry(date, act, val, true);
         entry.etabNom = etab.nom;
         entry.excluded = false;
+        entry.manuallyAdded = true;
         saveState();
         renderEffectifsJourneeBody();
       });
