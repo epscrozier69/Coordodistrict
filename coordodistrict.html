@@ -1340,20 +1340,28 @@
     const tokens = (s||"").trim().split(/\s+/).filter(Boolean);
     return tokens.length > 0 && tokens.every(t=> CAL_CATEGORY_TOKEN_RE_EARLY.test(t));
   }
+  // Signature d'un id généré par uid() (Date.now().toString(36) + 6
+  // caractères aléatoires) : uniquement minuscules/chiffres, sans espace ni
+  // accent — jamais la forme d'un vrai nom d'établissement ou d'un nom saisi
+  // à la main. Un ancien bug pouvait enregistrer cet id comme etabNom (clé ET
+  // nom identiques), au lieu du vrai nom : ce cas précis doit être nettoyé
+  // même quand etabNom est renseigné.
+  function looksLikeUid(s){ return /^[0-9a-z]{10,20}$/.test(s||""); }
   function cleanupBogusEffectifLieux(effectifsJournee, etablissements){
     // On compare à parsed.etablissements (et non à la variable globale
     // `state`, pas encore assignée lors du tout premier chargement) pour
     // repérer les entrées dont la clé n'est ni un vrai id d'établissement
-    // de cet état, ni une entrée manuelle nommée (préfixe "manuel:" avec
-    // etabNom renseigné) — résidu d'un ancien bug qui s'affichait comme un
-    // faux établissement au nom technique incompréhensible.
+    // de cet état, ni une entrée manuelle correctement nommée — résidu d'un
+    // ancien bug qui s'affichait comme un faux établissement au nom
+    // technique incompréhensible.
     const etabIds = new Set((etablissements||[]).map(e=>e.id));
     Object.values(effectifsJournee || {}).forEach(byAct=>{
       Object.values(byAct).forEach(byEtab=>{
         Object.keys(byEtab).forEach(etabKey=>{
           const entry = byEtab[etabKey];
           if(entry.lieu && looksLikeCategoryPhrase(entry.lieu)) entry.lieu = "";
-          if(!entry.etabNom && !etabIds.has(etabKey)) delete byEtab[etabKey];
+          if(etabIds.has(etabKey)) return;
+          if(!entry.etabNom || looksLikeUid(entry.etabNom)) delete byEtab[etabKey];
         });
       });
     });
@@ -5173,7 +5181,7 @@ ${innerHtml}
       const rowKeys = new Set(Object.keys(saved).filter(k=>{
         const e = saved[k];
         if(e.excluded) return false;
-        const resolvable = !!e.etabNom || k.indexOf("manuel:")===0 || !!getEtab(k);
+        const resolvable = !!getEtab(k) || (!!e.etabNom && !looksLikeUid(e.etabNom));
         if(!resolvable) return false;
         if(suggestedIds.has(k)) return true;
         return e.effectif != null || !!e.photoUrl;
