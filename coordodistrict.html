@@ -493,6 +493,7 @@
       <button type="button" class="ag-tab-btn" data-act-subtab="effectifs">Effectifs prévisionnels (compétition)</button>
       <button type="button" class="ag-tab-btn" data-act-subtab="organisation">Organisation District Villeurbanne</button>
       <button type="button" class="ag-tab-btn" data-act-subtab="pratiquees">Activités pratiquées (loisir)</button>
+      <button type="button" class="ag-tab-btn" data-act-subtab="competitions">Compétitions</button>
     </div>
 
     <!-- 1. Compétition -->
@@ -564,6 +565,26 @@
             <tbody id="tbody-activites-pratiquees"></tbody>
           </table>
         </div>
+      </div>
+    </div>
+
+    <!-- 5. Compétitions (effectifs par journée + récap) -->
+    <div id="activites-subtab-competitions" class="act-subtab-panel hidden">
+      <div class="panel-header" style="margin-top:10px;">
+        <h2>Compétitions</h2>
+      </div>
+      <div class="ag-tabs" id="competitions-subtabs">
+        <button type="button" class="ag-tab-btn active" data-comp-subtab="effectifs">🧮 Effectifs par journée</button>
+        <button type="button" class="ag-tab-btn" data-comp-subtab="recap">📊 Récap par établissement</button>
+      </div>
+      <div id="competitions-subtab-effectifs" class="comp-subtab-panel">
+        <p class="hint">Choisissez une journée de compétition : les activités inscrites ce jour-là sur le calendrier sont proposées, avec les établissements déjà engagés dans chaque activité. Saisissez l'effectif emmené, ou joignez une photo (ex: liste papier) si vous n'avez pas le temps de compter tout de suite — vous pourrez ensuite me montrer cette photo dans une conversation pour que je saisisse les chiffres à votre place.</p>
+        <div id="effectifs-journee-select-row" style="margin:10px 0 14px;"></div>
+        <div id="effectifs-journee-container"></div>
+      </div>
+      <div id="competitions-subtab-recap" class="comp-subtab-panel hidden">
+        <p class="hint">Total des effectifs saisis dans « Effectifs par journée », par établissement et par activité, toutes journées confondues.</p>
+        <div id="recap-effectifs-etab-container"></div>
       </div>
     </div>
 
@@ -807,23 +828,7 @@
         <a href="https://docs.google.com/spreadsheets/d/1sJNA6G3fy-KpG6KqnQLcdUfxSlT18phwF9eGPkAn0Is/edit?gid=2002785415#gid=2002785415" target="_blank" rel="noopener" class="btn-link" style="text-decoration:none; background:var(--c6); font-size:1.05rem; padding:13px 22px;">📊 Calendrier district</a>
       </div>
     </div>
-    <div class="ag-tabs" id="calendrier-subtabs">
-      <button type="button" class="ag-tab-btn active" data-cal-subtab="grille">📅 Calendrier</button>
-      <button type="button" class="ag-tab-btn" data-cal-subtab="effectifs">🧮 Effectifs par journée</button>
-      <button type="button" class="ag-tab-btn" data-cal-subtab="recap">📊 Récap par établissement</button>
-    </div>
-    <div id="calendrier-subtab-grille" class="cal-subtab-panel">
-      <div id="calendrier-container"></div>
-    </div>
-    <div id="calendrier-subtab-effectifs" class="cal-subtab-panel hidden">
-      <p class="hint">Choisissez une journée de compétition : les activités inscrites ce jour-là sur le calendrier sont proposées, avec les établissements déjà engagés dans chaque activité (onglet Activités). Saisissez l'effectif emmené, ou joignez une photo (ex: liste papier) si vous n'avez pas le temps de compter tout de suite — vous pourrez ensuite me montrer cette photo dans une conversation pour que je saisisse les chiffres à votre place.</p>
-      <div id="effectifs-journee-select-row" style="margin:10px 0 14px;"></div>
-      <div id="effectifs-journee-container"></div>
-    </div>
-    <div id="calendrier-subtab-recap" class="cal-subtab-panel hidden">
-      <p class="hint">Total des effectifs saisis dans « Effectifs par journée », par établissement et par activité, toutes journées confondues.</p>
-      <div id="recap-effectifs-etab-container"></div>
-    </div>
+    <div id="calendrier-container"></div>
   </section>
 
 </main>
@@ -2050,25 +2055,26 @@
     });
   });
 
-  // ---------- SOUS-ONGLETS CALENDRIER (Calendrier / Effectifs par journée / Récap) ----------
-  document.querySelectorAll("#calendrier-subtabs .ag-tab-btn").forEach(btn=>{
-    btn.addEventListener("click", ()=>{
-      document.querySelectorAll("#calendrier-subtabs .ag-tab-btn").forEach(b=>b.classList.remove("active"));
-      btn.classList.add("active");
-      document.querySelectorAll(".cal-subtab-panel").forEach(p=>p.classList.add("hidden"));
-      document.getElementById("calendrier-subtab-"+btn.dataset.calSubtab).classList.remove("hidden");
-      if(btn.dataset.calSubtab === "effectifs") renderEffectifsJournee();
-      if(btn.dataset.calSubtab === "recap") renderRecapEffectifsEtab();
-    });
-  });
-
-  // ---------- SOUS-ONGLETS ACTIVITÉS (Compétition / Effectifs / Organisation / Loisir) ----------
+  // ---------- SOUS-ONGLETS ACTIVITÉS (Compétition / Effectifs / Organisation / Loisir / Compétitions) ----------
   document.querySelectorAll("#activites-subtabs .ag-tab-btn").forEach(btn=>{
     btn.addEventListener("click", ()=>{
       document.querySelectorAll("#activites-subtabs .ag-tab-btn").forEach(b=>b.classList.remove("active"));
       btn.classList.add("active");
       document.querySelectorAll(".act-subtab-panel").forEach(p=>p.classList.add("hidden"));
       document.getElementById("activites-subtab-"+btn.dataset.actSubtab).classList.remove("hidden");
+      if(btn.dataset.actSubtab === "competitions") renderEffectifsJournee();
+    });
+  });
+
+  // ---------- SOUS-SOUS-ONGLETS COMPÉTITIONS (Effectifs par journée / Récap) ----------
+  document.querySelectorAll("#competitions-subtabs .ag-tab-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      document.querySelectorAll("#competitions-subtabs .ag-tab-btn").forEach(b=>b.classList.remove("active"));
+      btn.classList.add("active");
+      document.querySelectorAll(".comp-subtab-panel").forEach(p=>p.classList.add("hidden"));
+      document.getElementById("competitions-subtab-"+btn.dataset.compSubtab).classList.remove("hidden");
+      if(btn.dataset.compSubtab === "effectifs") renderEffectifsJournee();
+      if(btn.dataset.compSubtab === "recap") renderRecapEffectifsEtab();
     });
   });
 
