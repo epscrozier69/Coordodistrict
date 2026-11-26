@@ -65,8 +65,6 @@
   }
   .panel-header h2{ margin:0; font-size:1.1rem; }
   .hint{ color:var(--muted); font-size:.85rem; margin:0; }
-  .collapsible-header h2{ cursor:pointer; user-select:none; }
-  .collapsible-header h2:hover{ opacity:.8; }
   .collapse-chevron{ display:inline-block; width:14px; }
   .effectifs-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; margin-top:12px; }
   .recap-etab-list{ display:flex; flex-direction:column; gap:14px; margin-top:12px; }
@@ -490,67 +488,82 @@
       <h2>Activités</h2>
     </div>
 
-    <!-- 1. Compétition -->
-    <div class="panel-header collapsible-header" style="margin-top:10px;" data-collapsible="body-competition">
-      <h2><span class="collapse-chevron">▾</span> Activités engagées en compétition</h2>
-      <div class="actions">
-        <button id="btn-export-competition-pdf" class="secondary">📄 Export PDF</button>
-        <button id="btn-export-competition-excel" class="secondary">📊 Exporter ce tableau</button>
-      </div>
+    <div class="ag-tabs" id="activites-subtabs">
+      <button type="button" class="ag-tab-btn active" data-act-subtab="competition">Activités engagées en compétition</button>
+      <button type="button" class="ag-tab-btn" data-act-subtab="effectifs">Effectifs par activité (compétition)</button>
+      <button type="button" class="ag-tab-btn" data-act-subtab="organisation">Organisation District Villeurbanne</button>
+      <button type="button" class="ag-tab-btn" data-act-subtab="pratiquees">Activités pratiquées (loisir)</button>
     </div>
-    <div id="body-competition">
-      <p class="hint">Récapitulatif non modifiable — le choix des activités se fait dans la fiche de chaque collègue</p>
-      <div class="table-wrap">
-        <table id="table-activites-competition">
-          <thead><tr id="thead-activites-competition-row"></tr></thead>
-          <tbody id="tbody-activites-competition"></tbody>
-        </table>
+
+    <!-- 1. Compétition -->
+    <div id="activites-subtab-competition" class="act-subtab-panel">
+      <div class="panel-header" style="margin-top:10px;">
+        <h2>Activités engagées en compétition</h2>
+        <div class="actions">
+          <button id="btn-export-competition-pdf" class="secondary">📄 Export PDF</button>
+          <button id="btn-export-competition-excel" class="secondary">📊 Exporter ce tableau</button>
+        </div>
+      </div>
+      <div id="body-competition">
+        <p class="hint">Récapitulatif non modifiable — le choix des activités se fait dans la fiche de chaque collègue</p>
+        <div class="table-wrap">
+          <table id="table-activites-competition">
+            <thead><tr id="thead-activites-competition-row"></tr></thead>
+            <tbody id="tbody-activites-competition"></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
     <!-- 2. Effectifs par activité (compétition) -->
-    <div class="panel-header collapsible-header" style="margin-top:22px;" data-collapsible="body-effectifs">
-      <h2><span class="collapse-chevron">▾</span> Effectifs par activité (compétition)</h2>
-      <div class="actions">
-        <button id="btn-export-effectifs-pdf" class="secondary">📄 Export PDF</button>
-        <button id="btn-export-effectifs-excel" class="secondary">📊 Export Excel</button>
+    <div id="activites-subtab-effectifs" class="act-subtab-panel hidden">
+      <div class="panel-header" style="margin-top:10px;">
+        <h2>Effectifs par activité (compétition)</h2>
+        <div class="actions">
+          <button id="btn-export-effectifs-pdf" class="secondary">📄 Export PDF</button>
+          <button id="btn-export-effectifs-excel" class="secondary">📊 Export Excel</button>
+        </div>
       </div>
-    </div>
-    <div id="body-effectifs">
-      <p class="hint">Cliquez sur une activité pour afficher/compléter les effectifs par établissement.</p>
-      <div id="effectifs-container"></div>
+      <div id="body-effectifs">
+        <p class="hint">Cliquez sur une activité pour afficher/compléter les effectifs par établissement.</p>
+        <div id="effectifs-container"></div>
+      </div>
     </div>
 
     <!-- 3. Organisation District Villeurbanne -->
-    <div class="panel-header collapsible-header" style="margin-top:22px;" data-collapsible="body-organisation">
-      <h2><span class="collapse-chevron">▾</span> Organisation District Villeurbanne</h2>
-      <div class="actions">
-        <button id="btn-add-lieu" class="secondary">➕ Ajouter un lieu</button>
-        <button id="btn-add-external-etab" class="secondary">➕ Ajouter un établissement</button>
-        <button id="btn-export-interdistrict-pdf" class="secondary">📄 Export PDF</button>
-        <button id="btn-export-interdistrict-excel" class="secondary">📊 Exporter ce tableau</button>
+    <div id="activites-subtab-organisation" class="act-subtab-panel hidden">
+      <div class="panel-header" style="margin-top:10px;">
+        <h2>Organisation District Villeurbanne</h2>
+        <div class="actions">
+          <button id="btn-add-lieu" class="secondary">➕ Ajouter un lieu</button>
+          <button id="btn-add-external-etab" class="secondary">➕ Ajouter un établissement</button>
+          <button id="btn-export-interdistrict-pdf" class="secondary">📄 Export PDF</button>
+          <button id="btn-export-interdistrict-excel" class="secondary">📊 Exporter ce tableau</button>
+        </div>
       </div>
-    </div>
-    <div id="body-organisation">
-      <p class="hint">Pour chaque activité en compétition : choisissez le lieu, répartissez les établissements en plusieurs poules si besoin.</p>
-      <div id="interdistrict-container"></div>
+      <div id="body-organisation">
+        <p class="hint">Pour chaque activité en compétition : choisissez le lieu, répartissez les établissements en plusieurs poules si besoin.</p>
+        <div id="interdistrict-container"></div>
+      </div>
     </div>
 
     <!-- 4. Loisir -->
-    <div class="panel-header collapsible-header" style="margin-top:22px;" data-collapsible="body-pratiquees">
-      <h2><span class="collapse-chevron">▾</span> Activités pratiquées (loisir)</h2>
-      <div class="actions">
-        <button id="btn-export-pratiquees-pdf" class="secondary">📄 Export PDF</button>
-        <button id="btn-export-pratiquees-excel" class="secondary">📊 Exporter ce tableau</button>
+    <div id="activites-subtab-pratiquees" class="act-subtab-panel hidden">
+      <div class="panel-header" style="margin-top:10px;">
+        <h2>Activités pratiquées (loisir)</h2>
+        <div class="actions">
+          <button id="btn-export-pratiquees-pdf" class="secondary">📄 Export PDF</button>
+          <button id="btn-export-pratiquees-excel" class="secondary">📊 Exporter ce tableau</button>
+        </div>
       </div>
-    </div>
-    <div id="body-pratiquees">
-      <p class="hint">Récapitulatif non modifiable — le choix des activités se fait dans la fiche de chaque collègue</p>
-      <div class="table-wrap">
-        <table id="table-activites-pratiquees">
-          <thead><tr id="thead-activites-pratiquees-row"></tr></thead>
-          <tbody id="tbody-activites-pratiquees"></tbody>
-        </table>
+      <div id="body-pratiquees">
+        <p class="hint">Récapitulatif non modifiable — le choix des activités se fait dans la fiche de chaque collègue</p>
+        <div class="table-wrap">
+          <table id="table-activites-pratiquees">
+            <thead><tr id="thead-activites-pratiquees-row"></tr></thead>
+            <tbody id="tbody-activites-pratiquees"></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -2049,17 +2062,13 @@
     });
   });
 
-  // ---------- SECTIONS REPLIABLES (ex: tableaux de l'onglet Activités) ----------
-  document.querySelectorAll(".collapsible-header").forEach(header=>{
-    const h2 = header.querySelector("h2");
-    const body = document.getElementById(header.dataset.collapsible);
-    const actions = header.querySelector(".actions");
-    if(!h2 || !body) return;
-    h2.addEventListener("click", ()=>{
-      const collapsed = body.classList.toggle("hidden");
-      if(actions) actions.classList.toggle("hidden", collapsed);
-      const chevron = h2.querySelector(".collapse-chevron");
-      if(chevron) chevron.textContent = collapsed ? "▸" : "▾";
+  // ---------- SOUS-ONGLETS ACTIVITÉS (Compétition / Effectifs / Organisation / Loisir) ----------
+  document.querySelectorAll("#activites-subtabs .ag-tab-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      document.querySelectorAll("#activites-subtabs .ag-tab-btn").forEach(b=>b.classList.remove("active"));
+      btn.classList.add("active");
+      document.querySelectorAll(".act-subtab-panel").forEach(p=>p.classList.add("hidden"));
+      document.getElementById("activites-subtab-"+btn.dataset.actSubtab).classList.remove("hidden");
     });
   });
 
