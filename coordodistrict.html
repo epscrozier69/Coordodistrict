@@ -87,6 +87,12 @@
   .effectif-second-badge{ display:inline-flex; align-items:center; gap:4px; font-size:.68rem; font-weight:600; color:var(--muted); background:#eef1fa; border-radius:10px; padding:2px 6px; margin-left:4px; }
   .effectif-second-badge .icon-btn{ width:16px; height:16px; font-size:.6rem; }
   .effectif-table select{ padding:3px 4px; border:1px solid var(--border); border-radius:5px; max-width:140px; }
+  .ej-etab-row{ display:flex; align-items:center; gap:8px; padding:5px 0; border-bottom:1px solid var(--border); flex-wrap:wrap; }
+  .ej-etab-row:last-of-type{ border-bottom:none; }
+  .ej-etab-nom{ flex:1 1 140px; font-weight:600; font-size:.85rem; }
+  .ej-etab-row input[type=number]{ width:70px; padding:4px 6px; border:1px solid var(--border); border-radius:6px; text-align:center; }
+  .ej-etab-row label.icon-btn{ display:inline-flex; align-items:center; justify-content:center; }
+  .ej-add-row select{ padding:5px 8px; border:1px solid var(--border); border-radius:6px; }
   .profs-meta-row{
     display:flex; align-items:flex-start; justify-content:space-between;
     flex-wrap:wrap; gap:10px; margin-bottom:10px;
@@ -240,7 +246,7 @@
   .etab-block{ display:flex; align-items:stretch; background:#fff; border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; }
   .etab-block-head{
     display:flex; flex-direction:column; justify-content:space-between; flex:0 0 190px;
-    gap:8px; padding:10px 12px; position:relative;
+    gap:8px; padding:10px 12px;
     color:#fff; cursor:pointer;
   }
   .etab-block-head h3{ margin:0 0 4px; font-size:1.15rem; font-weight:700; }
@@ -749,7 +755,23 @@
         <a href="https://docs.google.com/spreadsheets/d/1sJNA6G3fy-KpG6KqnQLcdUfxSlT18phwF9eGPkAn0Is/edit?gid=2002785415#gid=2002785415" target="_blank" rel="noopener" class="btn-link" style="text-decoration:none; background:var(--c6); font-size:1.05rem; padding:13px 22px;">📊 Calendrier district</a>
       </div>
     </div>
-    <div id="calendrier-container"></div>
+    <div class="ag-tabs" id="calendrier-subtabs">
+      <button type="button" class="ag-tab-btn active" data-cal-subtab="grille">📅 Calendrier</button>
+      <button type="button" class="ag-tab-btn" data-cal-subtab="effectifs">🧮 Effectifs par journée</button>
+      <button type="button" class="ag-tab-btn" data-cal-subtab="recap">📊 Récap par établissement</button>
+    </div>
+    <div id="calendrier-subtab-grille" class="cal-subtab-panel">
+      <div id="calendrier-container"></div>
+    </div>
+    <div id="calendrier-subtab-effectifs" class="cal-subtab-panel hidden">
+      <p class="hint">Choisissez une journée de compétition : les activités inscrites ce jour-là sur le calendrier sont proposées, avec les établissements déjà engagés dans chaque activité (onglet Activités). Saisissez l'effectif emmené, ou joignez une photo (ex: liste papier) si vous n'avez pas le temps de compter tout de suite — vous pourrez ensuite me montrer cette photo dans une conversation pour que je saisisse les chiffres à votre place.</p>
+      <div id="effectifs-journee-select-row" style="margin:10px 0 14px;"></div>
+      <div id="effectifs-journee-container"></div>
+    </div>
+    <div id="calendrier-subtab-recap" class="cal-subtab-panel hidden">
+      <p class="hint">Total des effectifs saisis dans « Effectifs par journée », par établissement et par activité, toutes journées confondues.</p>
+      <div id="recap-effectifs-etab-container"></div>
+    </div>
   </section>
 
 </main>
@@ -1271,6 +1293,7 @@
     if(!parsed.activiteEffectifsManuels) parsed.activiteEffectifsManuels = {};
     if(!parsed.deletedManualRowIds) parsed.deletedManualRowIds = [];
     if(!parsed.lieuxCarte) parsed.lieuxCarte = [];
+    if(!parsed.effectifsJournee) parsed.effectifsJournee = {};
     return parsed;
   }
 
@@ -1925,6 +1948,18 @@
     });
   });
 
+  // ---------- SOUS-ONGLETS CALENDRIER (Calendrier / Effectifs par journée / Récap) ----------
+  document.querySelectorAll("#calendrier-subtabs .ag-tab-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      document.querySelectorAll("#calendrier-subtabs .ag-tab-btn").forEach(b=>b.classList.remove("active"));
+      btn.classList.add("active");
+      document.querySelectorAll(".cal-subtab-panel").forEach(p=>p.classList.add("hidden"));
+      document.getElementById("calendrier-subtab-"+btn.dataset.calSubtab).classList.remove("hidden");
+      if(btn.dataset.calSubtab === "effectifs") renderEffectifsJournee();
+      if(btn.dataset.calSubtab === "recap") renderRecapEffectifsEtab();
+    });
+  });
+
   // ---------- SECTIONS REPLIABLES (ex: tableaux de l'onglet Activités) ----------
   document.querySelectorAll(".collapsible-header").forEach(header=>{
     const h2 = header.querySelector("h2");
@@ -2128,7 +2163,6 @@
     return `
       <div class="etab-block"${blockStyle}>
         <div class="etab-block-head" style="background:${color}; color:${textColor};">
-          ${opts.editable ? `<button type="button" class="icon-btn" data-del-etab="${escapeAttr(etab.id)}" title="Supprimer cet établissement" style="position:absolute; top:6px; right:6px; background:rgba(255,255,255,.85);">🗑</button>` : ""}
           <div>
             <h3>${escapeHtml(etab.nom)}</h3>
             <div class="etab-head-meta">${metaLines}${lien ? `<div>${lien}</div>` : ""}</div>
@@ -2150,17 +2184,6 @@
 
     container.querySelectorAll(".etab-block-head a").forEach(a=>{
       a.addEventListener("click", e=>e.stopPropagation());
-    });
-    container.querySelectorAll("[data-del-etab]").forEach(btn=>{
-      btn.addEventListener("click", e=>{
-        e.stopPropagation();
-        const etab = getEtab(btn.dataset.delEtab);
-        if(!etab) return;
-        if(!confirm("Supprimer définitivement l'établissement « "+etab.nom+" » et toutes ses données (collègues, cartes, récompenses, remboursements…) ? Cette action est irréversible et sera synchronisée sur tous les appareils.")) return;
-        state.etablissements = state.etablissements.filter(e=>e.id!==etab.id);
-        saveState();
-        renderAll();
-      });
     });
     container.querySelectorAll("[data-copy-email]").forEach(el=>{
       el.addEventListener("click", ()=>{
@@ -4829,6 +4852,321 @@ ${innerHtml}
         saveState();
       });
     });
+  }
+
+  // ---------- EFFECTIFS PAR JOURNÉE DE COMPÉTITION ----------
+  // Le calendrier importé du Google Sheet ne liste souvent, pour une
+  // activité donnée, que le lieu de compétition (pas la liste des
+  // établissements engagés) : on propose donc comme candidats par défaut
+  // les établissements déjà engagés dans cette activité (onglet Activités,
+  // via competitionEtabsAny), tout en permettant d'en ajouter/retirer
+  // librement pour une journée précise (un établissement engagé sur la
+  // saison peut être absent un jour donné, ou inversement).
+  // state.effectifsJournee: { [dateTexte]: { [enTêteActivitéCalendrier]: { [etabId ou "manuel:xxx"]: {id, etabNom, effectif, photoUrl, photoFileId} } } }
+  function calActNormalize(s){
+    return (s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g," ").trim();
+  }
+  const CALENDRIER_ACTIVITE_ALIASES = {
+    "basket ball":["Basket"], "basket":["Basket"],
+    "futsal":["Futsal","Futsal féminin"],
+    "hand":["Handball"], "handball":["Handball"],
+    "volley ball":["Volley"], "volley":["Volley"],
+    "badminton":["Badminton"],
+    "tt":["Tennis de table"], "tennis de table":["Tennis de table"],
+    "natation":["Natation"],
+    "escalade":["Escalade"],
+    "danse":["Danse"],
+    "rugby":["Rugby"],
+    "football":["Football"],
+    "boxe":["Boxe"],
+    "musculation":["Musculation"],
+    "gym":["Gym"], "gymnastique":["Gym"], "acrogym":["Acro-gym"], "acro gym":["Acro-gym"],
+    "hip hop":["Hip hop"],
+    "fitness":["Fitness"],
+    "cross training":["Cross training"],
+    "sport partage":["Sport partagé"], "spma":["Sport partagé"],
+    "multi activites":["Multi-activités"]
+  };
+  function candidateEtabsForCalActivite(headerText){
+    const keys = CALENDRIER_ACTIVITE_ALIASES[calActNormalize(headerText)] || [];
+    const seen = new Map();
+    keys.forEach(k=> competitionEtabsAny(k).forEach(e=> seen.set(e.id, e)));
+    return [...seen.values()];
+  }
+  // Une ligne du calendrier compte comme "journée de compétition" si au
+  // moins une colonne (hors date) contient du texte qui n'est pas juste
+  // "Vacances"/"Férié" — ces libellés couvrent souvent toute la ligne.
+  function calendrierJourneeDates(){
+    const cal = state.calendrier;
+    if(!cal || !cal.rows) return [];
+    const dates = [];
+    cal.rows.forEach(row=>{
+      const date = (row[0] != null ? String(row[0]) : "").trim();
+      if(!date) return;
+      const hasActivite = row.some((cell,ci)=> ci>0 && cell!=null && String(cell).trim() !== "" && !/^(vacances|f[ée]ri[ée])$/i.test(String(cell).trim()));
+      if(hasActivite && !dates.includes(date)) dates.push(date);
+    });
+    return dates;
+  }
+  function calendrierActivitesForDate(dateText){
+    const cal = state.calendrier;
+    if(!cal || !cal.rows) return [];
+    const result = [];
+    cal.rows.forEach((row, ri)=>{
+      const date = (row[0] != null ? String(row[0]) : "").trim();
+      if(date !== dateText) return;
+      cal.headers.forEach((h, ci)=>{
+        if(ci === 0) return;
+        const m = cal.rowMerges && cal.rowMerges[ri] && cal.rowMerges[ri][ci];
+        if(m === "covered") return;
+        const text = row[ci] != null ? String(row[ci]).trim() : "";
+        if(!text || /^(vacances|f[ée]ri[ée])$/i.test(text)) return;
+        result.push({ header: h, cellText: text });
+      });
+    });
+    return result;
+  }
+  function getEffectifJourneeEntry(dateKey, actKey, etabKey, create){
+    if(!state.effectifsJournee[dateKey]){
+      if(!create) return null;
+      state.effectifsJournee[dateKey] = {};
+    }
+    if(!state.effectifsJournee[dateKey][actKey]){
+      if(!create) return null;
+      state.effectifsJournee[dateKey][actKey] = {};
+    }
+    if(!state.effectifsJournee[dateKey][actKey][etabKey]){
+      if(!create) return null;
+      state.effectifsJournee[dateKey][actKey][etabKey] = { id: uid(), etabNom:"", effectif:null, photoUrl:"", photoFileId:"", excluded:false };
+    }
+    return state.effectifsJournee[dateKey][actKey][etabKey];
+  }
+  // Un établissement "suggéré" (engagé dans l'activité sur la saison) qu'on
+  // retire pour cette journée précise doit rester retiré au prochain rendu :
+  // on le marque donc "excluded" plutôt que de supprimer l'entrée, sinon il
+  // réapparaîtrait aussitôt (recalculé depuis la liste des engagés). Une
+  // ligne ajoutée manuellement, elle, peut être supprimée pour de bon.
+  function removeEffectifJourneeEntry(dateKey, actKey, etabKey, wasSuggested){
+    const entry = getEffectifJourneeEntry(dateKey, actKey, etabKey, true);
+    if(entry.photoFileId) deletePhotoFromDrive(entry.photoFileId);
+    if(wasSuggested){
+      entry.excluded = true; entry.effectif = null; entry.photoUrl = ""; entry.photoFileId = "";
+    } else {
+      delete state.effectifsJournee[dateKey][actKey][etabKey];
+    }
+  }
+  let selectedJourneeDate = "";
+  function renderEffectifsJourneeSelect(){
+    const row = document.getElementById("effectifs-journee-select-row");
+    if(!row) return;
+    const dates = calendrierJourneeDates();
+    if(!selectedJourneeDate && dates.length) selectedJourneeDate = dates[0];
+    if(!dates.length){
+      row.innerHTML = '<p class="hint">Aucune journée de compétition trouvée dans le calendrier importé.</p>';
+      return;
+    }
+    row.innerHTML = `<label style="font-weight:600;">Journée : <select id="effectifs-journee-date-select">` +
+      dates.map(d=>`<option value="${escapeAttr(d)}" ${d===selectedJourneeDate?"selected":""}>${escapeHtml(d)}</option>`).join("") +
+      `</select></label>`;
+    document.getElementById("effectifs-journee-date-select").addEventListener("change", function(){
+      selectedJourneeDate = this.value;
+      renderEffectifsJourneeBody();
+    });
+  }
+  function ejEtabRowHtml(dateKey, actKey, etabKey, etabNom, wasSuggested){
+    const entry = getEffectifJourneeEntry(dateKey, actKey, etabKey, false) || { effectif:null, photoUrl:"", photoFileId:"" };
+    const photoHtml = entry.photoUrl
+      ? `<a href="${escapeAttr(entry.photoUrl)}" target="_blank" rel="noopener" title="Voir la photo jointe">🖼️</a>
+         <button type="button" class="icon-btn" data-ej-remove-photo data-date="${escapeAttr(dateKey)}" data-act="${escapeAttr(actKey)}" data-etab="${escapeAttr(etabKey)}" title="Retirer la photo">✕📷</button>`
+      : `<label class="icon-btn" title="Joindre une photo (ex: liste papier), à défaut d'une saisie immédiate">📷<input type="file" accept="image/*" style="display:none" data-ej-photo-input data-date="${escapeAttr(dateKey)}" data-act="${escapeAttr(actKey)}" data-etab="${escapeAttr(etabKey)}" data-etab-nom="${escapeAttr(etabNom)}"></label>`;
+    return `
+      <div class="ej-etab-row" data-ej-row>
+        <span class="ej-etab-nom">${escapeHtml(etabNom)}</span>
+        <input type="number" min="0" placeholder="Effectif" value="${entry.effectif!=null?entry.effectif:""}" data-ej-effectif data-date="${escapeAttr(dateKey)}" data-act="${escapeAttr(actKey)}" data-etab="${escapeAttr(etabKey)}" data-etab-nom="${escapeAttr(etabNom)}">
+        ${photoHtml}
+        <button type="button" class="icon-btn" data-ej-remove-row data-suggested="${wasSuggested?"1":"0"}" data-date="${escapeAttr(dateKey)}" data-act="${escapeAttr(actKey)}" data-etab="${escapeAttr(etabKey)}" title="Cet établissement n'est pas concerné ce jour-là">✕</button>
+      </div>`;
+  }
+  function renderEffectifsJourneeBody(){
+    const container = document.getElementById("effectifs-journee-container");
+    if(!container) return;
+    if(!selectedJourneeDate){ container.innerHTML = ""; return; }
+    const activites = calendrierActivitesForDate(selectedJourneeDate);
+    if(!activites.length){
+      container.innerHTML = '<p class="hint">Aucune activité inscrite au calendrier pour cette journée.</p>';
+      return;
+    }
+    const dateKey = selectedJourneeDate;
+    container.innerHTML = `<div class="effectifs-grid">` + activites.map((a,i)=>{
+      const color = `var(--${PALETTE[i % PALETTE.length]})`;
+      const actKey = a.header;
+      const saved = (state.effectifsJournee[dateKey] && state.effectifsJournee[dateKey][actKey]) || {};
+      const suggestedIds = new Set(candidateEtabsForCalActivite(actKey).map(e=>e.id));
+      const rowKeys = new Set(Object.keys(saved).filter(k=> !saved[k].excluded));
+      suggestedIds.forEach(id=>{ if(!(saved[id] && saved[id].excluded)) rowKeys.add(id); });
+      const etabNomFor = (k)=>{
+        if(saved[k] && saved[k].etabNom) return saved[k].etabNom;
+        const e = getEtab(k);
+        return e ? e.nom : k;
+      };
+      const rowsHtml = [...rowKeys].map(k=> ejEtabRowHtml(dateKey, actKey, k, etabNomFor(k), suggestedIds.has(k))).join("")
+        || '<p class="hint" style="margin:6px 0;">Aucun établissement proposé automatiquement : ajoutez-en un ci-dessous.</p>';
+      const availableEtabs = sortedEtabs().filter(e=> !rowKeys.has(e.id));
+      return `
+        <div class="effectif-card">
+          <div class="effectif-card-head" style="background:${color};">
+            <h4>${escapeHtml(a.header)}</h4>
+          </div>
+          <div style="padding:10px 12px;">
+            <p class="hint" style="margin:0 0 8px;">${escapeHtml(a.cellText).replace(/\n/g,", ")}</p>
+            ${rowsHtml}
+            <div class="ej-add-row" style="margin-top:8px;">
+              <select data-ej-add-select data-date="${escapeAttr(dateKey)}" data-act="${escapeAttr(actKey)}">
+                <option value="">+ Ajouter un établissement…</option>
+                ${availableEtabs.map(e=>`<option value="${escapeAttr(e.id)}">${escapeHtml(e.nom)}</option>`).join("")}
+                <option value="__manuel__">Autre (saisie libre)…</option>
+              </select>
+            </div>
+          </div>
+        </div>`;
+    }).join("") + `</div>`;
+    wireEffectifsJourneeEvents(container);
+  }
+  function wireEffectifsJourneeEvents(container){
+    container.querySelectorAll("[data-ej-effectif]").forEach(input=>{
+      input.addEventListener("change", ()=>{
+        const { date, act, etab, etabNom } = input.dataset;
+        const entry = getEffectifJourneeEntry(date, act, etab, true);
+        entry.etabNom = entry.etabNom || etabNom;
+        entry.excluded = false;
+        entry.effectif = input.value === "" ? null : Math.max(0, Number(input.value)||0);
+        saveState();
+      });
+    });
+    container.querySelectorAll("[data-ej-remove-row]").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        const { date, act, etab, suggested } = btn.dataset;
+        removeEffectifJourneeEntry(date, act, etab, suggested === "1");
+        saveState();
+        renderEffectifsJourneeBody();
+      });
+    });
+    container.querySelectorAll("[data-ej-photo-input]").forEach(input=>{
+      input.addEventListener("click", e=>e.stopPropagation());
+      input.addEventListener("change", function(){
+        const file = this.files[0];
+        if(!file) return;
+        const { date, act, etab, etabNom } = this.dataset;
+        const entry = getEffectifJourneeEntry(date, act, etab, true);
+        entry.etabNom = entry.etabNom || etabNom;
+        entry.excluded = false;
+        const reader = new FileReader();
+        reader.onload = ()=>{
+          compressPhoto(reader.result, 480, 0.8).then(compressed=>{
+            setSyncStatus("Envoi de la photo…");
+            uploadPhotoToDrive(compressed, entry.id).then(res=>{
+              if(!res || !res.ok){
+                const msg = "Échec de l'envoi de la photo : " + (res && res.error ? res.error : "réponse inattendue");
+                setSyncStatus(msg);
+                alert(msg);
+                return;
+              }
+              entry.photoUrl = res.url;
+              entry.photoFileId = res.fileId;
+              saveState();
+              renderEffectifsJourneeBody();
+            }).catch(()=>{
+              const msg = "Échec de l'envoi de la photo : hors ligne ou erreur réseau.";
+              setSyncStatus(msg);
+              alert(msg);
+            });
+          });
+        };
+        reader.readAsDataURL(file);
+      });
+    });
+    container.querySelectorAll("[data-ej-remove-photo]").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        const { date, act, etab } = btn.dataset;
+        const entry = getEffectifJourneeEntry(date, act, etab, false);
+        if(!entry) return;
+        const oldFileId = entry.photoFileId;
+        entry.photoUrl = ""; entry.photoFileId = "";
+        saveState();
+        renderEffectifsJourneeBody();
+        if(oldFileId) deletePhotoFromDrive(oldFileId);
+      });
+    });
+    container.querySelectorAll("[data-ej-add-select]").forEach(sel=>{
+      sel.addEventListener("change", function(){
+        const { date, act } = this.dataset;
+        const val = this.value;
+        if(!val) return;
+        if(val === "__manuel__"){
+          const nom = prompt("Nom de l'établissement :");
+          if(nom && nom.trim()){
+            const key = "manuel:" + uid();
+            const entry = getEffectifJourneeEntry(date, act, key, true);
+            entry.etabNom = nom.trim();
+            entry.excluded = false;
+            saveState();
+            renderEffectifsJourneeBody();
+          }
+          return;
+        }
+        const etab = getEtab(val);
+        if(!etab) return;
+        const entry = getEffectifJourneeEntry(date, act, val, true);
+        entry.etabNom = etab.nom;
+        entry.excluded = false;
+        saveState();
+        renderEffectifsJourneeBody();
+      });
+    });
+  }
+  function renderEffectifsJournee(){
+    renderEffectifsJourneeSelect();
+    renderEffectifsJourneeBody();
+  }
+
+  // ---------- RÉCAP EFFECTIFS PAR ÉTABLISSEMENT (toutes journées confondues) ----------
+  function recapEffectifsData(){
+    const data = {};
+    const actSet = new Set();
+    Object.values(state.effectifsJournee).forEach(byAct=>{
+      Object.keys(byAct).forEach(actKey=>{
+        actSet.add(actKey);
+        Object.values(byAct[actKey]).forEach(entry=>{
+          if(entry.excluded) return;
+          const nom = entry.etabNom || "?";
+          if(!data[nom]) data[nom] = {};
+          data[nom][actKey] = (data[nom][actKey]||0) + (Number(entry.effectif)||0);
+        });
+      });
+    });
+    return { data, activites: [...actSet].sort((a,b)=>a.localeCompare(b,"fr",{sensitivity:"base"})) };
+  }
+  function renderRecapEffectifsEtab(){
+    const container = document.getElementById("recap-effectifs-etab-container");
+    if(!container) return;
+    const { data, activites } = recapEffectifsData();
+    const etabNoms = Object.keys(data).sort((a,b)=>a.localeCompare(b,"fr",{sensitivity:"base"}));
+    if(!etabNoms.length || !activites.length){
+      container.innerHTML = '<p class="hint">Aucun effectif saisi pour le moment (sous-onglet « Effectifs par journée »).</p>';
+      return;
+    }
+    let html = '<div class="table-wrap"><table><thead><tr><th>Établissement</th>' +
+      activites.map(a=>`<th>${escapeHtml(a)}</th>`).join("") + '<th>Total</th></tr></thead><tbody>';
+    etabNoms.forEach(nom=>{
+      let total = 0;
+      html += `<tr><td><strong>${escapeHtml(nom)}</strong></td>` + activites.map(a=>{
+        const v = data[nom][a] || 0;
+        total += v;
+        return `<td>${v || ""}</td>`;
+      }).join("") + `<td><strong>${total}</strong></td></tr>`;
+    });
+    html += "</tbody></table></div>";
+    container.innerHTML = html;
   }
 
   // Export PDF du Calendrier : les largeurs de colonnes viennent du Sheet
