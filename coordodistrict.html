@@ -1327,7 +1327,27 @@
     if(!parsed.deletedManualRowIds) parsed.deletedManualRowIds = [];
     if(!parsed.lieuxCarte) parsed.lieuxCarte = [];
     if(!parsed.effectifsJournee) parsed.effectifsJournee = {};
+    cleanupBogusEffectifLieux(parsed.effectifsJournee);
     return parsed;
+  }
+  // Avant la correction du 26/11/2026, la ligne de catégorie d'une cellule du
+  // calendrier (ex. "J1 BG MF") pouvait être enregistrée comme un lieu de
+  // compétition à part entière. On nettoie ici toute valeur "lieu" qui n'est
+  // en fait composée que de codes de catégorie connus (J1, BG, Benjamines…),
+  // pour ne pas la voir réapparaître indéfiniment comme un lieu valide.
+  const CAL_CATEGORY_TOKEN_RE_EARLY = /^(j\d+|bf|bg|mf|mg|ss|benjamin(e)?s?|minime(e)?s?|cadet(te)?s?|junior(e)?s?|senior(e)?s?|f[ée]minin(e)?s?|masculin(e)?s?|\d+)$/i;
+  function looksLikeCategoryPhrase(s){
+    const tokens = (s||"").trim().split(/\s+/).filter(Boolean);
+    return tokens.length > 0 && tokens.every(t=> CAL_CATEGORY_TOKEN_RE_EARLY.test(t));
+  }
+  function cleanupBogusEffectifLieux(effectifsJournee){
+    Object.values(effectifsJournee || {}).forEach(byAct=>{
+      Object.values(byAct).forEach(byEtab=>{
+        Object.values(byEtab).forEach(entry=>{
+          if(entry.lieu && looksLikeCategoryPhrase(entry.lieu)) entry.lieu = "";
+        });
+      });
+    });
   }
 
   let storageAvailable = true;
