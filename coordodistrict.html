@@ -93,23 +93,28 @@
   .ej-etab-row input[type=number]{ width:70px; padding:4px 6px; border:1px solid var(--border); border-radius:6px; text-align:center; }
   .ej-etab-row label.icon-btn{ display:inline-flex; align-items:center; justify-content:center; }
   .ej-add-row select{ padding:5px 8px; border:1px solid var(--border); border-radius:6px; }
-  .ej-lieu-total{ font-weight:600; font-size:.75rem; color:var(--muted); }
+  .ej-lieu-total{
+    font-weight:700; font-size:.75rem; color:#fff;
+    background:rgba(255,255,255,.28); padding:2px 9px; border-radius:10px;
+  }
   /* Empilés verticalement (et non en colonnes côte à côte) : sur tablette,
      un défilement horizontal pour atteindre un lieu caché rendrait le
      glisser-déposer impraticable (on l'a eu en pratique). Chaque lieu prend
      toute la largeur disponible ; on glisse une ligne vers le bloc au-dessus
      ou en dessous, toujours visible sans scroller latéralement. */
-  .ej-lieu-columns{ display:flex; flex-direction:column; gap:8px; }
+  .ej-lieu-columns{ display:flex; flex-direction:column; gap:10px; }
   .ej-lieu-column{
-    border:1px dashed var(--border); border-radius:8px; padding:6px 8px;
+    border:1px solid var(--border); border-radius:8px; overflow:hidden;
     background:#fafbfe; transition:background .12s, border-color .12s;
   }
-  .ej-lieu-column.ej-drop-hover{ background:#eaf0ff; border-color:var(--c1); border-style:solid; }
+  .ej-lieu-column.ej-drop-hover{ background:#eaf0ff; border-color:var(--c1); }
   .ej-lieu-column-head{
     display:flex; justify-content:space-between; align-items:center; gap:6px;
-    padding:3px 4px 6px; margin-bottom:4px; border-bottom:1px solid var(--border);
-    font-size:.8rem; font-weight:700; color:var(--text);
+    padding:8px 10px; background:var(--c1); color:#fff;
+    font-size:.85rem; font-weight:700;
   }
+  .ej-lieu-column-head.ej-lieu-unset{ background:#8a92a6; }
+  .ej-lieu-column-body{ padding:6px 8px; }
   .ej-lieu-empty{ margin:6px 2px; font-size:.72rem; }
   .ej-lieu-add-btn{
     width:100%; background:#eef0f7; color:var(--text);
@@ -5255,7 +5260,7 @@ ${innerHtml}
             || '<p class="hint ej-lieu-empty">Glissez un établissement ici</p>';
           return `
             <div class="ej-lieu-column" data-ej-drop-lieu="${escapeAttr(lieu)}">
-              <div class="ej-lieu-column-head"><span>${label}</span><span class="ej-lieu-total">${total}</span></div>
+              <div class="ej-lieu-column-head${lieu?"":" ej-lieu-unset"}"><span>${label}</span><span class="ej-lieu-total">${total}</span></div>
               <div class="ej-lieu-column-body">${rows}</div>
             </div>`;
         }).join("") +
