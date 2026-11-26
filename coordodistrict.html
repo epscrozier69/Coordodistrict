@@ -5235,12 +5235,15 @@ ${innerHtml}
       if(!orgInfo.etabs.length) parseLieuxCandidates(a.cellText).forEach(l=> usedLieux.add(l));
       (ejExtraLieux[ejExtraLieuKey(dateKey,actKey)]||[]).forEach(l=> usedLieux.add(l));
       const lieuxOptions = [...usedLieux].sort((x,y)=>x.localeCompare(y,"fr",{sensitivity:"base"}));
-      // Le classement par lieu (glisser-déposer) n'a d'intérêt que si
-      // l'activité se joue ce jour-là sur au moins 2 sites ; sinon, liste
-      // simple sans ce dispositif, pour ne pas alourdir la saisie.
+      // Dès qu'un lieu est connu (même un seul), on le met en avant avec le
+      // même bandeau coloré que plusieurs lieux — seule la possibilité de
+      // glisser-déposer entre lieux (et donc la poignée ⠿) n'a d'intérêt
+      // qu'à partir de 2 sites. Avec 0 lieu connu, liste simple sans bandeau
+      // (rien à mettre en avant).
+      const hasLieuInfo = lieuxOptions.length >= 1;
       const multiLieu = lieuxOptions.length >= 2;
       let bodyHtml;
-      if(multiLieu){
+      if(hasLieuInfo){
         const groups = new Map(); // lieu ("" = non précisé) -> [keys]
         lieuxOptions.forEach(l=> groups.set(l, []));
         groups.set("", []);
@@ -5262,8 +5265,10 @@ ${innerHtml}
           const keys = groups.get(lieu);
           const total = keys.reduce((s,k)=> s + (Number(saved[k] && saved[k].effectif) || 0), 0);
           const label = lieu ? `📍 ${escapeHtml(lieu)}` : "Lieu non précisé";
-          const rows = keys.map(k=> ejEtabRowDraggableHtml(dateKey, actKey, k, etabNomFor(k), suggestedIds.has(k))).join("")
-            || '<p class="hint ej-lieu-empty">Glissez un établissement ici</p>';
+          const rows = keys.map(k=> multiLieu
+            ? ejEtabRowDraggableHtml(dateKey, actKey, k, etabNomFor(k), suggestedIds.has(k))
+            : ejEtabRowHtml(dateKey, actKey, k, etabNomFor(k), suggestedIds.has(k))
+          ).join("") || '<p class="hint ej-lieu-empty">Glissez un établissement ici</p>';
           return `
             <div class="ej-lieu-column" data-ej-drop-lieu="${escapeAttr(lieu)}">
               <div class="ej-lieu-column-head${lieu?"":" ej-lieu-unset"}"><span>${label}</span><span class="ej-lieu-total">${total}</span></div>
