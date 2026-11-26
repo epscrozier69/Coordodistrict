@@ -93,6 +93,14 @@
   .ej-etab-row input[type=number]{ width:70px; padding:4px 6px; border:1px solid var(--border); border-radius:6px; text-align:center; }
   .ej-etab-row label.icon-btn{ display:inline-flex; align-items:center; justify-content:center; }
   .ej-add-row select{ padding:5px 8px; border:1px solid var(--border); border-radius:6px; }
+  .ej-lieu-select{ padding:4px 6px; border:1px solid var(--border); border-radius:6px; font-size:.78rem; max-width:150px; }
+  .ej-lieu-group-head{
+    display:flex; justify-content:space-between; align-items:center; gap:8px;
+    margin:10px 0 2px; padding:4px 6px; background:#f3f5fb; border-radius:6px;
+    font-size:.8rem; font-weight:700; color:var(--text);
+  }
+  .ej-lieu-group-head:first-child{ margin-top:0; }
+  .ej-lieu-total{ font-weight:600; font-size:.75rem; color:var(--muted); }
   .profs-meta-row{
     display:flex; align-items:flex-start; justify-content:space-between;
     flex-wrap:wrap; gap:10px; margin-bottom:10px;
@@ -4893,6 +4901,22 @@ ${innerHtml}
     keys.forEach(k=> competitionEtabsAny(k).forEach(e=> seen.set(e.id, e)));
     return [...seen.values()];
   }
+  // Quand une activité se joue ce jour-là sur plusieurs sites (ex: cellule
+  // calendrier "J1 BG MF / Chabroux / Iris"), on propose ces noms de lieux en
+  // suggestion pour répartir les établissements — en filtrant les tokens qui
+  // ressemblent à un code de catégorie (J1, BG, Benjamines...) plutôt qu'à un
+  // nom de lieu. Reste une aide à la saisie : l'utilisateur garde la main pour
+  // renommer/ajouter un lieu si la détection automatique se trompe.
+  const CAL_CATEGORY_TOKEN_RE = /^(j\d+|bf|bg|mf|mg|ss|benjamin(e)?s?|minime(e)?s?|cadet(te)?s?|junior(e)?s?|senior(e)?s?|f[ée]minin(e)?s?|masculin(e)?s?|\d+)$/i;
+  function parseLieuxCandidates(cellText){
+    const tokens = [];
+    (cellText||"").split(/\n/).forEach(line=>{
+      line.split(/[\/,]/).map(t=>t.trim()).filter(Boolean).forEach(t=>{
+        if(!CAL_CATEGORY_TOKEN_RE.test(t)) tokens.push(t);
+      });
+    });
+    return [...new Set(tokens)];
+  }
   // Une ligne du calendrier compte comme "journée de compétition" si au
   // moins une colonne (hors date) contient du texte qui n'est pas juste
   // "Vacances"/"Férié" — ces libellés couvrent souvent toute la ligne.
@@ -4937,7 +4961,7 @@ ${innerHtml}
     }
     if(!state.effectifsJournee[dateKey][actKey][etabKey]){
       if(!create) return null;
-      state.effectifsJournee[dateKey][actKey][etabKey] = { id: uid(), etabNom:"", effectif:null, photoUrl:"", photoFileId:"", excluded:false };
+      state.effectifsJournee[dateKey][actKey][etabKey] = { id: uid(), etabNom:"", effectif:null, photoUrl:"", photoFileId:"", excluded:false, lieu:"" };
     }
     return state.effectifsJournee[dateKey][actKey][etabKey];
   }
@@ -4973,15 +4997,22 @@ ${innerHtml}
       renderEffectifsJourneeBody();
     });
   }
-  function ejEtabRowHtml(dateKey, actKey, etabKey, etabNom, wasSuggested){
+  function ejEtabRowHtml(dateKey, actKey, etabKey, etabNom, wasSuggested, lieuxOptions, currentLieu){
     const entry = getEffectifJourneeEntry(dateKey, actKey, etabKey, false) || { effectif:null, photoUrl:"", photoFileId:"" };
     const photoHtml = entry.photoUrl
       ? `<a href="${escapeAttr(entry.photoUrl)}" target="_blank" rel="noopener" title="Voir la photo jointe">🖼️</a>
          <button type="button" class="icon-btn" data-ej-remove-photo data-date="${escapeAttr(dateKey)}" data-act="${escapeAttr(actKey)}" data-etab="${escapeAttr(etabKey)}" title="Retirer la photo">✕📷</button>`
       : `<label class="icon-btn" title="Joindre une photo (ex: liste papier), à défaut d'une saisie immédiate">📷<input type="file" accept="image/*" style="display:none" data-ej-photo-input data-date="${escapeAttr(dateKey)}" data-act="${escapeAttr(actKey)}" data-etab="${escapeAttr(etabKey)}" data-etab-nom="${escapeAttr(etabNom)}"></label>`;
+    const lieuSelect = `
+        <select class="ej-lieu-select" data-ej-lieu data-date="${escapeAttr(dateKey)}" data-act="${escapeAttr(actKey)}" data-etab="${escapeAttr(etabKey)}" title="Lieu de compétition">
+          <option value="">— Lieu non précisé —</option>
+          ${lieuxOptions.map(l=>`<option value="${escapeAttr(l)}" ${l===currentLieu?"selected":""}>📍 ${escapeHtml(l)}</option>`).join("")}
+          <option value="__nouveau__">+ Nouveau lieu…</option>
+        </select>`;
     return `
       <div class="ej-etab-row" data-ej-row>
         <span class="ej-etab-nom">${escapeHtml(etabNom)}</span>
+        ${lieuSelect}
         <input type="number" min="0" placeholder="Effectif" value="${entry.effectif!=null?entry.effectif:""}" data-ej-effectif data-date="${escapeAttr(dateKey)}" data-act="${escapeAttr(actKey)}" data-etab="${escapeAttr(etabKey)}" data-etab-nom="${escapeAttr(etabNom)}">
         ${photoHtml}
         <button type="button" class="icon-btn" data-ej-remove-row data-suggested="${wasSuggested?"1":"0"}" data-date="${escapeAttr(dateKey)}" data-act="${escapeAttr(actKey)}" data-etab="${escapeAttr(etabKey)}" title="Cet établissement n'est pas concerné ce jour-là">✕</button>
@@ -5009,8 +5040,34 @@ ${innerHtml}
         const e = getEtab(k);
         return e ? e.nom : k;
       };
-      const rowsHtml = [...rowKeys].map(k=> ejEtabRowHtml(dateKey, actKey, k, etabNomFor(k), suggestedIds.has(k))).join("")
-        || '<p class="hint" style="margin:6px 0;">Aucun établissement proposé automatiquement : ajoutez-en un ci-dessous.</p>';
+      // Une même activité peut se jouer ce jour-là sur plusieurs sites (ex:
+      // deux poules, chacune dans un gymnase différent) : on regroupe donc
+      // les établissements par lieu de compétition, avec un sous-total par
+      // lieu. Les lieux détectés dans la cellule du calendrier sont proposés
+      // en plus de ceux déjà choisis, pour rester disponibles même avant la
+      // première affectation.
+      const usedLieux = new Set();
+      rowKeys.forEach(k=>{ if(saved[k] && saved[k].lieu) usedLieux.add(saved[k].lieu); });
+      parseLieuxCandidates(a.cellText).forEach(l=> usedLieux.add(l));
+      const lieuxOptions = [...usedLieux].sort((x,y)=>x.localeCompare(y,"fr",{sensitivity:"base"}));
+      const groups = new Map(); // lieu ("" = non précisé) -> [keys]
+      [...rowKeys].sort((x,y)=>etabNomFor(x).localeCompare(etabNomFor(y),"fr",{sensitivity:"base"})).forEach(k=>{
+        const lieu = (saved[k] && saved[k].lieu) || "";
+        if(!groups.has(lieu)) groups.set(lieu, []);
+        groups.get(lieu).push(k);
+      });
+      const groupOrder = [...groups.keys()].sort((x,y)=>{
+        if(!x) return 1; if(!y) return -1;
+        return x.localeCompare(y,"fr",{sensitivity:"base"});
+      });
+      const rowsHtml = groupOrder.map(lieu=>{
+        const keys = groups.get(lieu);
+        const total = keys.reduce((s,k)=> s + (Number(saved[k] && saved[k].effectif) || 0), 0);
+        const header = lieu
+          ? `<div class="ej-lieu-group-head">📍 ${escapeHtml(lieu)} <span class="ej-lieu-total">Total : ${total}</span></div>`
+          : (groupOrder.length > 1 ? `<div class="ej-lieu-group-head">Lieu non précisé <span class="ej-lieu-total">Total : ${total}</span></div>` : "");
+        return header + keys.map(k=> ejEtabRowHtml(dateKey, actKey, k, etabNomFor(k), suggestedIds.has(k), lieuxOptions, (saved[k] && saved[k].lieu) || "")).join("");
+      }).join("") || '<p class="hint" style="margin:6px 0;">Aucun établissement proposé automatiquement : ajoutez-en un ci-dessous.</p>';
       const availableEtabs = sortedEtabs().filter(e=> !rowKeys.has(e.id));
       return `
         <div class="effectif-card">
@@ -5034,6 +5091,9 @@ ${innerHtml}
   }
   function wireEffectifsJourneeEvents(container){
     container.querySelectorAll("[data-ej-effectif]").forEach(input=>{
+      // Sélectionne le chiffre déjà saisi au clic/focus, pour pouvoir le
+      // retaper directement sans avoir à l'effacer à la main.
+      input.addEventListener("focus", function(){ this.select(); });
       input.addEventListener("change", ()=>{
         const { date, act, etab, etabNom } = input.dataset;
         const entry = getEffectifJourneeEntry(date, act, etab, true);
@@ -5041,6 +5101,23 @@ ${innerHtml}
         entry.excluded = false;
         entry.effectif = input.value === "" ? null : Math.max(0, Number(input.value)||0);
         saveState();
+        renderEffectifsJourneeBody();
+      });
+    });
+    container.querySelectorAll("[data-ej-lieu]").forEach(sel=>{
+      sel.addEventListener("change", function(){
+        const { date, act, etab } = this.dataset;
+        let val = this.value;
+        if(val === "__nouveau__"){
+          const nom = prompt("Nom du lieu de compétition :");
+          if(!nom || !nom.trim()){ renderEffectifsJourneeBody(); return; }
+          val = nom.trim();
+        }
+        const entry = getEffectifJourneeEntry(date, act, etab, true);
+        entry.excluded = false;
+        entry.lieu = val;
+        saveState();
+        renderEffectifsJourneeBody();
       });
     });
     container.querySelectorAll("[data-ej-remove-row]").forEach(btn=>{
@@ -5129,44 +5206,67 @@ ${innerHtml}
     renderEffectifsJourneeBody();
   }
 
-  // ---------- RÉCAP EFFECTIFS PAR ÉTABLISSEMENT (toutes journées confondues) ----------
+  // ---------- RÉCAP EFFECTIFS PAR ÉTABLISSEMENT (détail par date + activité) ----------
+  // Les dates du calendrier sont du texte libre au format jour/mois/année :
+  // on en tire une clé comparable (année-mois-jour) pour un tri chronologique
+  // correct ; une date qui ne respecte pas ce format reste triée telle quelle
+  // (en dernier recours, plutôt que de faire planter le tri).
+  function calDateSortKey(d){
+    const m = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/.exec((d||"").trim());
+    if(!m) return "9999" + (d||"");
+    const day = m[1].padStart(2,"0"), month = m[2].padStart(2,"0");
+    const year = m[3].length === 2 ? "20"+m[3] : m[3];
+    return year.padStart(4,"0") + month + day;
+  }
   function recapEffectifsData(){
-    const data = {};
-    const actSet = new Set();
-    Object.values(state.effectifsJournee).forEach(byAct=>{
+    const parEtab = {}; // nom établissement -> { rows:[{date,activite,effectif}], total }
+    Object.keys(state.effectifsJournee).forEach(dateKey=>{
+      const byAct = state.effectifsJournee[dateKey];
       Object.keys(byAct).forEach(actKey=>{
-        actSet.add(actKey);
         Object.values(byAct[actKey]).forEach(entry=>{
-          if(entry.excluded) return;
+          if(entry.excluded || entry.effectif == null) return;
           const nom = entry.etabNom || "?";
-          if(!data[nom]) data[nom] = {};
-          data[nom][actKey] = (data[nom][actKey]||0) + (Number(entry.effectif)||0);
+          if(!parEtab[nom]) parEtab[nom] = { rows: [], total: 0 };
+          parEtab[nom].rows.push({ date: dateKey, activite: actKey, effectif: Number(entry.effectif)||0 });
+          parEtab[nom].total += Number(entry.effectif) || 0;
         });
       });
     });
-    return { data, activites: [...actSet].sort((a,b)=>a.localeCompare(b,"fr",{sensitivity:"base"})) };
+    Object.values(parEtab).forEach(e=>{
+      e.rows.sort((a,b)=>{
+        const k = calDateSortKey(a.date).localeCompare(calDateSortKey(b.date));
+        return k !== 0 ? k : a.activite.localeCompare(b.activite, "fr", {sensitivity:"base"});
+      });
+    });
+    return parEtab;
   }
   function renderRecapEffectifsEtab(){
     const container = document.getElementById("recap-effectifs-etab-container");
     if(!container) return;
-    const { data, activites } = recapEffectifsData();
+    const data = recapEffectifsData();
     const etabNoms = Object.keys(data).sort((a,b)=>a.localeCompare(b,"fr",{sensitivity:"base"}));
-    if(!etabNoms.length || !activites.length){
+    if(!etabNoms.length){
       container.innerHTML = '<p class="hint">Aucun effectif saisi pour le moment (sous-onglet « Effectifs par journée »).</p>';
       return;
     }
-    let html = '<div class="table-wrap"><table><thead><tr><th>Établissement</th>' +
-      activites.map(a=>`<th>${escapeHtml(a)}</th>`).join("") + '<th>Total</th></tr></thead><tbody>';
-    etabNoms.forEach(nom=>{
-      let total = 0;
-      html += `<tr><td><strong>${escapeHtml(nom)}</strong></td>` + activites.map(a=>{
-        const v = data[nom][a] || 0;
-        total += v;
-        return `<td>${v || ""}</td>`;
-      }).join("") + `<td><strong>${total}</strong></td></tr>`;
-    });
-    html += "</tbody></table></div>";
-    container.innerHTML = html;
+    container.innerHTML = `<div class="effectifs-grid">` + etabNoms.map((nom,i)=>{
+      const color = `var(--${PALETTE[i % PALETTE.length]})`;
+      const { rows, total } = data[nom];
+      const rowsHtml = rows.map(r=>`<tr><td>${escapeHtml(r.date)}</td><td>${escapeHtml(r.activite)}</td><td>${r.effectif}</td></tr>`).join("");
+      return `
+        <div class="effectif-card">
+          <div class="effectif-card-head" style="background:${color};">
+            <h4>${escapeHtml(nom)}</h4>
+            <span class="count">Total : ${total}</span>
+          </div>
+          <div class="effectif-table-wrap">
+            <table class="effectif-table">
+              <thead><tr><th>Date</th><th>Activité</th><th>Effectif</th></tr></thead>
+              <tbody>${rowsHtml}</tbody>
+            </table>
+          </div>
+        </div>`;
+    }).join("") + `</div>`;
   }
 
   // Export PDF du Calendrier : les largeurs de colonnes viennent du Sheet
