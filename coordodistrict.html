@@ -93,14 +93,34 @@
   .ej-etab-row input[type=number]{ width:70px; padding:4px 6px; border:1px solid var(--border); border-radius:6px; text-align:center; }
   .ej-etab-row label.icon-btn{ display:inline-flex; align-items:center; justify-content:center; }
   .ej-add-row select{ padding:5px 8px; border:1px solid var(--border); border-radius:6px; }
-  .ej-lieu-select{ padding:4px 6px; border:1px solid var(--border); border-radius:6px; font-size:.78rem; max-width:150px; }
-  .ej-lieu-group-head{
-    display:flex; justify-content:space-between; align-items:center; gap:8px;
-    margin:10px 0 2px; padding:4px 6px; background:#f3f5fb; border-radius:6px;
+  .ej-lieu-total{ font-weight:600; font-size:.75rem; color:var(--muted); }
+  .ej-lieu-columns{ display:flex; gap:10px; overflow-x:auto; padding-bottom:6px; -webkit-overflow-scrolling:touch; }
+  .ej-lieu-column{
+    flex:0 0 220px; border:1px dashed var(--border); border-radius:8px; padding:6px;
+    background:#fafbfe; transition:background .12s, border-color .12s;
+  }
+  .ej-lieu-column.ej-drop-hover{ background:#eaf0ff; border-color:var(--c1); border-style:solid; }
+  .ej-lieu-column-head{
+    display:flex; justify-content:space-between; align-items:center; gap:6px;
+    padding:3px 4px 6px; margin-bottom:4px; border-bottom:1px solid var(--border);
     font-size:.8rem; font-weight:700; color:var(--text);
   }
-  .ej-lieu-group-head:first-child{ margin-top:0; }
-  .ej-lieu-total{ font-weight:600; font-size:.75rem; color:var(--muted); }
+  .ej-lieu-empty{ margin:6px 2px; font-size:.72rem; }
+  .ej-lieu-add-btn{
+    flex:0 0 90px; align-self:flex-start; background:#eef0f7; color:var(--text);
+    border:1px dashed var(--border); border-radius:8px; padding:8px; font-size:.78rem; font-weight:600; cursor:pointer;
+  }
+  .ej-etab-row-draggable{ padding:5px 2px; }
+  .ej-drag-handle{
+    cursor:grab; touch-action:none; color:var(--muted); font-size:1rem; padding:0 4px;
+    user-select:none; -webkit-user-select:none;
+  }
+  .ej-row-dragging-source{ opacity:.35; }
+  .ej-drag-ghost{
+    position:fixed; z-index:3000; pointer-events:none; opacity:.92;
+    background:#fff; border:1px solid var(--border); border-radius:8px; box-shadow:0 6px 18px rgba(30,40,70,.25);
+    padding:5px 8px; display:flex; align-items:center; gap:8px;
+  }
   .profs-meta-row{
     display:flex; align-items:flex-start; justify-content:space-between;
     flex-wrap:wrap; gap:10px; margin-bottom:10px;
@@ -4997,27 +5017,38 @@ ${innerHtml}
       renderEffectifsJourneeBody();
     });
   }
-  function ejEtabRowHtml(dateKey, actKey, etabKey, etabNom, wasSuggested, lieuxOptions, currentLieu){
+  function ejEtabRowInnerHtml(dateKey, actKey, etabKey, etabNom, wasSuggested){
     const entry = getEffectifJourneeEntry(dateKey, actKey, etabKey, false) || { effectif:null, photoUrl:"", photoFileId:"" };
     const photoHtml = entry.photoUrl
       ? `<a href="${escapeAttr(entry.photoUrl)}" target="_blank" rel="noopener" title="Voir la photo jointe">🖼️</a>
          <button type="button" class="icon-btn" data-ej-remove-photo data-date="${escapeAttr(dateKey)}" data-act="${escapeAttr(actKey)}" data-etab="${escapeAttr(etabKey)}" title="Retirer la photo">✕📷</button>`
       : `<label class="icon-btn" title="Joindre une photo (ex: liste papier), à défaut d'une saisie immédiate">📷<input type="file" accept="image/*" style="display:none" data-ej-photo-input data-date="${escapeAttr(dateKey)}" data-act="${escapeAttr(actKey)}" data-etab="${escapeAttr(etabKey)}" data-etab-nom="${escapeAttr(etabNom)}"></label>`;
-    const lieuSelect = `
-        <select class="ej-lieu-select" data-ej-lieu data-date="${escapeAttr(dateKey)}" data-act="${escapeAttr(actKey)}" data-etab="${escapeAttr(etabKey)}" title="Lieu de compétition">
-          <option value="">— Lieu non précisé —</option>
-          ${lieuxOptions.map(l=>`<option value="${escapeAttr(l)}" ${l===currentLieu?"selected":""}>📍 ${escapeHtml(l)}</option>`).join("")}
-          <option value="__nouveau__">+ Nouveau lieu…</option>
-        </select>`;
     return `
-      <div class="ej-etab-row" data-ej-row>
         <span class="ej-etab-nom">${escapeHtml(etabNom)}</span>
-        ${lieuSelect}
         <input type="number" min="0" placeholder="Effectif" value="${entry.effectif!=null?entry.effectif:""}" data-ej-effectif data-date="${escapeAttr(dateKey)}" data-act="${escapeAttr(actKey)}" data-etab="${escapeAttr(etabKey)}" data-etab-nom="${escapeAttr(etabNom)}">
         ${photoHtml}
-        <button type="button" class="icon-btn" data-ej-remove-row data-suggested="${wasSuggested?"1":"0"}" data-date="${escapeAttr(dateKey)}" data-act="${escapeAttr(actKey)}" data-etab="${escapeAttr(etabKey)}" title="Cet établissement n'est pas concerné ce jour-là">✕</button>
-      </div>`;
+        <button type="button" class="icon-btn" data-ej-remove-row data-suggested="${wasSuggested?"1":"0"}" data-date="${escapeAttr(dateKey)}" data-act="${escapeAttr(actKey)}" data-etab="${escapeAttr(etabKey)}" title="Cet établissement n'est pas concerné ce jour-là">✕</button>`;
   }
+  // Variante simple (une activité = un seul lieu ce jour-là : inutile de le
+  // préciser).
+  function ejEtabRowHtml(dateKey, actKey, etabKey, etabNom, wasSuggested){
+    return `<div class="ej-etab-row" data-ej-row>${ejEtabRowInnerHtml(dateKey, actKey, etabKey, etabNom, wasSuggested)}</div>`;
+  }
+  // Variante déplaçable par glisser-déposer (plusieurs lieux ce jour-là) :
+  // une poignée dédiée porte le drag, pour ne pas interférer avec la saisie
+  // de l'effectif ou les autres boutons de la ligne.
+  function ejEtabRowDraggableHtml(dateKey, actKey, etabKey, etabNom, wasSuggested){
+    return `<div class="ej-etab-row ej-etab-row-draggable" data-ej-row>
+      <span class="ej-drag-handle" data-ej-drag-handle data-date="${escapeAttr(dateKey)}" data-act="${escapeAttr(actKey)}" data-etab="${escapeAttr(etabKey)}" title="Glisser vers un autre lieu">⠿</span>
+      ${ejEtabRowInnerHtml(dateKey, actKey, etabKey, etabNom, wasSuggested)}
+    </div>`;
+  }
+  // Lieux ajoutés via "+ Lieu" avant qu'aucun établissement n'y soit encore
+  // glissé : état transitoire (non persisté, comme selectedJourneeDate), le
+  // lieu devient "réel" (dérivé de state.effectifsJournee) dès qu'un
+  // établissement y est déposé.
+  let ejExtraLieux = {};
+  function ejExtraLieuKey(dateKey, actKey){ return dateKey + "|" + actKey; }
   function renderEffectifsJourneeBody(){
     const container = document.getElementById("effectifs-journee-container");
     if(!container) return;
@@ -5041,33 +5072,51 @@ ${innerHtml}
         return e ? e.nom : k;
       };
       // Une même activité peut se jouer ce jour-là sur plusieurs sites (ex:
-      // deux poules, chacune dans un gymnase différent) : on regroupe donc
-      // les établissements par lieu de compétition, avec un sous-total par
-      // lieu. Les lieux détectés dans la cellule du calendrier sont proposés
-      // en plus de ceux déjà choisis, pour rester disponibles même avant la
-      // première affectation.
+      // deux poules, chacune dans un gymnase différent). Les lieux détectés
+      // dans la cellule du calendrier, ceux déjà choisis, et ceux ajoutés à
+      // la main ("+ Lieu") sont tous proposés comme colonnes de dépôt.
       const usedLieux = new Set();
       rowKeys.forEach(k=>{ if(saved[k] && saved[k].lieu) usedLieux.add(saved[k].lieu); });
       parseLieuxCandidates(a.cellText).forEach(l=> usedLieux.add(l));
+      (ejExtraLieux[ejExtraLieuKey(dateKey,actKey)]||[]).forEach(l=> usedLieux.add(l));
       const lieuxOptions = [...usedLieux].sort((x,y)=>x.localeCompare(y,"fr",{sensitivity:"base"}));
-      const groups = new Map(); // lieu ("" = non précisé) -> [keys]
-      [...rowKeys].sort((x,y)=>etabNomFor(x).localeCompare(etabNomFor(y),"fr",{sensitivity:"base"})).forEach(k=>{
-        const lieu = (saved[k] && saved[k].lieu) || "";
-        if(!groups.has(lieu)) groups.set(lieu, []);
-        groups.get(lieu).push(k);
-      });
-      const groupOrder = [...groups.keys()].sort((x,y)=>{
-        if(!x) return 1; if(!y) return -1;
-        return x.localeCompare(y,"fr",{sensitivity:"base"});
-      });
-      const rowsHtml = groupOrder.map(lieu=>{
-        const keys = groups.get(lieu);
-        const total = keys.reduce((s,k)=> s + (Number(saved[k] && saved[k].effectif) || 0), 0);
-        const header = lieu
-          ? `<div class="ej-lieu-group-head">📍 ${escapeHtml(lieu)} <span class="ej-lieu-total">Total : ${total}</span></div>`
-          : (groupOrder.length > 1 ? `<div class="ej-lieu-group-head">Lieu non précisé <span class="ej-lieu-total">Total : ${total}</span></div>` : "");
-        return header + keys.map(k=> ejEtabRowHtml(dateKey, actKey, k, etabNomFor(k), suggestedIds.has(k), lieuxOptions, (saved[k] && saved[k].lieu) || "")).join("");
-      }).join("") || '<p class="hint" style="margin:6px 0;">Aucun établissement proposé automatiquement : ajoutez-en un ci-dessous.</p>';
+      // Le classement par lieu (glisser-déposer) n'a d'intérêt que si
+      // l'activité se joue ce jour-là sur au moins 2 sites ; sinon, liste
+      // simple sans ce dispositif, pour ne pas alourdir la saisie.
+      const multiLieu = lieuxOptions.length >= 2;
+      let bodyHtml;
+      if(multiLieu){
+        const groups = new Map(); // lieu ("" = non précisé) -> [keys]
+        lieuxOptions.forEach(l=> groups.set(l, []));
+        groups.set("", []);
+        [...rowKeys].sort((x,y)=>etabNomFor(x).localeCompare(etabNomFor(y),"fr",{sensitivity:"base"})).forEach(k=>{
+          const lieu = (saved[k] && saved[k].lieu) || "";
+          if(!groups.has(lieu)) groups.set(lieu, []);
+          groups.get(lieu).push(k);
+        });
+        const order = [...groups.keys()].sort((x,y)=>{
+          if(!x) return 1; if(!y) return -1;
+          return x.localeCompare(y,"fr",{sensitivity:"base"});
+        });
+        bodyHtml = `<div class="ej-lieu-columns">` + order.map(lieu=>{
+          const keys = groups.get(lieu);
+          const total = keys.reduce((s,k)=> s + (Number(saved[k] && saved[k].effectif) || 0), 0);
+          const label = lieu ? `📍 ${escapeHtml(lieu)}` : "Lieu non précisé";
+          const rows = keys.map(k=> ejEtabRowDraggableHtml(dateKey, actKey, k, etabNomFor(k), suggestedIds.has(k))).join("")
+            || '<p class="hint ej-lieu-empty">Glissez un établissement ici</p>';
+          return `
+            <div class="ej-lieu-column" data-ej-drop-lieu="${escapeAttr(lieu)}">
+              <div class="ej-lieu-column-head"><span>${label}</span><span class="ej-lieu-total">${total}</span></div>
+              <div class="ej-lieu-column-body">${rows}</div>
+            </div>`;
+        }).join("") +
+          `<button type="button" class="ej-lieu-add-btn" data-ej-add-lieu data-date="${escapeAttr(dateKey)}" data-act="${escapeAttr(actKey)}">+ Lieu</button>` +
+          `</div>`;
+      } else {
+        bodyHtml = [...rowKeys].sort((x,y)=>etabNomFor(x).localeCompare(etabNomFor(y),"fr",{sensitivity:"base"}))
+          .map(k=> ejEtabRowHtml(dateKey, actKey, k, etabNomFor(k), suggestedIds.has(k))).join("")
+          || '<p class="hint" style="margin:6px 0;">Aucun établissement proposé automatiquement : ajoutez-en un ci-dessous.</p>';
+      }
       const availableEtabs = sortedEtabs().filter(e=> !rowKeys.has(e.id));
       return `
         <div class="effectif-card">
@@ -5076,7 +5125,7 @@ ${innerHtml}
           </div>
           <div style="padding:10px 12px;">
             <p class="hint" style="margin:0 0 8px;">${escapeHtml(a.cellText).replace(/\n/g,", ")}</p>
-            ${rowsHtml}
+            ${bodyHtml}
             <div class="ej-add-row" style="margin-top:8px;">
               <select data-ej-add-select data-date="${escapeAttr(dateKey)}" data-act="${escapeAttr(actKey)}">
                 <option value="">+ Ajouter un établissement…</option>
@@ -5104,19 +5153,17 @@ ${innerHtml}
         renderEffectifsJourneeBody();
       });
     });
-    container.querySelectorAll("[data-ej-lieu]").forEach(sel=>{
-      sel.addEventListener("change", function(){
-        const { date, act, etab } = this.dataset;
-        let val = this.value;
-        if(val === "__nouveau__"){
-          const nom = prompt("Nom du lieu de compétition :");
-          if(!nom || !nom.trim()){ renderEffectifsJourneeBody(); return; }
-          val = nom.trim();
-        }
-        const entry = getEffectifJourneeEntry(date, act, etab, true);
-        entry.excluded = false;
-        entry.lieu = val;
-        saveState();
+    container.querySelectorAll("[data-ej-drag-handle]").forEach(handle=>{
+      handle.addEventListener("pointerdown", (e)=> startEjDrag(e, handle));
+    });
+    container.querySelectorAll("[data-ej-add-lieu]").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        const { date, act } = btn.dataset;
+        const nom = prompt("Nom du nouveau lieu de compétition :");
+        if(!nom || !nom.trim()) return;
+        const key = ejExtraLieuKey(date, act);
+        if(!ejExtraLieux[key]) ejExtraLieux[key] = [];
+        ejExtraLieux[key].push(nom.trim());
         renderEffectifsJourneeBody();
       });
     });
@@ -5200,6 +5247,62 @@ ${innerHtml}
         renderEffectifsJourneeBody();
       });
     });
+  }
+  // Glisser-déposer d'un établissement entre colonnes "lieu" : implémenté
+  // avec les Pointer Events (et non l'API HTML5 Drag and Drop, qui ne
+  // fonctionne pas sur tablette tactile Android) pour rester utilisable sur
+  // la tablette utilisée en cours. Le drag ne démarre que depuis la poignée
+  // ⠿, pour ne jamais interférer avec la saisie de l'effectif ou les autres
+  // boutons de la ligne.
+  let ejDragState = null;
+  function startEjDrag(e, handle){
+    e.preventDefault();
+    const row = handle.closest(".ej-etab-row");
+    if(!row) return;
+    const rect = row.getBoundingClientRect();
+    const ghost = row.cloneNode(true);
+    ghost.classList.add("ej-drag-ghost");
+    ghost.style.width = rect.width + "px";
+    ghost.style.left = rect.left + "px";
+    ghost.style.top = rect.top + "px";
+    document.body.appendChild(ghost);
+    row.classList.add("ej-row-dragging-source");
+    ejDragState = {
+      row, ghost,
+      offsetX: e.clientX - rect.left, offsetY: e.clientY - rect.top,
+      date: handle.dataset.date, act: handle.dataset.act, etab: handle.dataset.etab,
+      hoverCol: null
+    };
+    window.addEventListener("pointermove", onEjDragMove);
+    window.addEventListener("pointerup", onEjDragEnd);
+  }
+  function onEjDragMove(e){
+    if(!ejDragState) return;
+    const { ghost, offsetX, offsetY } = ejDragState;
+    ghost.style.left = (e.clientX - offsetX) + "px";
+    ghost.style.top = (e.clientY - offsetY) + "px";
+    const under = document.elementFromPoint(e.clientX, e.clientY);
+    const col = under && under.closest("[data-ej-drop-lieu]");
+    if(ejDragState.hoverCol && ejDragState.hoverCol !== col) ejDragState.hoverCol.classList.remove("ej-drop-hover");
+    if(col) col.classList.add("ej-drop-hover");
+    ejDragState.hoverCol = col || null;
+  }
+  function onEjDragEnd(e){
+    if(!ejDragState) return;
+    const { ghost, row, date, act, etab, hoverCol } = ejDragState;
+    window.removeEventListener("pointermove", onEjDragMove);
+    window.removeEventListener("pointerup", onEjDragEnd);
+    ghost.remove();
+    row.classList.remove("ej-row-dragging-source");
+    if(hoverCol){
+      hoverCol.classList.remove("ej-drop-hover");
+      const entry = getEffectifJourneeEntry(date, act, etab, true);
+      entry.excluded = false;
+      entry.lieu = hoverCol.dataset.ejDropLieu || "";
+      saveState();
+    }
+    ejDragState = null;
+    renderEffectifsJourneeBody();
   }
   function renderEffectifsJournee(){
     renderEffectifsJourneeSelect();
